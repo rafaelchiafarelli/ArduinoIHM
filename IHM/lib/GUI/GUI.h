@@ -17,7 +17,7 @@ typedef enum {
 
 class GUI {
 private:
-    MCUFRIEND_kbv tft; // Instantiate the display object
+    Display tft; // Instantiate the display object
     WorkType currentWork;
     LED led = LED(100,100,2,10,0,(const char *)"LED1",0,&tft);
     Label label = Label(100,150,2,10,0,(const char *)"LED1",0,&tft);

@@ -1,6 +1,4 @@
 
-#include <GUI.h>
-#include <Adafruit_MCP4725.h>
 
 
 #include <avr/pgmspace.h>
@@ -13,22 +11,25 @@
 #include "BinaryOutputs.h"
 #include "AnalogOut.h"
 #include "BinaryInput.h"
-
 #include "SD.h"
+#include <GUI.h>
+#include <MCP4725.h>
+#include <Arduino.h>
+#include <Display.h>
+#include <BinaryInput.h>
+#include <BinaryOutputs.h>
+#include <AnalogOut.h>
 
 hw_serial hwSerial;
 AnalogOut analogs;
 BinaryOutputs switches;
 BinaryInputs buttons;
 EngineControl servos;
-Adafruit_MCP4725 dac;
+MCP4725 dac;
 
 GUI gui = GUI();
 int cycleCounter = 0;
 
-ISR(TIMER4_COMPA_vect);
-ISR(USART0_RX_vect);
-ISR(USART0_TX_vect);
 #define USART_BAUDRATE 250000
 #define BAUD_PRESCALE (((F_CPU / (USART_BAUDRATE * 16UL))) - 1)
 
@@ -37,7 +38,7 @@ void setup()
     // make the LED pin an output for PORTB7
     // DDRB = 1 << 7;
     // engines[0].ddr = 1 << engines[1].pin;
-    SD.begin(53);
+    SD.begin(34);
     cli(); // stop interrupts
 
     // set timer4 interrupt at 1Hz
@@ -82,7 +83,7 @@ ISR(TIMER4_COMPA_vect)
   servos.handler();
 
 }
-
+/*
 ISR(USART0_RX_vect)
 {
   hwSerial.receive(UDR0);
@@ -91,6 +92,7 @@ ISR(USART0_TX_vect)
 {
   UDR0 = hwSerial.send_one();
 }
+  */
 static uint16_t array[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 int main()
 {

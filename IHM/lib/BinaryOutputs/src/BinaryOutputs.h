@@ -2,7 +2,7 @@
 #include <avr/pgmspace.h>
 #include <avr/io.h>
 
-#define MAX_OUTPUT_SIZE 16
+#define MAX_OUTPUT_SIZE 19
 
 typedef struct
 {
@@ -30,6 +30,7 @@ public:
             *ports[i].port &= ports[i].mask_reset;
     }
     BinaryOutputs() : ports({
+                            {&PORTC, &DDRC,(uint8_t)0b00000100,(uint8_t)0b11111011},                    
                             {&PORTC, &DDRC,(uint8_t)0b00000010,(uint8_t)0b11111101},
                             {&PORTC, &DDRC,(uint8_t)0b00000001,(uint8_t)0b11111110},
                             {&PORTD, &DDRD,(uint8_t)0b10000000,(uint8_t)0b01111111},

@@ -1,0 +1,110 @@
+[
+    {
+        "command": "C:\\.platformio\\packages\\toolchain-atmelavr\\bin\\avr-g++.exe -o .pio\\build\\megaatmega2560\\lib314\\AnalogOut\\AnalogOut.o -c -Wno-error=narrowing -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega2560 -Os -Wall -ffunction-sections -fdata-sections -flto -DF_CPU=16000000L -DPLATFORMIO=60118 -DARDUINO_AVR_MEGA2560 -Ilib\\AnalogOut\\src lib\\AnalogOut\\src\\AnalogOut.cpp",
+        "directory": "C:\\Users\\rafae\\workspace\\ArduinoIHM\\IHM",
+        "file": "lib\\AnalogOut\\src\\AnalogOut.cpp",
+        "output": ".pio\\build\\megaatmega2560\\lib314\\AnalogOut\\AnalogOut.o"
+    },
+    {
+        "command": "C:\\.platformio\\packages\\toolchain-atmelavr\\bin\\avr-g++.exe -o .pio\\build\\megaatmega2560\\lib81e\\BinaryInput\\BinaryInput.o -c -Wno-error=narrowing -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega2560 -Os -Wall -ffunction-sections -fdata-sections -flto -DF_CPU=16000000L -DPLATFORMIO=60118 -DARDUINO_AVR_MEGA2560 -Ilib\\BinaryInput\\src lib\\BinaryInput\\src\\BinaryInput.cpp",
+        "directory": "C:\\Users\\rafae\\workspace\\ArduinoIHM\\IHM",
+        "file": "lib\\BinaryInput\\src\\BinaryInput.cpp",
+        "output": ".pio\\build\\megaatmega2560\\lib81e\\BinaryInput\\BinaryInput.o"
+    },
+    {
+        "command": "C:\\.platformio\\packages\\toolchain-atmelavr\\bin\\avr-g++.exe -o .pio\\build\\megaatmega2560\\lib225\\BinaryOutputs\\BinaryOutputs.o -c -Wno-error=narrowing -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega2560 -Os -Wall -ffunction-sections -fdata-sections -flto -DF_CPU=16000000L -DPLATFORMIO=60118 -DARDUINO_AVR_MEGA2560 -Ilib\\BinaryOutputs\\src lib\\BinaryOutputs\\src\\BinaryOutputs.cpp",
+        "directory": "C:\\Users\\rafae\\workspace\\ArduinoIHM\\IHM",
+        "file": "lib\\BinaryOutputs\\src\\BinaryOutputs.cpp",
+        "output": ".pio\\build\\megaatmega2560\\lib225\\BinaryOutputs\\BinaryOutputs.o"
+    },
+    {
+        "command": "C:\\.platformio\\packages\\toolchain-atmelavr\\bin\\avr-g++.exe -o .pio\\build\\megaatmega2560\\liba3a\\engine\\engine.o -c -Wno-error=narrowing -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega2560 -Os -Wall -ffunction-sections -fdata-sections -flto -DF_CPU=16000000L -DPLATFORMIO=60118 -DARDUINO_AVR_MEGA2560 -Ilib\\engine\\src lib\\engine\\src\\engine.cpp",
+        "directory": "C:\\Users\\rafae\\workspace\\ArduinoIHM\\IHM",
+        "file": "lib\\engine\\src\\engine.cpp",
+        "output": ".pio\\build\\megaatmega2560\\liba3a\\engine\\engine.o"
+    },
+    {
+        "command": "C:\\.platformio\\packages\\toolchain-atmelavr\\bin\\avr-g++.exe -o .pio\\build\\megaatmega2560\\lib0c3\\Comms\\hw_serial.o -c -Wno-error=narrowing -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega2560 -Os -Wall -ffunction-sections -fdata-sections -flto -DF_CPU=16000000L -DPLATFORMIO=60118 -DARDUINO_AVR_MEGA2560 -Ilib\\Comms\\src lib\\Comms\\src\\hw_serial.cpp",
+        "directory": "C:\\Users\\rafae\\workspace\\ArduinoIHM\\IHM",
+        "file": "lib\\Comms\\src\\hw_serial.cpp",
+        "output": ".pio\\build\\megaatmega2560\\lib0c3\\Comms\\hw_serial.o"
+    },
+    {
+        "command": "C:\\.platformio\\packages\\toolchain-atmelavr\\bin\\avr-g++.exe -o .pio\\build\\megaatmega2560\\libe83\\SD\\File.o -c -Wno-error=narrowing -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega2560 -Os -Wall -ffunction-sections -fdata-sections -flto -DF_CPU=16000000L -DPLATFORMIO=60118 -DARDUINO_AVR_MEGA2560 -Ilib\\SD\\src lib\\SD\\src\\File.cpp",
+        "directory": "C:\\Users\\rafae\\workspace\\ArduinoIHM\\IHM",
+        "file": "lib\\SD\\src\\File.cpp",
+        "output": ".pio\\build\\megaatmega2560\\libe83\\SD\\File.o"
+    },
+    {
+        "command": "C:\\.platformio\\packages\\toolchain-atmelavr\\bin\\avr-g++.exe -o .pio\\build\\megaatmega2560\\libe83\\SD\\SD.o -c -Wno-error=narrowing -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega2560 -Os -Wall -ffunction-sections -fdata-sections -flto -DF_CPU=16000000L -DPLATFORMIO=60118 -DARDUINO_AVR_MEGA2560 -Ilib\\SD\\src lib\\SD\\src\\SD.cpp",
+        "directory": "C:\\Users\\rafae\\workspace\\ArduinoIHM\\IHM",
+        "file": "lib\\SD\\src\\SD.cpp",
+        "output": ".pio\\build\\megaatmega2560\\libe83\\SD\\SD.o"
+    },
+    {
+        "command": "C:\\.platformio\\packages\\toolchain-atmelavr\\bin\\avr-g++.exe -o .pio\\build\\megaatmega2560\\libe83\\SD\\Sd2Card.o -c -Wno-error=narrowing -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega2560 -Os -Wall -ffunction-sections -fdata-sections -flto -DF_CPU=16000000L -DPLATFORMIO=60118 -DARDUINO_AVR_MEGA2560 -Ilib\\SD\\src lib\\SD\\src\\Sd2Card.cpp",
+        "directory": "C:\\Users\\rafae\\workspace\\ArduinoIHM\\IHM",
+        "file": "lib\\SD\\src\\Sd2Card.cpp",
+        "output": ".pio\\build\\megaatmega2560\\libe83\\SD\\Sd2Card.o"
+    },
+    {
+        "command": "C:\\.platformio\\packages\\toolchain-atmelavr\\bin\\avr-g++.exe -o .pio\\build\\megaatmega2560\\libe83\\SD\\SdFile.o -c -Wno-error=narrowing -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega2560 -Os -Wall -ffunction-sections -fdata-sections -flto -DF_CPU=16000000L -DPLATFORMIO=60118 -DARDUINO_AVR_MEGA2560 -Ilib\\SD\\src lib\\SD\\src\\SdFile.cpp",
+        "directory": "C:\\Users\\rafae\\workspace\\ArduinoIHM\\IHM",
+        "file": "lib\\SD\\src\\SdFile.cpp",
+        "output": ".pio\\build\\megaatmega2560\\libe83\\SD\\SdFile.o"
+    },
+    {
+        "command": "C:\\.platformio\\packages\\toolchain-atmelavr\\bin\\avr-g++.exe -o .pio\\build\\megaatmega2560\\libe83\\SD\\SdVolume.o -c -Wno-error=narrowing -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega2560 -Os -Wall -ffunction-sections -fdata-sections -flto -DF_CPU=16000000L -DPLATFORMIO=60118 -DARDUINO_AVR_MEGA2560 -Ilib\\SD\\src lib\\SD\\src\\SdVolume.cpp",
+        "directory": "C:\\Users\\rafae\\workspace\\ArduinoIHM\\IHM",
+        "file": "lib\\SD\\src\\SdVolume.cpp",
+        "output": ".pio\\build\\megaatmega2560\\libe83\\SD\\SdVolume.o"
+    },
+    {
+        "command": "C:\\.platformio\\packages\\toolchain-atmelavr\\bin\\avr-g++.exe -o .pio\\build\\megaatmega2560\\lib486\\Elements\\Element.o -c -Wno-error=narrowing -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega2560 -Os -Wall -ffunction-sections -fdata-sections -flto -DF_CPU=16000000L -DPLATFORMIO=60118 -DARDUINO_AVR_MEGA2560 -Ilib\\Elements\\src lib\\Elements\\src\\Element.cpp",
+        "directory": "C:\\Users\\rafae\\workspace\\ArduinoIHM\\IHM",
+        "file": "lib\\Elements\\src\\Element.cpp",
+        "output": ".pio\\build\\megaatmega2560\\lib486\\Elements\\Element.o"
+    },
+    {
+        "command": "C:\\.platformio\\packages\\toolchain-atmelavr\\bin\\avr-g++.exe -o .pio\\build\\megaatmega2560\\libc75\\GUI\\GUI.o -c -Wno-error=narrowing -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega2560 -Os -Wall -ffunction-sections -fdata-sections -flto -DF_CPU=16000000L -DPLATFORMIO=60118 -DARDUINO_AVR_MEGA2560 -Ilib\\GUI -Ilib\\Elements\\src lib\\GUI\\GUI.cpp",
+        "directory": "C:\\Users\\rafae\\workspace\\ArduinoIHM\\IHM",
+        "file": "lib\\GUI\\GUI.cpp",
+        "output": ".pio\\build\\megaatmega2560\\libc75\\GUI\\GUI.o"
+    },
+    {
+        "command": "C:\\.platformio\\packages\\toolchain-atmelavr\\bin\\avr-g++.exe -o .pio\\build\\megaatmega2560\\lib400\\BusIO\\BusIO_Register.o -c -Wno-error=narrowing -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega2560 -Os -Wall -ffunction-sections -fdata-sections -flto -DF_CPU=16000000L -DPLATFORMIO=60118 -DARDUINO_AVR_MEGA2560 -Ilib\\BusIO\\src lib\\BusIO\\src\\BusIO_Register.cpp",
+        "directory": "C:\\Users\\rafae\\workspace\\ArduinoIHM\\IHM",
+        "file": "lib\\BusIO\\src\\BusIO_Register.cpp",
+        "output": ".pio\\build\\megaatmega2560\\lib400\\BusIO\\BusIO_Register.o"
+    },
+    {
+        "command": "C:\\.platformio\\packages\\toolchain-atmelavr\\bin\\avr-g++.exe -o .pio\\build\\megaatmega2560\\lib400\\BusIO\\GenericDevice.o -c -Wno-error=narrowing -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega2560 -Os -Wall -ffunction-sections -fdata-sections -flto -DF_CPU=16000000L -DPLATFORMIO=60118 -DARDUINO_AVR_MEGA2560 -Ilib\\BusIO\\src lib\\BusIO\\src\\GenericDevice.cpp",
+        "directory": "C:\\Users\\rafae\\workspace\\ArduinoIHM\\IHM",
+        "file": "lib\\BusIO\\src\\GenericDevice.cpp",
+        "output": ".pio\\build\\megaatmega2560\\lib400\\BusIO\\GenericDevice.o"
+    },
+    {
+        "command": "C:\\.platformio\\packages\\toolchain-atmelavr\\bin\\avr-g++.exe -o .pio\\build\\megaatmega2560\\lib400\\BusIO\\I2CDevice.o -c -Wno-error=narrowing -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega2560 -Os -Wall -ffunction-sections -fdata-sections -flto -DF_CPU=16000000L -DPLATFORMIO=60118 -DARDUINO_AVR_MEGA2560 -Ilib\\BusIO\\src lib\\BusIO\\src\\I2CDevice.cpp",
+        "directory": "C:\\Users\\rafae\\workspace\\ArduinoIHM\\IHM",
+        "file": "lib\\BusIO\\src\\I2CDevice.cpp",
+        "output": ".pio\\build\\megaatmega2560\\lib400\\BusIO\\I2CDevice.o"
+    },
+    {
+        "command": "C:\\.platformio\\packages\\toolchain-atmelavr\\bin\\avr-g++.exe -o .pio\\build\\megaatmega2560\\lib400\\BusIO\\SPIDevice.o -c -Wno-error=narrowing -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega2560 -Os -Wall -ffunction-sections -fdata-sections -flto -DF_CPU=16000000L -DPLATFORMIO=60118 -DARDUINO_AVR_MEGA2560 -Ilib\\BusIO\\src lib\\BusIO\\src\\SPIDevice.cpp",
+        "directory": "C:\\Users\\rafae\\workspace\\ArduinoIHM\\IHM",
+        "file": "lib\\BusIO\\src\\SPIDevice.cpp",
+        "output": ".pio\\build\\megaatmega2560\\lib400\\BusIO\\SPIDevice.o"
+    },
+    {
+        "command": "C:\\.platformio\\packages\\toolchain-atmelavr\\bin\\avr-g++.exe -o .pio\\build\\megaatmega2560\\lib73d\\MCP4725\\MCP4725.o -c -Wno-error=narrowing -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega2560 -Os -Wall -ffunction-sections -fdata-sections -flto -DF_CPU=16000000L -DPLATFORMIO=60118 -DARDUINO_AVR_MEGA2560 -Ilib\\MCP4725 -Ilib\\BusIO\\src lib\\MCP4725\\MCP4725.cpp",
+        "directory": "C:\\Users\\rafae\\workspace\\ArduinoIHM\\IHM",
+        "file": "lib\\MCP4725\\MCP4725.cpp",
+        "output": ".pio\\build\\megaatmega2560\\lib73d\\MCP4725\\MCP4725.o"
+    },
+    {
+        "command": "C:\\.platformio\\packages\\toolchain-atmelavr\\bin\\avr-g++.exe -o .pio\\build\\megaatmega2560\\src\\main.o -c -Wno-error=narrowing -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega2560 -Os -Wall -ffunction-sections -fdata-sections -flto -DF_CPU=16000000L -DPLATFORMIO=60118 -DARDUINO_AVR_MEGA2560 -Iinclude -Isrc -Ilib\\MCP4725 -Ilib\\BusIO\\src -Ilib\\GUI -Ilib\\Elements\\src -Ilib\\SD\\src -Ilib\\Comms\\src -Ilib\\engine\\src -Ilib\\BinaryOutputs\\src -Ilib\\BinaryInput\\src -Ilib\\AnalogOut\\src src\\main.cpp",
+        "directory": "C:\\Users\\rafae\\workspace\\ArduinoIHM\\IHM",
+        "file": "src\\main.cpp",
+        "output": ".pio\\build\\megaatmega2560\\src\\main.o"
+    }
+]
