@@ -1,13 +1,11 @@
 
 #include <GUI.h>
-
 #include <Adafruit_MCP4725.h>
 
 
 #include <avr/pgmspace.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
-
 #include <avr/io.h>
 
 #include "engine.h"
