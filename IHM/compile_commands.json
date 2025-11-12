@@ -24,10 +24,10 @@
         "output": ".pio\\build\\megaatmega2560\\liba3a\\engine\\engine.o"
     },
     {
-        "command": "C:\\.platformio\\packages\\toolchain-atmelavr\\bin\\avr-g++.exe -o .pio\\build\\megaatmega2560\\lib0c3\\Comms\\hw_serial.o -c -Wno-error=narrowing -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega2560 -Os -Wall -ffunction-sections -fdata-sections -flto -DF_CPU=16000000L -DPLATFORMIO=60118 -DARDUINO_AVR_MEGA2560 -Ilib\\Comms\\src lib\\Comms\\src\\hw_serial.cpp",
+        "command": "C:\\.platformio\\packages\\toolchain-atmelavr\\bin\\avr-g++.exe -o .pio\\build\\megaatmega2560\\lib0c3\\Comms\\SerialCommunication.o -c -Wno-error=narrowing -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega2560 -Os -Wall -ffunction-sections -fdata-sections -flto -DF_CPU=16000000L -DPLATFORMIO=60118 -DARDUINO_AVR_MEGA2560 -Ilib\\Comms\\src lib\\Comms\\src\\SerialCommunication.cpp",
         "directory": "C:\\Users\\rafae\\workspace\\ArduinoIHM\\IHM",
-        "file": "lib\\Comms\\src\\hw_serial.cpp",
-        "output": ".pio\\build\\megaatmega2560\\lib0c3\\Comms\\hw_serial.o"
+        "file": "lib\\Comms\\src\\SerialCommunication.cpp",
+        "output": ".pio\\build\\megaatmega2560\\lib0c3\\Comms\\SerialCommunication.o"
     },
     {
         "command": "C:\\.platformio\\packages\\toolchain-atmelavr\\bin\\avr-g++.exe -o .pio\\build\\megaatmega2560\\libe83\\SD\\File.o -c -Wno-error=narrowing -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega2560 -Os -Wall -ffunction-sections -fdata-sections -flto -DF_CPU=16000000L -DPLATFORMIO=60118 -DARDUINO_AVR_MEGA2560 -Ilib\\SD\\src lib\\SD\\src\\File.cpp",

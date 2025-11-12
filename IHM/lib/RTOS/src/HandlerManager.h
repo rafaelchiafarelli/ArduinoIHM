@@ -3,22 +3,25 @@
 
 #define ONE_MS_T0_TICKS 4 //
 #define TEN_MS_T0_TICKS 40 //
-#define ONE_HUNDRED_MS_T1_TICKS 20 //
 
-#define ONE_SECOND_T1_TICKS 200 //
+
 
 //must use timer 2
 class HandlerManager {
     private:
     uint8_t counterT0 = 0;
     uint8_t counterT1 = 0;
+    /*functions called every 256us */
+     void (*fast_handler[])() = ULTRA_FAST_HANDLER_FUNCTIONS;
+     /*functions called every 2,56ms*/
+     void (*slow_handler[])() = {func1, func2, func3};
 public:
     HandlerManager() {}
     void setup() {
         // Initialization code if needed
         //initialize timers
         //T0 -> 256us
-        //T1 -> 5ms
+        //T1 -> 10ms
         
     }
     /**
@@ -41,19 +44,7 @@ public:
         //reset the T0 timer; 
 
     }
-    void t1Tick_handler() {
-        // Call the handler functions of various modules
-        // Example:
-        // module1.handler();
-        // module2.handler();
-        counterT1++;
-        if (counterT1 >= ONE_HUNDRED_MS_T1_TICKS) {
-            counterT1 = 0;
-            // Call the handler functions of various modules every 100ms
-            // Example:
-            // module1.hundred_ms_handler();      
-            // module2.hundred_ms_handler();
-        }
+
     }
 
 #endif /* _HANDLER_MANAGER_H_ */

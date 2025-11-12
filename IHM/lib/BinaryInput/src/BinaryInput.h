@@ -63,7 +63,7 @@ public:
     const input_port ports[MAX_PIN_PORT];
     const pin_to_index pins[MAX_PIN_AMOUNT];
     
-    void handler()
+    void fast_handler()
     {
         in[0].value = *ports[0].pins;
         in[1].value = *ports[1].pins;
