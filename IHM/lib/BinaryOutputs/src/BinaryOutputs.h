@@ -14,25 +14,27 @@ typedef struct
 } out_port;
 
 
-
-
 class BinaryOutputs
 {
     private:
         out_port ports[MAX_OUTPUT_SIZE];
     public:
 
-        void SetOutput(int i, const bool v)
+        void SetOutput(uint8_t i, const bool v) const
         {
-            if(v) //set the output
-                *ports[i].port |= ports[i].mask_set;
-            else //reset the output
-                *ports[i].port &= ports[i].mask_reset;
+            if(i<MAX_OUTPUT_SIZE) {
+                if(v) //set the output
+                
+                    *ports[i].port |= ports[i].mask_set;
+                else //reset the output
+                    *ports[i].port &= ports[i].mask_reset;
+            }
         }
+
         BinaryOutputs() : ports({
-                            {&PORTC, &DDRC,(uint8_t)0b00000100,(uint8_t)0b11111011},                    
+                            {&PORTC, &DDRC,(uint8_t)0b00000001,(uint8_t)0b11111110},                    
                             {&PORTC, &DDRC,(uint8_t)0b00000010,(uint8_t)0b11111101},
-                            {&PORTC, &DDRC,(uint8_t)0b00000001,(uint8_t)0b11111110},
+                            {&PORTC, &DDRC,(uint8_t)0b00000100,(uint8_t)0b11111011},
                             {&PORTD, &DDRD,(uint8_t)0b10000000,(uint8_t)0b01111111},
                             {&PORTG, &DDRG,(uint8_t)0b00000100,(uint8_t)0b11111011},
                             {&PORTG, &DDRG,(uint8_t)0b00000010,(uint8_t)0b11111101},
@@ -52,10 +54,13 @@ class BinaryOutputs
                             {&PORTL, &DDRL,(uint8_t)0b00001000,(uint8_t)0b11110111}
                         })
         {
+            setup();
+        };
+        void setup() const{
             for(int i=0; i<MAX_OUTPUT_SIZE; i++)
             {
                 *ports[i].ddr |= ports[i].mask_set;
                 *ports[i].port &= ports[i].mask_reset;
             }
-        };
+        }
 };

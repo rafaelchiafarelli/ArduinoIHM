@@ -105,6 +105,7 @@ unsigned long micros() {
 
 void delay(unsigned long ms)
 {
+	
 	uint32_t start = micros();
 
 	while (ms > 0) {
@@ -114,6 +115,18 @@ void delay(unsigned long ms)
 			start += 1000;
 		}
 	}
+/*
+	if(ms< 1024) {
+		TIMSK0 = 0;
+		TCCR0A = 0;
+		TCCR0A |= (1<<WGM00) | (1<<WGM01) | (1<<WGM02);
+		TCCR0B = 0;
+		TCCR0B |= (1<<WGM02); 
+		OCR0A = (uint8_t)ms/4;
+		while(TIFR0&TOV0){
+			_NOP();
+		}
+	}	*/
 }
 
 /* Delay for the given number of microseconds.  Assumes a 1, 8, 12, 16, 20 or 24 MHz clock. */

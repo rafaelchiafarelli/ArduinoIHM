@@ -1,120 +1,155 @@
 #include "GUI.h"
 
-void GUI::receiveData(uint16_t *data){
-    // Process incoming data and update GUI elements accordingly
-    // For example, update the LED state based on data[0]
-    if(data[0] == 1){
-        led.setState(1); // Turn LED on
-    }else{
-        led.setState(0); // Turn LED off
-    }
-    // Similarly, update label based on data[1]
-    if(data[1] == 1){
-        label.setLabel("Active");
-    }else{
-        label.setLabel("Inactive");
-    }
+/**
+ * This function will allow the user to use the device in 1 of 4 different angles
+ */
+
+void GUI::rotateGUI(RotateAngle angle){
+
 }
+/**
+ * This function is the connection to the outside world, it receives commands and configurations for other modules.
+*/
+void GUI::receiveData(uint8_t btnByte, int16_t rot0, int16_t rot1, int16_t rot2, int16_t rot3, uint16_t an0,uint16_t an1,uint16_t an2,uint16_t an3){
+
+}
+
+/**
+ * This function receives the avereage usage of the CPU. The more it is used, the higher the value in timeStat
+ */
 void GUI::updateTimeStatistics(uint16_t timeStat){
     // Update time statistics display on the GUI
-    label.setLabel("Time: ms");
+    timeSlot.setState(1);
+    timeSlot.setLabel("TS:----");
 }
+/**
+ * Show a warning Icon at the top of the screen
+ * 
+ */
+void GUI::showNormalOperation(WarningType type){
+    // Display warning message on the GUI
+    
+    tft.setTextSize(2);
+    tft.setTextColor(RED);
+    tft.setCursor(50, 150);
+    tft.println("normal operation");
+    
+    //tft.fillScreen(BLACK); // Clear screen after warning
+}
+void GUI::showRegularLoop(WarningType type){
+    tft.setTextSize(2);
+    tft.setTextColor(RED);
+    tft.setCursor(50, 250);
+    tft.println("normal loop");
+}
+/**
+ * Show a warning Icon at the top of the screen
+ * 
+ */
 void GUI::showWarning(WarningType type){
     // Display warning message on the GUI
-    tft.fillScreen(BLACK);
+    
     tft.setTextSize(2);
     tft.setTextColor(RED);
     tft.setCursor(50, 100);
     tft.println("WARNING: TIMER0 OVERUN");
-    _delay_ms(1000); // Display for 1 second
-    tft.fillScreen(BLACK); // Clear screen after warning
+    
+    //tft.fillScreen(BLACK); // Clear screen after warning
 }
+/**
+ * show a emergency icon in the screen (above the screen) that serves to tell the user this is no longer a proper device to be used. 
+ */
 void GUI::showEmergency(WarningType type){
     // Display emergency message on the GUI
-    tft.fillScreen(BLACK);
+    
     tft.setTextSize(2);
     tft.setTextColor(RED);
-    tft.setCursor(50, 100);
+    tft.setCursor(50, 50);
     tft.println("EMERGENCY: TIMER0 OVERUN");
-    _delay_ms(2000); // Display for 2 seconds
-    tft.fillScreen(BLACK); // Clear screen after emergency
+    
+    //tft.fillScreen(BLACK); // Clear screen after emergency
 }
-
+/**
+ * function to start the devices attached to the gui.
+ */
 void GUI::setup(){
-    Serial.println("Display ID: 0x");
-    // Any additional setup can be done here
-    _delay_ms(500);  
     uint16_t ID = tft.readID(); // Read display ID
-
-    Serial.println(ID, HEX);  
-    _delay_ms(500);  
     tft.begin(ID); // Initialize the display
     tft.setRotation(0); // Adjust rotation as needed
     tft.fillScreen(BLACK); // Clear the screen
-    
 }
-void GUI::stateMachine(){
+
+/**
+ * function to change the screen of the state machine.
+ */
+void GUI::screenMachine(ScreenType screen){
     // Example: Draw a rectangle
+    currentWork = screen;
     switch(currentWork){
-        case WORK1:
+        case IDLE_SCREEN:
             led.setState(0); // Set LED to blinking state
             led.setLabel("top");
             led.setLocation(1);
             label.setState(1);
-            label.setLabel("Hello World");
-            currentWork = WORK2;
+            label.setLabel("IDLE_SCREEN");
+            
             break;
-        case WORK2:
+        case CONF_PWM:
             led.setState(1); // Set LED to blinking state
             led.setLocation(0);
-            label.setState(0);
-            currentWork = WORK3;
+            label.setState(1);
+            label.setLabel("CONF_PWM");
+            
             break;
-        case WORK3:
+        case CONF_SERIAL:
             led.setState(2); // Set LED to blinking state
             led.setLabel("bottom");
             led.setLocation(2);
             label.setState(2);
-            label.setLabel("Start!");
-            currentWork = WORK4;
+            label.setLabel("CONF_SERIAL");
+            
             break;
-        case WORK4:
+        case CONF_CAN:
             led.setState(3); // Set LED to blinking state
             led.setLocation(0);
-            label.setState(0);
-            currentWork = WORK5;
+            label.setState(2);
+            label.setLabel("CONF_SERIAL");
+            
             break;
-        case WORK5:
+        case CONF_RELAY:
             led.setState(4); // Set LED to blinking state
             led.setLabel("left");
             led.setLocation(3);
             label.setState(3);
-            label.setLabel("Begin!");
-            currentWork = WORK6;
+            label.setLabel("CONF_RELAY");
+            
             break;  
-        case WORK6:
+        case CONF_ANALOG_OUTPUT:
             led.setState(4); // Set LED to blinking state
             led.setLocation(0);
-            label.setState(0);
-            currentWork = WORK7;
+            label.setState(3);
+            label.setLabel("CONF_ANALOG_OUTPUT");
+            
             break;                                 
-        case WORK7:
+        case CONF_MULTIOUTPUT:
             led.setState(4); // Set LED to blinking state
             led.setLabel("right");
             led.setLocation(4);
             label.setState(4);
-            label.setLabel("Move!");                
-            currentWork = WORK8;
+            label.setLabel("CONF_MULTIOUTPUT");                
+            
             break;           
-        case WORK8:
+        case CONF_ANALOG_OUT:
             led.setState(4); // Set LED to blinking state
             led.setLocation(0);
-            currentWork = WORK1;
+            label.setState(4);
+            label.setLabel("CONF_ANALOG_OUT");                
+            
             break;                                                                       
     }
 }
 void GUI::update(){
-    // Example: Draw a moving rectangle
     led.update();
     label.update();
+    timeSlot.update();
 }

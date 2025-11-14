@@ -5,15 +5,23 @@
 #include <LED.h>
 #include <Label.h>
 typedef enum {
-    WORK1,
-    WORK2,
-    WORK3,
-    WORK4,
-    WORK5,
-    WORK6,
-    WORK7,
-    WORK8
-}WorkType;
+    PORTRAIT,
+    LANDSCAPE,
+    PORTRAIT_SIDEWAYS,
+    LANDSCAPE_SIDEWAYS
+}RotateAngle;
+
+
+typedef enum {
+    IDLE_SCREEN,
+    CONF_PWM,
+    CONF_SERIAL,
+    CONF_CAN,
+    CONF_ANALOG_OUTPUT,
+    CONF_RELAY,
+    CONF_MULTIOUTPUT,
+    CONF_ANALOG_OUT
+}ScreenType;
 
 typedef enum {
     TIMER0_OVERUN,
@@ -23,17 +31,33 @@ typedef enum {
 class GUI {
 private:
     Display tft; // Instantiate the display object
-    WorkType currentWork;
+    ScreenType currentWork = IDLE_SCREEN;
     LED led = LED(100,100,2,10,0,(const char *)"LED1",0,&tft);
-    Label label = Label(100,150,2,10,0,(const char *)"LED1",0,&tft);
+    LED rs485Connected = LED(100,100,2,10,0,(const char *)"",0,&tft);
+    LED can1Connected = LED(100,100,2,10,0,(const char *)"",0,&tft);
+    LED can2Connected = LED(100,100,2,10,0,(const char *)"",0,&tft);
+    LED compConnected = LED(100,100,2,10,0,(const char *)"",0,&tft);
+
+    Label analogIn0 = Label(100,150,2,10,0,(const char *)"AN0",0,&tft);
+    Label analogIn1 = Label(100,150,2,10,0,(const char *)"AN1",0,&tft);
+    Label analogIn2 = Label(100,150,2,10,0,(const char *)"AN2",0,&tft);
+    Label analogIn3 = Label(100,150,2,10,0,(const char *)"AN3",0,&tft);
+    Label analogOut0 = Label(100,150,2,10,0,(const char *)"AN3",0,&tft);
+    Label analogOut1 = Label(100,150,2,10,0,(const char *)"AN3",0,&tft);
+    Label timeSlot = Label(25,2,2,10,0,(const char *)"TS:----",0,&tft);
+    Label label = Label(100,200,2,10,0,(const char *)"LABEL1",0,&tft);
+
     public:
-    void stateMachine();
+    void screenMachine(ScreenType screen);
     void update();
     void setup();
-    void receiveData(uint16_t *data);
+    void rotateGUI(RotateAngle angle);
+    void receiveData(uint8_t btnByte, int16_t rot0, int16_t rot1, int16_t rot2, int16_t rot3, uint16_t an0,uint16_t an1,uint16_t an2,uint16_t an3);
     void updateTimeStatistics(uint16_t timeStat);
     void showWarning(WarningType type);
     void showEmergency(WarningType type);
+    void showNormalOperation(WarningType type);
+    void showRegularLoop(WarningType type);
     GUI(){
         
 

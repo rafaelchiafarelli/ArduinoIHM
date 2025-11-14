@@ -63,7 +63,7 @@ public:
     const input_port ports[MAX_PIN_PORT];
     const pin_to_index pins[MAX_PIN_AMOUNT];
     
-    void fast_handler()
+    void slow_handler()
     {
         in[0].value = *ports[0].pins;
         in[1].value = *ports[1].pins;
@@ -71,9 +71,9 @@ public:
         in[3].value = *ports[3].pins;
         in[4].value = *ports[4].pins;
     };
-    bool get_pin(uint8_t index){
+    bool get_pin(uint8_t index) const{
         if(index<MAX_PIN_AMOUNT)
-            return ((in[pins[index].idx].value & pins[index].mask) == 0);
+            return !((in[pins[index].idx].value & pins[index].mask) == 0);
         else
             return false;
     }
@@ -86,22 +86,22 @@ public:
                             {&PINL,&PORTL, &DDRL, 0b01110111},    /* PORTL */
                             }),
                     pins({  
-                            {4,0b00010000}, /*PA4*/
-                            {4,0b00010000}, /*PE4*/
-                            {5,0b00100000}, /*PF5*/
-                            {6,0b01000000}, /*PF6*/
+                            {0,0b00010000}, /*PA4*/
+                            {3,0b00010000}, /*PE4*/
+                            {4,0b00100000}, /*PF5*/
+                            {4,0b01000000}, /*PF6*/
                             {0,0b00000001}, /*PA0 */
-                            {2,0b00000100}, /*PA2*/
-                            {7,0b10000000}, /*PF7*/
-                            {6,0b01000000}, /*PL6*/
+                            {0,0b00000100}, /*PA2*/
+                            {4,0b10000000}, /*PF7*/
+                            {5,0b01000000}, /*PL6*/
                             {5,0b00100000}, /*PL5*/
-                            {4,0b00010000}, /*PL4*/
-                            {2,0b00000100}, /*PL2*/
-                            {1,0b00000010}, /*PL1*/
-                            {0,0b00000001}, /*PL0*/
-                            {4,0b00010000}, /*PC4*/
-                            {5,0b00100000}, /*PC5*/
-                            {7,0b10000000} /*PC7*/
+                            {5,0b00010000}, /*PL4*/
+                            {5,0b00000100}, /*PL2*/
+                            {5,0b00000010}, /*PL1*/
+                            {5,0b00000001}, /*PL0*/
+                            {1,0b00010000}, /*PC4*/
+                            {1,0b00100000}, /*PC5*/
+                            {1,0b10000000} /*PC7*/
                             })
     {
         DDRA = ports[0].ddr_mask;
