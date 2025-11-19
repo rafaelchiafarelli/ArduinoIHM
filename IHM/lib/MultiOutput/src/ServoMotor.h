@@ -34,7 +34,8 @@ private:
 public:
 
     ServoMotor(const BinaryOutputs bnOut):engines_pins(bnOut)
-    {   
+    {     
+        state = SERVO_WAIT;
         //initialization of the engines 
         for(int i=0;i<NUMBER_OF_ENGINES;i++){
             engines[i].index=i+8; //the first servo is connected to pin 8

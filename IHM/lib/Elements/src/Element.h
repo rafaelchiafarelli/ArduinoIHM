@@ -22,7 +22,10 @@
     LABEL,
     INDICATOR,
     GAUGE,
-    BAR_GRAPH
+    BAR_GRAPH,
+    TAB_SELECTOR,
+    STATUS_BAR,
+    ICON
  }ElementType;
 
 

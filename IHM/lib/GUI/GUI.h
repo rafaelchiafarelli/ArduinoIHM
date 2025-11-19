@@ -1,9 +1,9 @@
 #ifndef _GUI_H_
 #define _GUI_H_
-#include <standardDefinitions.h>
 
-#include <LED.h>
-#include <Label.h>
+#include <standardDefinitions.h>
+#include <Widgets.h>
+
 typedef enum {
     PORTRAIT,
     LANDSCAPE,
@@ -32,18 +32,11 @@ class GUI {
 private:
     Display tft; // Instantiate the display object
     ScreenType currentWork = IDLE_SCREEN;
-    LED led = LED(100,100,2,10,0,(const char *)"LED1",0,&tft);
-    LED rs485Connected = LED(100,100,2,10,0,(const char *)"",0,&tft);
-    LED can1Connected = LED(100,100,2,10,0,(const char *)"",0,&tft);
-    LED can2Connected = LED(100,100,2,10,0,(const char *)"",0,&tft);
-    LED compConnected = LED(100,100,2,10,0,(const char *)"",0,&tft);
 
-    Label analogIn0 = Label(100,150,2,10,0,(const char *)"AN0",0,&tft);
-    Label analogIn1 = Label(100,150,2,10,0,(const char *)"AN1",0,&tft);
-    Label analogIn2 = Label(100,150,2,10,0,(const char *)"AN2",0,&tft);
-    Label analogIn3 = Label(100,150,2,10,0,(const char *)"AN3",0,&tft);
-    Label analogOut0 = Label(100,150,2,10,0,(const char *)"AN3",0,&tft);
-    Label analogOut1 = Label(100,150,2,10,0,(const char *)"AN3",0,&tft);
+    TabSelector tabSelector = TabSelector(&tft);
+
+
+    LED led = LED(100,100,2,10,0,(const char *)"LED1",0,&tft);
     Label timeSlot = Label(25,2,2,10,0,(const char *)"TS:----",0,&tft);
     Label label = Label(100,200,2,10,0,(const char *)"LABEL1",0,&tft);
 

@@ -1,23 +1,28 @@
-#ifndef TABSELECTOR_H
-#define TABSELECTOR_H
+#ifndef STATUSBAR_H
+#define STATUSBAR_H
 
 #include <standardDefinitions.h>
-#include "Label.h"
+#include <Widgets.h>
 #define NUMBER_OF_BUTTONS 4
 /**
  * This Element is the background for all elements (will be the selection button)
  */
 
-
-class TabSelector: public Element {
+class StatusBar: public Element {
     private:
-
-        int16_t w,h; //box size - ALWAYS START FROM 0,25 (25 pixels high)
+        LED serialConn;
+        LED tSlice;
+        int x,y,w,h; //box size
+        Icon battIcon;
     public:
-        TabSelector(Display *tft):Element(TAB_SELECTOR,tft) 
+
+        StatusBar(const char** tabLabels, uint8_t tbLabelAmount, Display* tft):
+                Element(STATUS_BAR,tft),
+                serialConn(0,5,2,10,0,(const char *)"LED1",0,tft),
+                tSlice(0,5,2,10,0,(const char *)"LED1",0,tft),
+                battIcon(tft)
         {
-            w = tft->width();
-            h = tft->height();
+
         }
 
         virtual Element setLabel(const char* label){ return *this; }
@@ -37,4 +42,4 @@ class TabSelector: public Element {
 
 };
 
-#endif // TABSELECTOR_H
+#endif // STATUSBAR_H
