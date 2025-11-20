@@ -3,7 +3,7 @@
 #include <Arduino.h>
 #include <avr/io.h>
 #include <BinaryInput.h>
-#define MAX_NUMBER_OF_ENCODERS 4
+#define MAX_NUMBER_OF_ENCODERS 3
 typedef struct{
     uint8_t pinA;
     uint8_t pinB;
@@ -23,7 +23,7 @@ class RotaryEncoder
             encoders[3] = {13,14,0,0};
         };
         void ten_ms_handler(){
-            for(uint8_t i=0;i<4;i++){
+            for(uint8_t i=0;i<MAX_NUMBER_OF_ENCODERS;i++){
                 uint8_t pinAState = inputs.get_pin(encoders[i].pinA)?1:0;
                 uint8_t pinBState = inputs.get_pin(encoders[i].pinB)?1:0;
                 uint8_t currentState = (pinAState<<1) | pinBState;
@@ -33,13 +33,13 @@ class RotaryEncoder
                     case 0b0111:
                     case 0b1110:
                     case 0b1000:
-                        encoders[i].value++;
+                        encoders[i].value++; //moved ClockWise
                         break;
                     case 0b0010:
                     case 0b1011:
                     case 0b1101:
                     case 0b0100:    
-                        encoders[i].value--;
+                        encoders[i].value--; //moved CounderClockWise
                         break;
                     default:
                         break;
@@ -54,7 +54,7 @@ class RotaryEncoder
                 return 0;
         };
         void resetValue(uint8_t index){
-            if(index<4)   
+            if(index<MAX_NUMBER_OF_ENCODERS)   
                 encoders[index].value=0;
         };
 };  

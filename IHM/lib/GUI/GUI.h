@@ -19,7 +19,9 @@ typedef enum {
     CONF_CAN,
     CONF_ANALOG_OUTPUT,
     CONF_RELAY,
-    CONF_MULTIOUTPUT,
+    CONF_SERVO_MOTOR,
+    CONF_LINEAR_MOTOR,
+    CONF_STEPPER_MOTOR,
     CONF_ANALOG_OUT
 }ScreenType;
 
@@ -32,6 +34,7 @@ class GUI {
 private:
     Display tft; // Instantiate the display object
     ScreenType currentWork = IDLE_SCREEN;
+    StatusBar statusBar = StatusBar(&tft);
 
     TabSelector tabSelector = TabSelector(&tft);
 
@@ -51,6 +54,7 @@ private:
     void showEmergency(WarningType type);
     void showNormalOperation(WarningType type);
     void showRegularLoop(WarningType type);
+
     GUI(){
         
 

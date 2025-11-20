@@ -1,52 +1,17 @@
-#pragma once
+#ifndef BINARYINPUTS_H
+#define BINARYINPUTS_H
+
 #include <avr/pgmspace.h>
 #include <avr/io.h>
+#include <Ports.h>
 
-#ifndef _PIND
-#define _PIND 0x09
-#define _PORTD 0x0B
-#endif
-#ifndef _DDRD
-#define _DDRD 0x0A
-#endif
-#ifndef _PING
-#define _PING 0x12
-#define _PORTG 0x14
-#endif
-#ifndef _DDRG
-#define _DDRG 0x13
-#endif
-#ifndef _PINL
-#define _PINL 0x109
-#define _PORTL 0x10B
-#endif
-#ifndef _DDRL
-#define _DDRL 0x10a
-#endif
-#ifndef _PINB
-#define _PINB 0x03
-#define _PORTB 0x05
-
-#endif
-#ifndef _DDRB
-#define _DDRB 0x04
-#endif
-
-#define MAX_PIN_AMOUNT 16
+#define MAX_PIN_AMOUNT 15
 #define MAX_PIN_PORT 5
-typedef struct
-{
-    volatile uint8_t * pins;
-    volatile uint8_t * pull_up;
-    volatile uint8_t * ddr;
-    uint8_t ddr_mask;
-    
-    
-} input_port;
 
 typedef struct
 {
     uint8_t value;
+    volatile uint8_t * pins;    
 }input_value;
 
 typedef struct 
@@ -59,17 +24,18 @@ typedef struct
 class BinaryInputs
 {
 public:
-    input_value in[MAX_PIN_PORT];
-    const input_port ports[MAX_PIN_PORT];
+    const port_type ports[MAX_PIN_AMOUNT];
     const pin_to_index pins[MAX_PIN_AMOUNT];
+    input_value in[MAX_PIN_PORT];
+
     
-    void slow_handler()
+    void fast_handler()
     {
-        in[0].value = *ports[0].pins;
-        in[1].value = *ports[1].pins;
-        in[2].value = *ports[2].pins;
-        in[3].value = *ports[3].pins;
-        in[4].value = *ports[4].pins;
+        in[0].value = *in[0].pins;
+        in[1].value = *in[1].pins;
+        in[2].value = *in[2].pins;
+        in[3].value = *in[3].pins;
+        in[4].value = *in[4].pins;
     };
     bool get_pin(uint8_t index) const{
         if(index<MAX_PIN_AMOUNT)
@@ -78,42 +44,56 @@ public:
             return false;
     }
 
-    BinaryInputs() : ports({
-                            {&PINA,&PORTA, &DDRA, 0b00010101},    /* PORTA */
-                            {&PINC,&PORTC, &DDRC, 0b10110000},    /* PORTC */
-                            {&PINE,&PORTE, &DDRE, 0b00010000},    /* PORTE */
-                            {&PINF,&PORTF, &DDRF, 0b11100000},    /* PORTF */
-                            {&PINL,&PORTL, &DDRL, 0b01110111},    /* PORTL */
-                            }),
+    BinaryInputs(): ports({
+                            {&PINA, &PORTA, &DDRA,(uint8_t)0b00010000,(uint8_t)0b11101111},                    
+                            {&PINE, &PORTE, &DDRE,(uint8_t)0b00010000,(uint8_t)0b11101111},
+                            {&PINF, &PORTF, &DDRF,(uint8_t)0b00100000,(uint8_t)0b11011111},
+                            {&PINF, &PORTF, &DDRF,(uint8_t)0b01000000,(uint8_t)0b10111111},
+                            {&PINA, &PORTA, &DDRA,(uint8_t)0b00000001,(uint8_t)0b11111110},
+                            {&PINA, &PORTA, &DDRA,(uint8_t)0b00000100,(uint8_t)0b11111011},
+                            {&PINL, &PORTL, &DDRL,(uint8_t)0b01000000,(uint8_t)0b10111111},
+                            {&PINL, &PORTL, &DDRL,(uint8_t)0b00100000,(uint8_t)0b11011111},
+                            {&PINL, &PORTL, &DDRL,(uint8_t)0b00010000,(uint8_t)0b11101111},
+                            {&PINL, &PORTL, &DDRL,(uint8_t)0b00000100,(uint8_t)0b11111011},
+                            {&PINL, &PORTL, &DDRL,(uint8_t)0b00000010,(uint8_t)0b11111101},
+                            {&PINL, &PORTL, &DDRL,(uint8_t)0b00000001,(uint8_t)0b11111110},
+                            {&PINC, &PORTC, &DDRC,(uint8_t)0b00010000,(uint8_t)0b11101111},
+                            {&PINC, &PORTC, &DDRC,(uint8_t)0b00100000,(uint8_t)0b11011111},
+                            {&PINC, &PORTC, &DDRC,(uint8_t)0b10000000,(uint8_t)0b01111111}
+                        }),
                     pins({  
-                            {0,0b00010000}, /*PA4*/
-                            {3,0b00010000}, /*PE4*/
-                            {4,0b00100000}, /*PF5*/
-                            {4,0b01000000}, /*PF6*/
-                            {0,0b00000001}, /*PA0 */
-                            {0,0b00000100}, /*PA2*/
-                            {4,0b10000000}, /*PF7*/
-                            {5,0b01000000}, /*PL6*/
-                            {5,0b00100000}, /*PL5*/
-                            {5,0b00010000}, /*PL4*/
-                            {5,0b00000100}, /*PL2*/
-                            {5,0b00000010}, /*PL1*/
-                            {5,0b00000001}, /*PL0*/
-                            {1,0b00010000}, /*PC4*/
-                            {1,0b00100000}, /*PC5*/
-                            {1,0b10000000} /*PC7*/
-                            })
+                            {0,0b00010000}, /*PA4 push-btn*/
+                            {2,0b00010000}, /*PE4 push-btn*/
+                            {3,0b00100000}, /*PF5 push-btn*/
+                            {3,0b01000000}, /*PF6 push-btn*/
+                            {0,0b00000001}, /*PA0 house-keeping*/
+                            {0,0b00000100}, /*PA2 house-keeping*/
+                            {4,0b01000000}, /*PL6 rotary-encoder*/
+                            {4,0b00100000}, /*PL5 rotary-encoder*/
+                            {4,0b00010000}, /*PL4 push-btn*/
+                            {4,0b00000100}, /*PL2 rotary-encoder*/
+                            {4,0b00000010}, /*PL1 rotary-encoder*/
+                            {4,0b00000001}, /*PL0 push-btn*/
+                            {1,0b00010000}, /*PC4 rotary-encoder*/
+                            {1,0b00100000}, /*PC5 rotary-encoder*/
+                            {1,0b10000000}  /*PC7 push-btn*/
+                            }),
+                    in({
+                            {0x00, &PINA},    /* PORTA */
+                            {0x00, &PINC},    /* PORTC */
+                            {0x00, &PINE},    /* PORTE */
+                            {0x00, &PINF},    /* PORTF */
+                            {0x00, &PINL}    /* PORTL */
+                    })
     {
-        DDRA = ports[0].ddr_mask;
-        DDRC = ports[1].ddr_mask;
-        DDRE = ports[2].ddr_mask;
-        DDRF = ports[3].ddr_mask;
-        DDRL = ports[4].ddr_mask;
+        for(int i=0; i<MAX_PIN_AMOUNT; i++)
+        {
+            *ports[i].ddr &= ports[i].mask_reset;
+            *ports[i].port |= ports[i].mask_set;
+        }
         MCUCR |= ~(1<<PUD);
-        *ports[0].pull_up = ~ports[0].ddr_mask;
-        *ports[1].pull_up = ~ports[1].ddr_mask;
-        *ports[2].pull_up = ~ports[2].ddr_mask;
-        *ports[3].pull_up = ~ports[3].ddr_mask;
-        *ports[4].pull_up = ~ports[3].ddr_mask;
+
     };
 };
+
+#endif /* BINARYINPUTS_H */

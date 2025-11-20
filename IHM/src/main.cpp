@@ -28,7 +28,7 @@ uint8_t counterT1 = 0;
 bool newDataAvailable = false;
 uint16_t timeStatistics = 0;
 uint8_t timeCounter = 0;
-BinaryInputs userInputs;
+
 SerialCommunication comms;
 MultiOutput multiOuput;
 MCP4725 dac1,dac0;
@@ -36,10 +36,13 @@ uint16_t voltage0 = 0;
 uint16_t voltage1 = 0;
 GUI gui = GUI();
 uint16_t receivedRawData[10];
+
+BinaryInputs userInputs;
 RotaryEncoder rotaryEncoders(userInputs);
 
 void setup()
 {
+    Serial.begin(250000);
     dac0.begin(0x62);    
     dac1.begin(0x63);    
     cli();
@@ -68,6 +71,7 @@ void setup()
 ISR(TIMER2_COMPA_vect){ /*256us handler*/
 
     multiOuput.fast_handler();
+    userInputs.fast_handler();
     counterT0++;
     if (counterT0 >= TEN_MS_T0_TICKS) { //~1ms elapsed
         counterT0 = 0;
@@ -75,7 +79,7 @@ ISR(TIMER2_COMPA_vect){ /*256us handler*/
         // Example:
         // module1.ten_ms_handler();
         // module2.ten_ms_handler();
-        userInputs.slow_handler();
+        //userInputs.slow_handler();
         rotaryEncoders.ten_ms_handler();
     }
 
@@ -125,32 +129,31 @@ int main()
     //multiOuput.fast_handler();
 
    // gui.showRegularLoop(WarningType::TIMER0_OVERUN);
-    if(timeCounter>=100){
-        gui.updateTimeStatistics(timeStatistics/timeCounter);
-        timeStatistics=0;
-        timeCounter=0;
-       // gui.screenMachine(IDLE_SCREEN);
-    }    
+        if(timeCounter>=100){
+            gui.updateTimeStatistics(timeStatistics/timeCounter);
+            timeStatistics=0;
+            timeCounter=0;
+        // gui.screenMachine(IDLE_SCREEN);
+        }    
 
-    if(newDataAvailable){
-        //gui.receiveData();
-        voltage0 = receivedRawData[0];
-        voltage1 = receivedRawData[1];
-        newDataAvailable = false;
-    }
-    
-    dac1.setVoltage(voltage0, false);
-    dac0.setVoltage(voltage1, false);
-    gui.update();
-    if(!userInputs.get_pin(0))
-    {
-        //user pressed a button
-        gui.screenMachine(ScreenType::CONF_MULTIOUTPUT);
-    }
-    else{
-                //user released a button
-        gui.screenMachine(ScreenType::CONF_PWM);
-    }
+        if(newDataAvailable){
+            //gui.receiveData();
+            voltage0 = receivedRawData[0];
+            voltage1 = receivedRawData[1];
+            newDataAvailable = false;
+        }
+        
+        dac1.setVoltage(voltage0, false);
+        dac0.setVoltage(voltage1, false);
+        uint16_t bMap = 0x8000;
+        for(int i=0;i<MAX_PIN_AMOUNT;i++) {
+            bool b = userInputs.get_pin(i);
+            bMap |= ((0x01)&((uint16_t)b))<<i;
+        }
+        Serial.print("map of inputs:");
+        Serial.println(bMap,2);
+
+        gui.update();
     }
     return 0;
 }

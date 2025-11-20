@@ -131,24 +131,44 @@ void GUI::screenMachine(ScreenType screen){
             label.setLabel("CONF_ANALOG_OUTPUT");
             
             break;                                 
-        case CONF_MULTIOUTPUT:
+        case CONF_LINEAR_MOTOR:
             led.setState(4); // Set LED to blinking state
             led.setLabel("right");
             led.setLocation(4);
             label.setState(4);
             label.setLabel("CONF_MULTIOUTPUT");                
             
-            break;           
+            break;   
+        case CONF_SERVO_MOTOR:
+            led.setState(4); // Set LED to blinking state
+            led.setLabel("right");
+            led.setLocation(4);
+            label.setState(4);
+            label.setLabel("CONF_MULTIOUTPUT");                
+            
+            break;        
+        case CONF_STEPPER_MOTOR:
+            led.setState(4); // Set LED to blinking state
+            led.setLabel("right");
+            led.setLocation(4);
+            label.setState(4);
+            label.setLabel("CONF_MULTIOUTPUT");                
+            
+            break;               
         case CONF_ANALOG_OUT:
             led.setState(4); // Set LED to blinking state
             led.setLocation(0);
             label.setState(4);
             label.setLabel("CONF_ANALOG_OUT");                
-            
+
             break;                                                                       
     }
 }
+
 void GUI::update(){
+
+    tabSelector.update();
+    statusBar.update();
     led.update();
     label.update();
     timeSlot.update();

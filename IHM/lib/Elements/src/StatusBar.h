@@ -16,13 +16,15 @@ class StatusBar: public Element {
         Icon battIcon;
     public:
 
-        StatusBar(const char** tabLabels, uint8_t tbLabelAmount, Display* tft):
+        StatusBar(Display* tft):
                 Element(STATUS_BAR,tft),
-                serialConn(0,5,2,10,0,(const char *)"LED1",0,tft),
-                tSlice(0,5,2,10,0,(const char *)"LED1",0,tft),
+                serialConn(2,2,2,10,0,(const char *)"COM",0,tft),
+                tSlice(30,2,2,10,0,(const char *)"TS:",0,tft),
                 battIcon(tft)
         {
-
+            serialConn.setLocation(0);
+            tSlice.setLocation(0);
+            battIcon.setLocation(0);
         }
 
         virtual Element setLabel(const char* label){ return *this; }
@@ -34,6 +36,9 @@ class StatusBar: public Element {
             return *this; 
         }
         virtual Element update(){ 
+            serialConn.update();
+            tSlice.update();
+            battIcon.update();
             return *this; 
         }
     private:
