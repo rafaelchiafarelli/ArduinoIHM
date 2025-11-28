@@ -3,9 +3,10 @@
 #include <Element.h>
 #include <standardDefinitions.h>
 
-#define BLINKING_THRESHOLD 80
+#define BLINKING_THRESHOLD 20
 #define BLINKING_FAST_THRESHOLD 40
 #define BLINKING_VERY_FAST_THRESHOLD 20
+#define BACKBROUND_BLINK_THRESHOLD 30
 
 class Label : public Element{
 private:
@@ -18,24 +19,25 @@ private:
 
 
     void drawLabel(){
-        if(!isShown){
-            isShown = true;
-        }
-        else {
-            return;
-        }
+
+        tft->setTextColor(WHITE);
         tft->setTextSize(width);
         tft->setCursor(x, y);
+        if(isShown)
+            return;
         switch (state)
         {
         case 0:
             /* turned off */
 
             tft->fillRect(x, y, wide(), large(), BLACK);
+            isShown = true;
             break;
         case 1:
             /* turned on */
+            tft->fillRect(x, y, wide(), large(), BLACK);
             tft->println(label);
+            isShown = true;
             break;
         case 2:
             /* turned blinking */
@@ -73,6 +75,23 @@ private:
                 }
             }            
             break;                             
+        case 5:
+            /* turned blinking very fast */
+            blinkCounter++;
+            if(blinkCounter >= BACKBROUND_BLINK_THRESHOLD){
+                blinkCounter = 0;
+                blinkState = !blinkState;
+                if(blinkState){
+                    tft->fillRect(x, y, wide(), large(), WHITE);
+                    tft->setTextColor(BLACK);
+                    tft->println(label);
+                }else{
+                    tft->fillRect(x, y, wide(), large(), BLACK);
+                    tft->setTextColor(WHITE);
+                    tft->println(label);
+                }
+            }            
+            break;               
         default:
             break;
         }
@@ -85,14 +104,14 @@ public:
         this->width = w;
         this->height = h;
         this->state = state;
-        this->label = ldl;
+        strncpy(this->label,ldl,LABEL_STRING_SIZE);
         this->location = l;
     }
 
     ~Label(){}
     
-    Element setLabel(const char* lbl) override {
-        label = lbl;
+    Element setLabel(char* lbl) override {
+        strncpy(label, lbl,LABEL_STRING_SIZE);
         isShown = false; //force redraw
         return *this;
     }

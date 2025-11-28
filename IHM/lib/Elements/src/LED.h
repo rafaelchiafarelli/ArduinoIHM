@@ -2,20 +2,16 @@
 #define _LED_H_
 
 #include <Element.h>
-#define BLINKING_THRESHOLD 80
-#define BLINKING_FAST_THRESHOLD 40
-#define BLINKING_VERY_FAST_THRESHOLD 20
-typedef enum{
-    VISIBLE,
-    GONE,
-    IDLE
-}LabelControl;
+#define BLINKING_LED_THRESHOLD 80
+#define BLINKING_LED_FAST_THRESHOLD 40
+#define BLINKING_LED_VERY_FAST_THRESHOLD 20
+
 
 class LED : public Element {
 private:
     uint8_t blinkCounter = 0;
     uint8_t blinkState = 0;
-    LabelControl labelControl = IDLE;
+    VisibilityControl visibilityControl = IDLE;
      //text size 
     uint8_t wide() {return strlen(label)*width*6;};
     uint8_t large(){return width*8;};
@@ -24,6 +20,7 @@ private:
         // Implement LED drawing logic here
             //height is radius
             //width is text size
+        tft->setTextColor(WHITE);
         switch (state)
         {
         case 0:
@@ -36,7 +33,7 @@ private:
             break;
         case 2:
             /* turned blinking */
-            if(blinkCounter++ >= BLINKING_THRESHOLD){
+            if(blinkCounter++ >= BLINKING_LED_THRESHOLD){
                 blinkCounter = 0;
                 blinkState = !blinkState;
                 if(blinkState){
@@ -48,7 +45,7 @@ private:
             break;
         case 3:
             /* turned blinking fast */
-            if(blinkCounter++ >= BLINKING_FAST_THRESHOLD){
+            if(blinkCounter++ >= BLINKING_LED_FAST_THRESHOLD){
                 blinkCounter = 0;
                 blinkState = !blinkState;
                 if(blinkState){
@@ -60,7 +57,7 @@ private:
             break;                        
         case 4:
             /* turned blinking very fast */
-            if(blinkCounter++ >= BLINKING_VERY_FAST_THRESHOLD){
+            if(blinkCounter++ >= BLINKING_LED_VERY_FAST_THRESHOLD){
                 blinkCounter = 0;
                 blinkState = !blinkState;
                 if(blinkState){
@@ -74,52 +71,53 @@ private:
             break;
         }
 
-        if(labelControl == VISIBLE) {
+        if(visibilityControl == VISIBLE) {
             tft->setTextSize(width);
             tft->setTextColor(WHITE);
             switch (location)
             {
-            case 1:
+            case top:
                 //top
                 tft->setCursor(x-wide()/2, y-large()-height*2);
                 break;
-            case 2:
+            case bottom:
                 //bottom
                 tft->setCursor(x-wide()/2, y+large()+height);
                 break;
-            case 3:
+            case left:
                 //left
                 tft->setCursor(x-wide()-height*2, y-large()/2);
                 break;
-            case 4:
+            default:
+            case right:
                 //right
-                tft->setCursor(x+wide()/2-height, y-large()/2);
+                tft->setCursor(x+height*2+1, y-large()/2);
                 break;
         
             }
             tft->println(label);
-            labelControl = IDLE;
-        } else if (labelControl == GONE)
+            visibilityControl = IDLE;
+        } else if (visibilityControl == GONE)
         {
             switch (location)
             {
-            case 1:
+            case top: //above
                 tft->fillRect(x-wide()/2, y-large()-height*2, wide(), large(), BLACK);
                 break;
-            case 2:
+            case bottom: //bellow
                 tft->fillRect(x-wide()/2, y+large()+height, wide(), large(), BLACK);
                 break;
-            case 3:
+            case left:
                 tft->fillRect(x-wide()-height*2, y-large()/2, wide(), large(), BLACK);
                 break;
-            case 4:
+            case right:
                 tft->fillRect(x+wide()/2-height, y-large()/2, wide(), large(), BLACK);
                 break;                                            
             default:
                 break;
             }
             location = 0;
-            labelControl = IDLE;
+            visibilityControl = IDLE;
         }
 
     }
@@ -131,26 +129,26 @@ public:
         this->width = w;
         this->height = h;
         this->state = state;
-        this->label = ldl;
+        strncpy(this->label,ldl,LABEL_STRING_SIZE);
         this->location = l;
 
     }
 
     ~LED(){}
-    Element setLabel(const char* lbl) override {
-        label = lbl;
+    Element setLabel(char* lbl) override {
+        strncpy(label,lbl,LABEL_STRING_SIZE);
         return *this;
     }
     Element setLocation(int lcn) override {
         // Implement location setting logic here
         if(lcn==0)
         {
-            labelControl = GONE;
+            visibilityControl = GONE;
         }
         else
         {
-            labelControl = VISIBLE;
-            location = lcn;
+            visibilityControl = VISIBLE;
+            location = (LocationType)lcn;
         }
             
         return *this;

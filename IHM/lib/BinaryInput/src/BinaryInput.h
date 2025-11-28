@@ -27,16 +27,23 @@ public:
     const port_type ports[MAX_PIN_AMOUNT];
     const pin_to_index pins[MAX_PIN_AMOUNT];
     input_value in[MAX_PIN_PORT];
-
     
-    void fast_handler()
+    
+    uint16_t fast_handler()
     {
         in[0].value = *in[0].pins;
         in[1].value = *in[1].pins;
         in[2].value = *in[2].pins;
         in[3].value = *in[3].pins;
         in[4].value = *in[4].pins;
+                uint16_t bMap = 0x8000;
+        for(int i=0;i<MAX_PIN_AMOUNT;i++) {
+            bool b = get_pin(i);
+            bMap |= ((0x01)&((uint16_t)b))<<i;
+        }
+        return bMap;
     };
+    
     bool get_pin(uint8_t index) const{
         if(index<MAX_PIN_AMOUNT)
             return !((in[pins[index].idx].value & pins[index].mask) == 0);

@@ -3,60 +3,79 @@
 #include <Arduino.h>
 #include <avr/io.h>
 #include <BinaryInput.h>
-#define MAX_NUMBER_OF_ENCODERS 3
+#define MAX_NUMBER_EMCODERS 3
+
+typedef enum
+{
+	not_supported = 0,
+	CCW,
+	CW
+}DIRECTION_TYPE;
+
 typedef struct{
-    uint8_t pinA;
-    uint8_t pinB;
-    int16_t  value;
-    uint8_t   lastState;
-}rotary_encoder_t;
+	union{
+		struct{
+		unsigned s1:1;
+		unsigned s2:1;
+		unsigned ls1:1;
+		unsigned ls2:1;
+		};
+		unsigned byte;
+	};
+	int Pin0;
+	int Pin1;
+	DIRECTION_TYPE direction;
+}ENCODER_TYPE;
+
 class RotaryEncoder
 {
     private:
-        const BinaryInputs inputs;
-        rotary_encoder_t encoders[MAX_NUMBER_OF_ENCODERS];
+        BinaryInputs *inputs;
+        const DIRECTION_TYPE cDirection[16] = {not_supported,CW,CCW,not_supported,CCW,not_supported,not_supported,CW,CW,not_supported,not_supported,CCW,not_supported,CCW,CW,not_supported};
+        ENCODER_TYPE encoders[MAX_NUMBER_EMCODERS];
+        
     public:
-        RotaryEncoder(const BinaryInputs binInputs):inputs(binInputs){
-            encoders[0] = {4,5,0,0};
-            encoders[1] = {7,8,0,0};
-            encoders[2] = {10,11,0,0};
-            encoders[3] = {13,14,0,0};
+        RotaryEncoder(BinaryInputs *binInputs):inputs(binInputs){
+            
+            encoders[0].byte = 0;
+            encoders[0].Pin0 = 6;
+            encoders[0].Pin1 = 7;
+            encoders[0].direction = not_supported;
+            
+            encoders[1].byte = 0;
+            encoders[1].Pin0 = 9;
+            encoders[1].Pin1 = 11;
+            encoders[1].direction = not_supported;
+            
+            encoders[2].byte = 0;
+            encoders[2].Pin0 = 12;
+            encoders[2].Pin1 = 13;
+            encoders[2].direction = not_supported;
+            
         };
-        void ten_ms_handler(){
-            for(uint8_t i=0;i<MAX_NUMBER_OF_ENCODERS;i++){
-                uint8_t pinAState = inputs.get_pin(encoders[i].pinA)?1:0;
-                uint8_t pinBState = inputs.get_pin(encoders[i].pinB)?1:0;
-                uint8_t currentState = (pinAState<<1) | pinBState;
-                int8_t stateChange = (encoders[i].lastState <<2) | currentState;
-                switch(stateChange){
-                    case 0b0001:
-                    case 0b0111:
-                    case 0b1110:
-                    case 0b1000:
-                        encoders[i].value++; //moved ClockWise
-                        break;
-                    case 0b0010:
-                    case 0b1011:
-                    case 0b1101:
-                    case 0b0100:    
-                        encoders[i].value--; //moved CounderClockWise
-                        break;
-                    default:
-                        break;
+        void ms_handler(uint16_t bMap){
+            for(uint8_t i=0;i<MAX_NUMBER_EMCODERS;i++){
+                encoders[i].s1 = 0x0001 & (bMap>>encoders[i].Pin0);
+                encoders[i].s2 = 0x0001 & (bMap>>encoders[i].Pin1);
+                if((encoders[i].ls1 != encoders[i].s1)||(encoders[i].ls2 != encoders[i].s2))
+		            {//there was a movement for this encoder
+                        if(((encoders[i].ls1 == 1) && (encoders[i].ls2 == 1))||
+                            ((encoders[i].ls1 == 0) && (encoders[i].ls2 == 0)))
+                            {
+                                encoders[i].direction = cDirection[encoders[i].byte];
+                            }
+                    }
+                encoders[i].ls1 = encoders[i].s1;
+                encoders[i].ls2 = encoders[i].s2;
                 }
-                encoders[i].lastState = currentState;
-            }
         };
-        int16_t getValue(uint8_t index){
-            if(index<MAX_NUMBER_OF_ENCODERS)
-                return encoders[index].value;
-            else
-                return 0;
-        };
-        void resetValue(uint8_t index){
-            if(index<MAX_NUMBER_OF_ENCODERS)   
-                encoders[index].value=0;
-        };
+        DIRECTION_TYPE getDirection(uint8_t enc){
+            DIRECTION_TYPE ret = encoders[enc].direction;
+            encoders[enc].direction = not_supported;
+            return ret;
+        }
+
+        
 };  
 
 #endif /* ROTARY_ENCODER_H_ */

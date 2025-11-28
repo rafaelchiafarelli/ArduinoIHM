@@ -28,12 +28,25 @@
     ICON
  }ElementType;
 
+typedef enum {
+    top,
+    bottom,
+    left,
+    right
+}LocationType;
 
+#define LABEL_STRING_SIZE 15
+
+typedef enum{
+    VISIBLE,
+    GONE,
+    IDLE
+}VisibilityControl;
 
 class Element {
 protected:
     ElementType elementType; // Type of the element (e.g., Button, Label, TextField)
-    const char *label; // Label of the element
+    char label[LABEL_STRING_SIZE]; // Label of the element
     uint16_t x, y; // Position of the element
     uint16_t width, height; // Size of the element
     uint16_t state; // State of the element (implementation dependent)
@@ -51,10 +64,10 @@ public:
     int getWidth(){ return width; }
     int getHeight(){ return height; }
     int getState(){ return state; }
-    const char* getLabel(){ return label; }
+    char* getLabel(){ return label; }
     int getLocation(){ return location; }
 
-    virtual Element setLabel(const char* label){ return *this; }
+    virtual Element setLabel(char* label){ return *this; }
     virtual Element setLocation(int location){ return *this; }
     virtual Element setPosition(int x, int y){ return *this; }
     virtual Element setSize(int width, int height){ return *this; }    

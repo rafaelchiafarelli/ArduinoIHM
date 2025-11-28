@@ -10,6 +10,7 @@
 
 class StatusBar: public Element {
     private:
+        bool started = false;
         LED serialConn;
         LED tSlice;
         int x,y,w,h; //box size
@@ -18,13 +19,15 @@ class StatusBar: public Element {
 
         StatusBar(Display* tft):
                 Element(STATUS_BAR,tft),
-                serialConn(2,2,2,10,0,(const char *)"COM",0,tft),
-                tSlice(30,2,2,10,0,(const char *)"TS:",0,tft),
-                battIcon(tft)
+                serialConn(8,8,2,7,0,(const char *)"COM:8N19600",0,tft),
+                tSlice(165,8,2,7,0,(const char *)"TS:---",0,tft),
+                battIcon(250,2,10,15,tft)
         {
-            serialConn.setLocation(0);
-            tSlice.setLocation(0);
+            serialConn.setLocation((int)right);
+            tSlice.setState(4);
+            tSlice.setLocation((int)right);
             battIcon.setLocation(0);
+
         }
 
         virtual Element setLabel(const char* label){ return *this; }
@@ -36,11 +39,31 @@ class StatusBar: public Element {
             return *this; 
         }
         virtual Element update(){ 
+            if(!started)
+                tft->drawFastHLine(0,18,320,WHITE);
+            started = true;
             serialConn.update();
             tSlice.update();
             battIcon.update();
             return *this; 
         }
+        void setBattLevel(uint8_t bLevel){
+            if(bLevel>=85){
+                battIcon.setIconState(VISIBLE,0);
+                battIcon.setIconState(GONE,1);
+            }
+            if(bLevel<85){
+                battIcon.setIconState(GONE,0);
+                battIcon.setIconState(VISIBLE,1);
+            }
+            
+        }
+        void setTimeSlice(uint8_t avg){
+            char labelMsg[15];
+            sprintf(labelMsg, "TS:%d",avg);   
+            tSlice.setLabel(labelMsg);
+        }
+        
     private:
 
 
