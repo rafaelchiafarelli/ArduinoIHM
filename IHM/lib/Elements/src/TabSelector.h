@@ -4,6 +4,16 @@
 #include <standardDefinitions.h>
 #include "Label.h"
 #define NUMBER_OF_BUTTONS 4
+#define TABSELECTOR_WIDTH 320
+#define TABSELECTOR_HEIGHT 479
+#define TABSELECTOR_HEADER_SIZE 25
+#define TABSELECTOR_FONT_SIZE 2
+#define TABSELECTOR_LED_SIZE 10
+#define TABSELECTOR_PWM_OPTION 46
+#define TABSELECTOR_SERIAL_OPTION 90
+#define TABSELECTOR_MULTIOUT_OPTION 110
+#define TABSELECTOR_HEADER_TEXT_PADDING 5
+#define TABSELECTOR_HEADER_LATERAL_PADDING 5
 /**
  * This Element is the background for all elements (will be the selection button)
  */
@@ -21,15 +31,14 @@ class TabSelector: public Element {
         Label pwmConf;
         Label serialConf;
         Label multiOuputConf;
-        int16_t w,h; //box size - ALWAYS START FROM 0,25 (25 pixels high)
     public:
-        TabSelector(Display *tft):Element(TAB_SELECTOR,tft), 
-                    pwmConf(3,25,2,10,5,(const char *)"PWM",0,tft),
-                    serialConf(50, 25,2,10,1,(const char *)"SERIAL",0,tft ),
-                    multiOuputConf(140,25,2,10,1,(const char *)"Output",0,tft)
+        TabSelector(uint16_t x0, uint16_t y0, Display *tft):Element(TAB_SELECTOR,tft), 
+                    pwmConf(x0+TABSELECTOR_HEADER_TEXT_PADDING,y0+TABSELECTOR_HEADER_TEXT_PADDING,TABSELECTOR_FONT_SIZE,TABSELECTOR_LED_SIZE,5,(const char *)"PWM",0,tft),
+                    serialConf(x0+TABSELECTOR_HEADER_TEXT_PADDING+TABSELECTOR_PWM_OPTION+TABSELECTOR_HEADER_LATERAL_PADDING, y0+TABSELECTOR_HEADER_TEXT_PADDING,TABSELECTOR_FONT_SIZE,TABSELECTOR_LED_SIZE,1,(const char *)"SERIAL",0,tft ),
+                    multiOuputConf(x0+TABSELECTOR_HEADER_TEXT_PADDING+TABSELECTOR_PWM_OPTION+TABSELECTOR_SERIAL_OPTION+TABSELECTOR_HEADER_LATERAL_PADDING,y0+TABSELECTOR_HEADER_TEXT_PADDING,TABSELECTOR_FONT_SIZE,TABSELECTOR_LED_SIZE,1,(const char *)"Output",0,tft)
         {
-            w = 320;
-            h = 479;
+            x = x0;
+            y = y0;
         }
 
         virtual Element setLabel(const char* label){ return *this; }
@@ -42,14 +51,17 @@ class TabSelector: public Element {
         }
         virtual Element update(){ 
             if(!started) {
-                tft->drawFastHLine(0,45,w,WHITE);
-                tft->drawFastHLine(0,478,w,WHITE);
-                tft->drawFastVLine(1,20,h-20,WHITE);
-                tft->drawFastVLine(w-2,20,h-20,WHITE);
-
-                tft->drawFastVLine(46,20,25,WHITE);
-                tft->drawFastVLine(136,20,25,WHITE);
-                tft->drawFastVLine(246,20,25,WHITE);
+                //DRAW HEADER
+                tft->drawFastHLine(0,y+TABSELECTOR_HEADER_SIZE,TABSELECTOR_WIDTH,WHITE);
+                
+                //DRAW LATERAL LINES
+                tft->drawFastVLine(x,y,TABSELECTOR_HEIGHT-y,WHITE);
+                tft->drawFastVLine(TABSELECTOR_WIDTH-2,y,TABSELECTOR_HEIGHT-y,WHITE);
+                
+                //DRAW TAB SELECTION
+                tft->drawFastVLine(TABSELECTOR_PWM_OPTION,y,TABSELECTOR_HEADER_SIZE,WHITE);
+                tft->drawFastVLine(TABSELECTOR_PWM_OPTION+TABSELECTOR_SERIAL_OPTION,y,TABSELECTOR_HEADER_SIZE,WHITE);
+                tft->drawFastVLine(TABSELECTOR_PWM_OPTION+TABSELECTOR_SERIAL_OPTION+TABSELECTOR_MULTIOUT_OPTION,y,TABSELECTOR_HEADER_SIZE,WHITE);
 
             }
             started = true;

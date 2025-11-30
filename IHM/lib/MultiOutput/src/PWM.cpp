@@ -317,7 +317,7 @@ void PWM::setupPWMChannel2(PWMFrequency f_selector,bool isInverting,uint16_t fre
 }        
 
 
-void PWM::setupPWMChannel1(PWMFrequency f_selector,bool isInverting,uint16_t frequency, uint16_t dutyCycle){
+void PWM::setupPWMChannel3(PWMFrequency f_selector,bool isInverting,uint16_t frequency, uint16_t dutyCycle){
     //setup timer 4 for PWM generation            
     
         switch (f_selector)
@@ -475,7 +475,7 @@ void PWM::setupPWMChannel1(PWMFrequency f_selector,bool isInverting,uint16_t fre
 
 
         
-void PWM::setupPWMChannel3(PWMFrequency f_selector,bool isInverting,uint16_t frequency, uint16_t dutyCycle){
+void PWM::setupPWMChannel1(PWMFrequency f_selector,bool isInverting,uint16_t frequency, uint16_t dutyCycle){
     //setup timer 4 for PWM generation            
     
         switch (f_selector)

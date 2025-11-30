@@ -3,7 +3,10 @@
 
 #include <standardDefinitions.h>
 #include <Widgets.h>
+#include <BattIcons.h>
+
 #define NUMBER_OF_BUTTONS 4
+#define STATUSBAR_THICKNESS 21
 /**
  * This Element is the background for all elements (will be the selection button)
  */
@@ -14,14 +17,14 @@ class StatusBar: public Element {
         LED serialConn;
         LED tSlice;
         int x,y,w,h; //box size
-        Icon battIcon;
+        BattIcons battIcon;
     public:
 
         StatusBar(Display* tft):
                 Element(STATUS_BAR,tft),
                 serialConn(8,8,2,7,0,(const char *)"COM:8N19600",0,tft),
                 tSlice(165,8,2,7,0,(const char *)"TS:---",0,tft),
-                battIcon(250,2,10,15,tft)
+                battIcon(250,0,20,20,0,tft)
         {
             serialConn.setLocation((int)right);
             tSlice.setState(4);
@@ -40,7 +43,7 @@ class StatusBar: public Element {
         }
         virtual Element update(){ 
             if(!started)
-                tft->drawFastHLine(0,18,320,WHITE);
+                tft->drawFastHLine(0,STATUSBAR_THICKNESS,320,WHITE);
             started = true;
             serialConn.update();
             tSlice.update();

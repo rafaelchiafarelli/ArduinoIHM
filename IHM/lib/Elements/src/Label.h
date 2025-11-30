@@ -17,7 +17,6 @@ private:
     uint8_t wide() {return strlen(label)*width*6;};
     uint8_t large(){return width*8;};
 
-
     void drawLabel(){
 
         tft->setTextColor(WHITE);
