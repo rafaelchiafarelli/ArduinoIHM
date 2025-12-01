@@ -4,8 +4,8 @@
 #include <standardDefinitions.h>
 #include "Label.h"
 #define NUMBER_OF_BUTTONS 4
-#define TABSELECTOR_WIDTH 320
-#define TABSELECTOR_HEIGHT 479
+#define TABSELECTOR_WIDTH 318
+#define TABSELECTOR_HEIGHT 459
 #define TABSELECTOR_HEADER_SIZE 25
 #define TABSELECTOR_FONT_SIZE 2
 #define TABSELECTOR_LED_SIZE 10
@@ -55,8 +55,8 @@ class TabSelector: public Element {
                 tft->drawFastHLine(0,y+TABSELECTOR_HEADER_SIZE,TABSELECTOR_WIDTH,WHITE);
                 
                 //DRAW LATERAL LINES
-                tft->drawFastVLine(x,y,TABSELECTOR_HEIGHT-y,WHITE);
-                tft->drawFastVLine(TABSELECTOR_WIDTH-2,y,TABSELECTOR_HEIGHT-y,WHITE);
+                tft->drawFastVLine(x,y,TABSELECTOR_HEIGHT,WHITE);
+                tft->drawFastVLine(TABSELECTOR_WIDTH,y,TABSELECTOR_HEIGHT-y,WHITE);
                 
                 //DRAW TAB SELECTION
                 tft->drawFastVLine(TABSELECTOR_PWM_OPTION,y,TABSELECTOR_HEADER_SIZE,WHITE);

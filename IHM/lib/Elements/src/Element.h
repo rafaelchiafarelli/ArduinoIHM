@@ -25,6 +25,7 @@
     BAR_GRAPH,
     TAB_SELECTOR,
     STATUS_BAR,
+    PWM_SELECTION,
     ICON
  }ElementType;
 

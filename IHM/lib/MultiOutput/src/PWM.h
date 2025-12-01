@@ -32,10 +32,10 @@ class PWM
 
     public:
         PWM(){};
-        void setupPWMChannel0(PWMFrequency f_selector,bool isInverting,uint16_t frequency, uint16_t dutyCycle);
-        void setupPWMChannel1(PWMFrequency f_selector,bool isInverting,uint16_t frequency, uint16_t dutyCycle);
-        void setupPWMChannel2(PWMFrequency f_selector,bool isInverting,uint16_t frequency, uint16_t dutyCycle);
-        void setupPWMChannel3(PWMFrequency f_selector,bool isInverting,uint16_t frequency, uint16_t dutyCycle);
+        void setupPWMChannel0(PWMFrequency f_selector,bool isInverting, bool enabled, uint16_t frequency, uint16_t dutyCycle);
+        void setupPWMChannel1(PWMFrequency f_selector,bool isInverting, bool enabled, uint16_t frequency, uint16_t dutyCycle);
+        void setupPWMChannel2(PWMFrequency f_selector,uint16_t frequency,bool isInvertingA,bool enabledA, bool isInvertingB,bool enabledB, bool isInvertingC,bool enabledC,  uint16_t dutyCycleA, uint16_t dutyCycleB, uint16_t dutyCycleC);
+        void setupPWMChannel3(PWMFrequency f_selector,uint16_t frequency,bool isInvertingA,bool enabledA, bool isInvertingB,bool enabledB, bool isInvertingC,bool enabledC,  uint16_t dutyCycleA, uint16_t dutyCycleB, uint16_t dutyCycleC);
 
 };
 

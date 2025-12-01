@@ -80,25 +80,32 @@ void GUI::setup(){
 
 
 void GUI::update(DIRECTION_TYPE d0,DIRECTION_TYPE d1, DIRECTION_TYPE d2, uint8_t btnMap){
-    if(d0 != not_supported){
-        tabSelector.selectNext();
-    }
+    
     tabSelector.update();
     switch (tabSelector.getCurrentSelected())
     {
     case PWM_SELECTED:
         /* code */
-        pwmConfig.update();
+        //pwmConfig.show();
         break;
     case SERIAL_SELECTED:
-        
+        tft->drawFastHLine(0,200,50,WHITE);
+        tft->drawFastHLine(0,220,100,WHITE);
+        tft->drawFastHLine(0,240,150,WHITE);
+        tft->drawFastHLine(0,260,200,WHITE);
+        tft->drawFastHLine(0,280,250,WHITE);
+        tft->drawFastHLine(0,300,300,WHITE);
         break;
+    case OUPTUT_SELECTED:
+        tft->fillRect(2,47,318,431,BLACK);
+    break;
     default:
-    tft->fillRect(2,47,318,431,BLACK);
+        tft->fillRect(2,47,318,431,WHITE);
         break;
     }
+
     uint8_t battLevel = (btnMap&0x01)? 128: 30;
     statusBar.setBattLevel(battLevel);
     statusBar.update();
-
+    pwmConfig.update();
 }

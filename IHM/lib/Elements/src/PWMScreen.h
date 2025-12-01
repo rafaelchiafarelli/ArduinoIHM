@@ -4,25 +4,25 @@
 #include <PWMSimplex.h>
 #include <PWMComplex.h>
 
-#define PWM0_X0 2
+#define PWM0_X0 4
 #define PWM0_Y0 47
-#define PWM0_W 320
-#define PWM0_H 80
+#define PWM0_W 316
+#define PWM0_H 84
 
-#define PWM1_X0 2
-#define PWM1_Y0 127
-#define PWM1_W 320
-#define PWM1_H 80
+#define PWM1_X0 4
+#define PWM1_Y0 131
+#define PWM1_W 316
+#define PWM1_H 84
 
-#define PWM2_X0 2
-#define PWM2_Y0 207
-#define PWM2_W 320
-#define PWM2_H 135
+#define PWM2_X0 4
+#define PWM2_Y0 215
+#define PWM2_W 316
+#define PWM2_H 131
 
-#define PWM3_X0 2
-#define PWM3_Y0 342
-#define PWM3_W 320
-#define PWM3_H 135
+#define PWM3_X0 4
+#define PWM3_Y0 346
+#define PWM3_W 316
+#define PWM3_H 131
 
 
 class PWMScreen{
@@ -40,6 +40,12 @@ class PWMScreen{
             pwm1.update();
             pwm2.update();
             pwm3.update();
+        }
+        void show(){
+            pwm0.show();
+            pwm1.show();
+            pwm2.show();
+            pwm3.show();
         }
 
 };
