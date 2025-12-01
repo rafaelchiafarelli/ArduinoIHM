@@ -14,10 +14,10 @@
 #define EDGESELECTION_HEIGHT 52
 
 
-#define DUDYCYCLE_X0 10
-#define DUDYCYCLE_Y0 60
-#define DUDYCYCLE_FONT_SIZE 2
-#define DUDYCYCLE_STATE 1
+#define DUTYCYCLE_X0 10
+#define DUTYCYCLE_Y0 60
+#define DUTYCYCLE_FONT_SIZE 2
+#define DUTYCYCLE_STATE 1
 
 #define FREQMODE_X0 75
 #define FREQMODE_Y0 5
@@ -58,7 +58,7 @@ class PWMSimplex: public Element {
         PWMSimplex(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t state, Display *tft):
                                             Element(PWM_SELECTION,tft), 
                                             edgeSelection(x+EDGESELECTION_X0,y+EDGESELECTION_Y0,w,h,EDGESELECTION_STATE,tft),
-                                            dutyCycle(x+DUDYCYCLE_X0,y+DUDYCYCLE_Y0,DUDYCYCLE_FONT_SIZE,h,DUDYCYCLE_STATE,"---%",1,tft),
+                                            dutyCycle(x+DUTYCYCLE_X0,y+DUTYCYCLE_Y0,DUTYCYCLE_FONT_SIZE,h,DUTYCYCLE_STATE,"---%",1,tft),
                                             freqMode(x+FREQMODE_X0,y+FREQMODE_Y0,FREQUENCY_FONT_SIZE,h,FREQMODE_STATE,"Mode:variavel.",1,tft),
                                             frequency(x+FREQUENCY_X0,y+FREQUENCY_Y0,FREQUENCY_FONT_SIZE,h,FREQMODE_STATE,"f:----------Hz",1,tft),
                                             status(x+STATUS_X0,y+STATUS_Y0,STATUS_FONT_SIZE,h,STATUS_STATE,"Status:Inativo",1,tft)
@@ -75,9 +75,11 @@ class PWMSimplex: public Element {
                 isShown=true;
                 //OUTER-BOX
                 tft->drawFastHLine(x,y,PWMSIMPLEX_WIDTH,TFT_ORANGE);
-                tft->drawFastHLine(x,y+PWMSIMPLEX_HEIGHT,PWMSIMPLEX_WIDTH,TFT_ORANGE);
+                
                 tft->drawFastVLine(x,y,PWMSIMPLEX_HEIGHT,TFT_ORANGE);
                 tft->drawFastVLine(x+PWMSIMPLEX_WIDTH,y,PWMSIMPLEX_HEIGHT,TFT_ORANGE);
+                tft->fillRect(x,y+PWMSIMPLEX_HEIGHT-4,316,7,TFT_ORANGE);
+                tft->drawFastHLine(x,y+PWMSIMPLEX_HEIGHT,PWMSIMPLEX_WIDTH,TFT_ORANGE);
                 //FIRST SECCION
                 tft->drawFastVLine(x+FIRST_SECCION_WIDTH,y,PWMSIMPLEX_HEIGHT,TFT_ORANGE);
                 tft->drawFastHLine(x,y+FIRST_SECCION_ICON_HEIGHT,FIRST_SECCION_WIDTH,TFT_ORANGE);
