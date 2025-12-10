@@ -135,7 +135,7 @@ public:
     }
 
     ~LED(){}
-    Element setLabel(char* lbl) override {
+    Element setLabel(const char* lbl) override {
         strncpy(label,lbl,LABEL_STRING_SIZE);
         return *this;
     }

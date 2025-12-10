@@ -31,6 +31,7 @@ class PWMScreen{
         PWMSimplex pwm1;
         PWMComplex pwm2;
         PWMComplex pwm3;
+        uint8_t currSelected = 0;
     public:
         PWMScreen(Display *tft):pwm0(PWM0_X0,PWM0_Y0,PWM0_W,PWM0_H,0,tft),pwm1(PWM1_X0,PWM1_Y0,PWM1_W,PWM1_H,0,tft),pwm2(PWM2_X0,PWM2_Y0,PWM2_W,PWM2_H,0,tft),pwm3(PWM3_X0,PWM3_Y0,PWM3_W,PWM3_H,0,tft) {
 
@@ -47,5 +48,48 @@ class PWMScreen{
             pwm2.show();
             pwm3.show();
         }
+        void setNextSelected(){
+            setCurrSelected(currSelected,false);
+            if(currSelected>=3){
+                currSelected = 0;
+            } else {
+                currSelected++;
+            }
+            setCurrSelected(currSelected,true);
+        }
+        void setBeforeSelected(){
+            setCurrSelected(currSelected,false);
+            if(currSelected>0){
+                currSelected--;
+            } else {
+                currSelected=3;
+            }
+            setCurrSelected(currSelected,true);
 
+        }
+        void setCurrSelected(uint8_t s, bool v){
+
+            if(s>3){
+                return;
+            }
+            currSelected = s;
+
+            switch (s)
+            {
+            case 0:
+                pwm0.setSelected(v);
+                break;
+            case 1:
+                pwm1.setSelected(v);
+                break;
+            case 2:
+                pwm2.setSelected(v);
+                break;
+            case 3:
+                pwm3.setSelected(v);
+                break;                                            
+            default:
+                break;
+            }
+        }
 };

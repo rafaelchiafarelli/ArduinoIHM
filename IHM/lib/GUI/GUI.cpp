@@ -81,14 +81,43 @@ void GUI::setup(){
 
 void GUI::update(DIRECTION_TYPE d0,DIRECTION_TYPE d1, DIRECTION_TYPE d2, uint8_t btnMap){
     
-    tabSelector.update();
+    if(d0 == CCW){
+        tabSelector.selectBefore();
+    }
+
+    if(d0 == CW){
+        tabSelector.selectNext();
+        if(tabSelector.getCurrentSelected() == PWM_SELECTED){
+            pwmConfig.show();
+        }
+    }    
+
+    if((btnMap & 0b01000000) == 0x00){
+        tabSelector.selectCurrTab();
+    }
+
     switch (tabSelector.getCurrentSelected())
     {
     case PWM_SELECTED:
         /* code */
-        //pwmConfig.show();
+        if((btnMap&0b01000000) == 0x00){
+            pwmConfig.setCurrSelected(0,true);
+        }
+
+        if(d1 == CCW){
+            pwmConfig.show();
+            pwmConfig.setBeforeSelected();
+        }
+
+        if(d1 == CW){
+            pwmConfig.show();
+            pwmConfig.setNextSelected();
+        }
+
+        pwmConfig.update();
         break;
     case SERIAL_SELECTED:
+        
         tft->drawFastHLine(0,200,50,WHITE);
         tft->drawFastHLine(0,220,100,WHITE);
         tft->drawFastHLine(0,240,150,WHITE);
@@ -107,5 +136,5 @@ void GUI::update(DIRECTION_TYPE d0,DIRECTION_TYPE d1, DIRECTION_TYPE d2, uint8_t
     uint8_t battLevel = (btnMap&0x01)? 128: 30;
     statusBar.setBattLevel(battLevel);
     statusBar.update();
-    pwmConfig.update();
+    tabSelector.update();
 }

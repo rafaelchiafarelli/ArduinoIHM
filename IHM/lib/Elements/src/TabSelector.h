@@ -71,6 +71,24 @@ class TabSelector: public Element {
             return *this; 
         }
         SelectedOption getCurrentSelected(){return curSelectedoption;}
+
+        void selectCurrTab(){
+            switch (curSelectedoption)
+            {
+            case PWM_SELECTED:
+                /* code */
+                pwmConf.setState(6);
+                break;
+            case SERIAL_SELECTED:
+                /* code */
+                serialConf.setState(6);
+                break;
+            case OUPTUT_SELECTED:
+                multiOuputConf.setState(6);
+            default:
+                break;
+            }
+        }
         void selectNext(){
             switch (curSelectedoption)
             {
@@ -93,6 +111,35 @@ class TabSelector: public Element {
                 curSelectedoption = PWM_SELECTED;
                 pwmConf.setState(5);
                 serialConf.setState(1);
+                multiOuputConf.setState(1);
+                break;                            
+            default:
+                break;
+            }
+        }
+
+        void selectBefore(){
+            switch (curSelectedoption)
+            {
+            case PWM_SELECTED:
+                /* code */
+                curSelectedoption = OUPTUT_SELECTED;
+                pwmConf.setState(1);
+                serialConf.setState(1);
+                multiOuputConf.setState(5);
+                break;
+            case SERIAL_SELECTED:
+                /* code */
+                curSelectedoption = PWM_SELECTED;
+                pwmConf.setState(5);
+                serialConf.setState(1);
+                multiOuputConf.setState(1);
+                break;
+            case OUPTUT_SELECTED:
+                /* code */
+                curSelectedoption = SERIAL_SELECTED;
+                pwmConf.setState(1);
+                serialConf.setState(5);
                 multiOuputConf.setState(1);
                 break;                            
             default:

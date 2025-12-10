@@ -12,7 +12,7 @@ typedef enum{
 
 #define PWMCOMPLEX_HEIGHT 131
 #define PWMCOMPLEX_WIDTH 315
-
+#define PWMCOMPLEX_SELECTED_THICC 7
 #define HEADER_HEIGHT 21
 #define EDGESELECTION_COMPLEX_HEIGHT 54
 #define DUTYCYCLE_COMPLEX_HEIGHT 30
@@ -89,7 +89,7 @@ class PWMComplex: public Element {
         Label freqMode;
         Label frequency;
         uint8_t curEdgeSelected[AmountOfOutput];        
-        
+        bool isSelected = false;
         bool isShown = false;
         uint16_t w,h;
     public:
@@ -124,24 +124,29 @@ class PWMComplex: public Element {
         if(!isShown){
             isShown=true;
             //OUTER-BOX
-            tft->drawFastHLine(x,y,PWMCOMPLEX_WIDTH,TFT_ORANGE);
+            if(isSelected)
+            {
+                tft->fillRect(x,y,PWMCOMPLEX_WIDTH,PWMCOMPLEX_HEIGHT,DARK_ORANGE);
+            } else {
+                tft->fillRect(x,y,PWMCOMPLEX_WIDTH,PWMCOMPLEX_HEIGHT,BLACK);
+            }
+                tft->drawFastHLine(x,y,PWMCOMPLEX_WIDTH,TFT_ORANGE);
             
-            tft->drawFastVLine(x,y,PWMCOMPLEX_HEIGHT,TFT_ORANGE);
-            tft->drawFastVLine(x+PWMCOMPLEX_WIDTH,y,PWMCOMPLEX_HEIGHT,TFT_ORANGE);
-            tft->fillRect(x,y+PWMCOMPLEX_HEIGHT-4,316,7,TFT_ORANGE);
-            tft->drawFastHLine(x,y+PWMCOMPLEX_HEIGHT,PWMSIMPLEX_WIDTH,TFT_ORANGE);
-            //HEADER 
-            tft->drawFastHLine(x,y+HEADER_HEIGHT,PWMSIMPLEX_WIDTH,TFT_ORANGE);
-            tft->drawFastVLine(x+HEADER_DIVSORY,y,HEADER_HEIGHT,TFT_ORANGE);
+                tft->drawFastVLine(x,y,PWMCOMPLEX_HEIGHT,TFT_ORANGE);
+                tft->drawFastVLine(x+PWMCOMPLEX_WIDTH,y,PWMCOMPLEX_HEIGHT,TFT_ORANGE);
+                
+                tft->drawFastHLine(x,y+PWMCOMPLEX_HEIGHT,PWMCOMPLEX_WIDTH,TFT_ORANGE);
+                //HEADER 
+                tft->drawFastHLine(x,y+HEADER_HEIGHT,PWMCOMPLEX_WIDTH,TFT_ORANGE);
+                tft->drawFastVLine(x+HEADER_DIVSORY,y,HEADER_HEIGHT,TFT_ORANGE);
 
-            //SECCIONS
-            tft->drawFastVLine(x+SECCION_WIDTH_A,y+HEADER_HEIGHT,SECCION_COMPLEX_HEIGHT,TFT_ORANGE);
-            tft->drawFastVLine(x+SECCION_WIDTH_B,y+HEADER_HEIGHT,SECCION_COMPLEX_HEIGHT,TFT_ORANGE);
-            tft->drawFastVLine(x+SECCION_WIDTH_C,y+HEADER_HEIGHT,SECCION_COMPLEX_HEIGHT,TFT_ORANGE);
+                //SECCIONS
+                tft->drawFastVLine(x+SECCION_WIDTH_A,y+HEADER_HEIGHT,SECCION_COMPLEX_HEIGHT,TFT_ORANGE);
+                tft->drawFastVLine(x+SECCION_WIDTH_B,y+HEADER_HEIGHT,SECCION_COMPLEX_HEIGHT,TFT_ORANGE);
+                tft->drawFastVLine(x+SECCION_WIDTH_C,y+HEADER_HEIGHT,SECCION_COMPLEX_HEIGHT,TFT_ORANGE);
 
-            tft->drawFastHLine(x,y+DUTYCYCLE_DIVISORY_Y,DUTYCYCLE_DIVISORY_WIDTH,TFT_ORANGE);
-            tft->drawFastHLine(x,y+STATUS_DIVISORY_Y,STATUS_DIVISORY_WIDTH,TFT_ORANGE);
-
+                tft->drawFastHLine(x,y+DUTYCYCLE_DIVISORY_Y,DUTYCYCLE_DIVISORY_WIDTH,TFT_ORANGE);
+                tft->drawFastHLine(x,y+STATUS_DIVISORY_Y,STATUS_DIVISORY_WIDTH,TFT_ORANGE);
 
             
             for(int i =0 ; i<AmountOfOutput;i++){
@@ -168,4 +173,7 @@ class PWMComplex: public Element {
         freqMode.setLabel("M:variavel");
         frequency.setLabel("F:---------Hz");        
     }
+        void setSelected(bool isSelected){
+            this->isSelected = isSelected;
+        }    
 };

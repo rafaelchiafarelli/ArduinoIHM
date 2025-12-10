@@ -90,7 +90,14 @@ private:
                     tft->println(label);
                 }
             }            
-            break;               
+            break;   
+        case 6:
+            /* turned on */
+            tft->fillRect(x, y, wide(), large(), WHITE);
+            tft->setTextColor(BLACK);
+            tft->println(label);
+            isShown = true;
+            break;                        
         default:
             break;
         }
@@ -109,7 +116,7 @@ public:
 
     ~Label(){}
     
-    Element setLabel(char* lbl) override {
+    Element setLabel(const char* lbl) override {
         strncpy(label, lbl,LABEL_STRING_SIZE);
         isShown = false; //force redraw
         return *this;

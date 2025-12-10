@@ -68,7 +68,7 @@ public:
     char* getLabel(){ return label; }
     int getLocation(){ return location; }
 
-    virtual Element setLabel(char* label){ return *this; }
+    virtual Element setLabel(const char* label){ return *this; }
     virtual Element setLocation(int location){ return *this; }
     virtual Element setPosition(int x, int y){ return *this; }
     virtual Element setSize(int width, int height){ return *this; }    

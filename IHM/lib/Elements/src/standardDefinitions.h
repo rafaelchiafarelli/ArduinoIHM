@@ -27,4 +27,5 @@
 #define YELLOW  0xFFE0
 #define WHITE   0xFFFF
 
+#define DARK_ORANGE 0x7DE0
 #endif // _STANDARD_DEFINITIONS_H_

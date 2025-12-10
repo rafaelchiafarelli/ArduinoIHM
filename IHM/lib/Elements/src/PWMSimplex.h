@@ -6,7 +6,7 @@
 
 #define PWMSIMPLEX_HEIGHT 84
 #define PWMSIMPLEX_WIDTH 315
-
+#define PWMSIMPLEX_SELECTED_THICC 7
 
 #define EDGESELECTION_X0 2
 #define EDGESELECTION_Y0 2
@@ -51,6 +51,7 @@ class PWMSimplex: public Element {
         Label status;
         
         bool isShown = false;
+        bool isSelected = false;
 
         uint8_t currEdgeSelected = 0;
         uint16_t w,h;
@@ -74,20 +75,27 @@ class PWMSimplex: public Element {
             if(!isShown){
                 isShown=true;
                 //OUTER-BOX
-                tft->drawFastHLine(x,y,PWMSIMPLEX_WIDTH,TFT_ORANGE);
-                
-                tft->drawFastVLine(x,y,PWMSIMPLEX_HEIGHT,TFT_ORANGE);
-                tft->drawFastVLine(x+PWMSIMPLEX_WIDTH,y,PWMSIMPLEX_HEIGHT,TFT_ORANGE);
-                tft->fillRect(x,y+PWMSIMPLEX_HEIGHT-4,316,7,TFT_ORANGE);
-                tft->drawFastHLine(x,y+PWMSIMPLEX_HEIGHT,PWMSIMPLEX_WIDTH,TFT_ORANGE);
-                //FIRST SECCION
-                tft->drawFastVLine(x+FIRST_SECCION_WIDTH,y,PWMSIMPLEX_HEIGHT,TFT_ORANGE);
-                tft->drawFastHLine(x,y+FIRST_SECCION_ICON_HEIGHT,FIRST_SECCION_WIDTH,TFT_ORANGE);
-                
-                //SECOND SECCION DIVISIONS
-                tft->drawFastHLine(x+FIRST_SECCION_WIDTH,y+SECOND_SESSION_FIRSTH_THIRD,SECOND_SESSION_WIDTH,TFT_ORANGE);
-                
-                tft->drawFastHLine(x+FIRST_SECCION_WIDTH,y+SECOND_SESSION_SECOND_THIRD,SECOND_SESSION_WIDTH,TFT_ORANGE);
+                if(isSelected){
+                    tft->fillRect(x,y,PWMSIMPLEX_WIDTH,PWMSIMPLEX_HEIGHT,DARK_ORANGE);
+                } else {
+                    tft->fillRect(x,y,PWMSIMPLEX_WIDTH,PWMSIMPLEX_HEIGHT,BLACK);
+                }
+                    tft->drawFastHLine(x,y,PWMSIMPLEX_WIDTH,TFT_ORANGE);
+                    
+                    tft->drawFastVLine(x,y,PWMSIMPLEX_HEIGHT,TFT_ORANGE);
+                    tft->drawFastVLine(x+PWMSIMPLEX_WIDTH,y,PWMSIMPLEX_HEIGHT,TFT_ORANGE);
+                    
+                    tft->drawFastHLine(x,y+PWMSIMPLEX_HEIGHT,PWMSIMPLEX_WIDTH,TFT_ORANGE);
+                    //FIRST SECCION
+                    tft->drawFastVLine(x+FIRST_SECCION_WIDTH,y,PWMSIMPLEX_HEIGHT,TFT_ORANGE);
+                    tft->drawFastHLine(x,y+FIRST_SECCION_ICON_HEIGHT,FIRST_SECCION_WIDTH,TFT_ORANGE);
+                    
+                    //SECOND SECCION DIVISIONS
+                    tft->drawFastHLine(x+FIRST_SECCION_WIDTH,y+SECOND_SESSION_FIRSTH_THIRD,SECOND_SESSION_WIDTH,TFT_ORANGE);
+                    
+                    tft->drawFastHLine(x+FIRST_SECCION_WIDTH,y+SECOND_SESSION_SECOND_THIRD,SECOND_SESSION_WIDTH,TFT_ORANGE);
+
+                                
 
                 edgeSelection.update();
                 dutyCycle.update();
@@ -106,5 +114,8 @@ class PWMSimplex: public Element {
             frequency.setLabel("f:----------Hz");
             status.setLabel("Status:Inativo");
             status.setState(5);
+        }
+        void setSelected(bool isSelected){
+            this->isSelected = isSelected;
         }
 };

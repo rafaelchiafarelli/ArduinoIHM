@@ -37,7 +37,7 @@ uint16_t voltage1 = 0;
 Display tft; // Instantiate the display object
 GUI gui = GUI(&tft);
 uint16_t receivedRawData[10];
-
+PWM pwm;
 BinaryInputs userInputs;
 uint16_t bMap = 0;
 RotaryEncoder rotaryEncoders(&userInputs);
@@ -71,7 +71,7 @@ ISR(TIMER2_COMPA_vect){ /*256us handler*/
     //should we stop the timer interrupt?
     //multiOuput.fast_handler();
     bMap = userInputs.fast_handler();
-    rotaryEncoders.ms_handler(bMap);
+    
     counterT0++;
     if (counterT0 >= TEN_MS_T0_TICKS) { //~1ms elapsed
         counterT0 = 0;
@@ -80,6 +80,7 @@ ISR(TIMER2_COMPA_vect){ /*256us handler*/
         // module1.ten_ms_handler();
         // module2.ten_ms_handler();
         //userInputs.slow_handler();
+        
     }
     counterT1++;
     if (counterT1 >= TWENTY_FIVE_MS_T0_TICKS) { //~10ms elapsed
@@ -90,6 +91,7 @@ ISR(TIMER2_COMPA_vect){ /*256us handler*/
         // module1.ten_ms_handler();
         // module2.ten_ms_handler();
         newDataAvailable = comms.fast_handler(receivedRawData,10);
+        rotaryEncoders.ms_handler(bMap);
     }
     timeStatistics += TCNT2;
     timeCounter+=1;
