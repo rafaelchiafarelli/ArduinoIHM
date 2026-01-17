@@ -1,0 +1,4 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "ElectricalProject")(type "KiCad")(uri "C:/Users/rafae/workspace/ArduinoIHM/ElectricalProject.pretty")(options "")(descr ""))
+)

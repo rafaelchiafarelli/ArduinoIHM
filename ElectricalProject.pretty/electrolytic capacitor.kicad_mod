@@ -1,0 +1,115 @@
+(footprint "electrolytic capacitor"
+	(version 20241229)
+	(generator "pcbnew")
+	(generator_version "9.0")
+	(layer "F.Cu")
+	(property "Reference" "REF**"
+		(at 0 -4.545 0)
+		(layer "F.SilkS")
+		(uuid "c9fac1cb-8528-4da9-bb86-e252ed77ace2")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "Cap"
+		(at 0 4.545 0)
+		(layer "F.Fab")
+		(uuid "97997c78-acf5-4606-b6ae-3ccd3b65a111")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "049e07d3-4971-483b-ab7c-7fc854bd9ea4")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "d9e37932-8316-4801-a695-ea4570caaff2")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(fp_circle
+		(center 0 0)
+		(end 0 3.62)
+		(stroke
+			(width 0.12)
+			(type default)
+		)
+		(fill no)
+		(layer "F.SilkS")
+		(uuid "fb4a1969-ae88-4dec-adee-55b7ee6ef3ad")
+	)
+	(fp_circle
+		(center 0 0)
+		(end 0 3.87)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+		(uuid "ec142841-23a5-463f-a565-5d22c7460004")
+	)
+	(fp_circle
+		(center 0 0)
+		(end 0 3.5)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(fill no)
+		(layer "F.Fab")
+		(uuid "cc117e15-451d-4da0-b1ba-27ff699b04fb")
+	)
+	(fp_text user "${REFERENCE}"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(uuid "ca333a0c-75a5-45b6-b85a-34df12f610b0")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(pad "1" thru_hole rect
+		(at 0 -2.5)
+		(size 1.5 1.5)
+		(drill 0.8)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(thermal_bridge_angle 45)
+		(uuid "a4257d0b-ef25-433d-b740-9157888cae22")
+	)
+	(pad "2" thru_hole oval
+		(at 0 2.5)
+		(size 1.5 1.5)
+		(drill 0.8)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(thermal_bridge_angle 45)
+		(uuid "e7f11cd2-bc8c-4cb4-950d-668b484dbf41")
+	)
+	(embedded_fonts no)
+)
