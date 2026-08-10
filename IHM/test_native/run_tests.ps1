@@ -73,7 +73,9 @@ if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
 # registers directly so it can't compile for a host target at all. Each
 # feature branch adds its own natively-testable dir(s) here as needed.
 $libAllowlist = @(
-    "lib/StateMachine/src"
+    "lib/StateMachine/src",
+    "lib/HAL/src",
+    "lib/MultiOutput/src"
 )
 $includeDirs = @($root) + ($libAllowlist | ForEach-Object { Join-Path $repoRoot $_ })
 foreach ($dir in $includeDirs) {
@@ -82,12 +84,29 @@ foreach ($dir in $includeDirs) {
         exit 1
     }
 }
+
+# --- Production .cpp files that are hardware-independent (no avr/*.h) and
+# so can be compiled and linked into the native test binary directly. Also
+# an explicit allowlist, for the same reason as $libAllowlist above -- most
+# production .cpp files in this repo touch AVR registers directly and simply
+# will not compile for a host target.
+$prodSourceAllowlist = @(
+    "lib/MultiOutput/src/PWMTiming.cpp",
+    "lib/MultiOutput/src/PWMConfig.cpp"
+)
+$prodSources = $prodSourceAllowlist | ForEach-Object { Join-Path $repoRoot $_ }
+foreach ($src in $prodSources) {
+    if (-not (Test-Path $src)) {
+        Write-Error "Configured production source does not exist: $src"
+        exit 1
+    }
+}
 $includeFlags = $includeDirs | ForEach-Object { "/I`"$_`"" }
 
-# --- Gather sources: main.cpp + every test_*.cpp ----------------------------
-$sources = @(Join-Path $root "main.cpp")
+# --- Gather sources: main.cpp + every test_*.cpp + the allowlisted prod .cpp's
+$sources = @(Join-Path $root "main.cpp") + $prodSources
 $sources += Get-ChildItem -Path $root -Filter "test_*.cpp" | Select-Object -ExpandProperty FullName
-if ($sources.Count -le 1) {
+if ($sources.Count -le (1 + $prodSources.Count)) {
     Write-Warning "No test_*.cpp files found in $root -- nothing to run."
 }
 
