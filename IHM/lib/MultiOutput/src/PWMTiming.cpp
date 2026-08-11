@@ -12,7 +12,7 @@ PWMTimingBits pwmTimingFor(PWMFrequency f) {
             return {0b01, 0b01, 0b001, false};  // mode 5 (8-bit), no prescaling
         case frequency_31_250HZ:
             return {0b10, 0b01, 0b001, false};  // mode 6 (9-bit), no prescaling
-        case frequency_16_625HZ:
+        case frequency_15_625HZ:
             return {0b11, 0b01, 0b001, false};  // mode 7 (10-bit), no prescaling
 
         case frequency_7812_5HZ:
@@ -49,4 +49,17 @@ uint8_t pwmCompareOutputBits(bool enabled, bool inverting) {
         return 0b00;
     }
     return inverting ? 0b11 : 0b10;
+}
+
+uint16_t pwmResolutionTop(PWMFrequency f, uint16_t variableTop) {
+    PWMTimingBits t = pwmTimingFor(f);
+    if (t.usesInputCaptureAsTop) {
+        return variableTop;
+    }
+    switch (t.wgmA) {
+        case 0b01: return 255;    // 8-bit
+        case 0b10: return 511;    // 9-bit
+        case 0b11: return 1023;   // 10-bit
+        default: return 0;
+    }
 }

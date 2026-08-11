@@ -12,7 +12,7 @@
 typedef enum{
     frequency_62_500HZ,
     frequency_31_250HZ,
-    frequency_16_625HZ,
+    frequency_15_625HZ,
     frequency_7812_5HZ,
     frequency_3906_25HZ,
     frequency_1953_125HZ,
@@ -23,7 +23,8 @@ typedef enum{
     frequency_61_03515625HZ,
     frequency_30_517578125HZ,
     frequency_15_2587890625HZ,
-    frequency_variable
+    frequency_variable,
+    NUMBER_OF_PWM_FREQUENCIES
 
 }PWMFrequency;
 
@@ -61,3 +62,12 @@ PWMTimingBits pwmTimingFor(PWMFrequency f);
  * the bug this function replaces.
  */
 uint8_t pwmCompareOutputBits(bool enabled, bool inverting);
+
+/**
+ * Returns the compare-register TOP (maximum count, i.e. the value
+ * corresponding to 100% duty cycle) for a PWMFrequency's resolution:
+ * 255 (8-bit), 511 (9-bit), 1023 (10-bit), or `variableTop` itself when
+ * f == frequency_variable (TOP = ICRn, chosen by the caller/user). Used to
+ * scale a UI-facing duty-cycle percentage into the correct raw OCRnX value.
+ */
+uint16_t pwmResolutionTop(PWMFrequency f, uint16_t variableTop);

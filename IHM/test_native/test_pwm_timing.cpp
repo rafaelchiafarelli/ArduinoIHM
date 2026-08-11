@@ -28,7 +28,7 @@ TEST(PWMTiming, F31250_9bit_NoPrescale) {
     expectTiming(frequency_31_250HZ, 0b10, 0b01, 0b001, false);
 }
 TEST(PWMTiming, F16625_10bit_NoPrescale) {
-    expectTiming(frequency_16_625HZ, 0b11, 0b01, 0b001, false);
+    expectTiming(frequency_15_625HZ, 0b11, 0b01, 0b001, false);
 }
 
 // -- /8 prescaling (CS = 0b010) --------------------------------------------
@@ -82,6 +82,30 @@ TEST(PWMCompareOutputBits, EnabledNonInvertingIsClearOnCompareSetAtBottom) {
 
 TEST(PWMCompareOutputBits, EnabledInvertingIsSetOnCompareClearAtBottom) {
     CHECK_EQ(pwmCompareOutputBits(true, true), (uint8_t)0b11);
+}
+
+// -- pwmResolutionTop: every resolution family ------------------------------
+
+TEST(PWMResolutionTop, EightBitModeReturns255) {
+    CHECK_EQ(pwmResolutionTop(frequency_62_500HZ, 9999), (uint16_t)255);
+    CHECK_EQ(pwmResolutionTop(frequency_7812_5HZ, 9999), (uint16_t)255);
+    CHECK_EQ(pwmResolutionTop(frequency_976_5625HZ, 9999), (uint16_t)255);
+}
+
+TEST(PWMResolutionTop, NineBitModeReturns511) {
+    CHECK_EQ(pwmResolutionTop(frequency_31_250HZ, 9999), (uint16_t)511);
+    CHECK_EQ(pwmResolutionTop(frequency_122_0703125HZ, 9999), (uint16_t)511);
+}
+
+TEST(PWMResolutionTop, TenBitModeReturns1023) {
+    CHECK_EQ(pwmResolutionTop(frequency_15_625HZ, 9999), (uint16_t)1023);
+    CHECK_EQ(pwmResolutionTop(frequency_15_2587890625HZ, 9999), (uint16_t)1023);
+}
+
+TEST(PWMResolutionTop, VariableModeReturnsTheGivenTopUnchanged) {
+    CHECK_EQ(pwmResolutionTop(frequency_variable, 12345), (uint16_t)12345);
+    CHECK_EQ(pwmResolutionTop(frequency_variable, 1), (uint16_t)1);
+    CHECK_EQ(pwmResolutionTop(frequency_variable, 65535), (uint16_t)65535);
 }
 
 TEST(PWMCompareOutputBits, NeverReturnsTheReservedZeroOneCombination) {

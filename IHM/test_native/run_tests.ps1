@@ -92,7 +92,9 @@ foreach ($dir in $includeDirs) {
 # will not compile for a host target.
 $prodSourceAllowlist = @(
     "lib/MultiOutput/src/PWMTiming.cpp",
-    "lib/MultiOutput/src/PWMConfig.cpp"
+    "lib/MultiOutput/src/PWMConfig.cpp",
+    "lib/MultiOutput/src/PWMChannelConfig.cpp",
+    "lib/MultiOutput/src/PWMLabelFormat.cpp"
 )
 $prodSources = $prodSourceAllowlist | ForEach-Object { Join-Path $repoRoot $_ }
 foreach ($src in $prodSources) {

@@ -76,7 +76,7 @@ TEST(ApplySimplexPWMConfig, InvertingSetsBothCOMBits) {
 
 TEST(ApplySimplexPWMConfig, TenBitModeAlsoSetsCOMn1) {
     FakeSimplexRegs regs;
-    applySimplexPWMConfig(regs.handles(), frequency_16_625HZ, false, true, 0, 0);
+    applySimplexPWMConfig(regs.handles(), frequency_15_625HZ, false, true, 0, 0);
     CHECK_EQ((uint8_t)(regs.tccrA >> 6), (uint8_t)0b10);
 }
 

@@ -4,6 +4,7 @@
 #include <standardDefinitions.h>
 #include <Widgets.h>
 #include <PWMScreen.h>
+#include <PWM.h>
 #include "RotaryEncoder.h"
 
 typedef enum {
@@ -51,7 +52,7 @@ class GUI {
         void showNormalOperation(WarningType type);
         void showRegularLoop(WarningType type);
 
-        GUI(Display *tft):tft(tft), statusBar(tft),tabSelector(2,21,tft),pwmConfig(tft){
+        GUI(Display *tft, PWM *pwm):tft(tft), statusBar(tft),tabSelector(2,21,tft),pwmConfig(tft,pwm){
 
         }
         ~GUI(){}

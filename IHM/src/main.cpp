@@ -35,9 +35,9 @@ MCP4725 dac1,dac0;
 uint16_t voltage0 = 0;
 uint16_t voltage1 = 0;
 Display tft; // Instantiate the display object
-GUI gui = GUI(&tft);
-uint16_t receivedRawData[10];
 PWM pwm;
+GUI gui = GUI(&tft, &pwm);
+uint16_t receivedRawData[10];
 BinaryInputs userInputs;
 uint16_t bMap = 0;
 RotaryEncoder rotaryEncoders(&userInputs);

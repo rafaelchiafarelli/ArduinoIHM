@@ -80,9 +80,12 @@ void GUI::setup(){
 
 
 void GUI::update(DIRECTION_TYPE d0,DIRECTION_TYPE d1, DIRECTION_TYPE d2, uint8_t btnMap){
-    
+
     if(d0 == CCW){
         tabSelector.selectBefore();
+        if(tabSelector.getCurrentSelected() == PWM_SELECTED){
+            pwmConfig.show();
+        }
     }
 
     if(d0 == CW){
@@ -90,7 +93,7 @@ void GUI::update(DIRECTION_TYPE d0,DIRECTION_TYPE d1, DIRECTION_TYPE d2, uint8_t
         if(tabSelector.getCurrentSelected() == PWM_SELECTED){
             pwmConfig.show();
         }
-    }    
+    }
 
     if((btnMap & 0b01000000) == 0x00){
         tabSelector.selectCurrTab();
@@ -99,19 +102,26 @@ void GUI::update(DIRECTION_TYPE d0,DIRECTION_TYPE d1, DIRECTION_TYPE d2, uint8_t
     switch (tabSelector.getCurrentSelected())
     {
     case PWM_SELECTED:
-        /* code */
-        if((btnMap&0b01000000) == 0x00){
-            pwmConfig.setCurrSelected(0,true);
+        /**
+         * rot1 (d1/its button) drives two navigation levels so a third
+         * encoder isn't needed: its button toggles between selecting which
+         * of the 4 channels is highlighted, and editing that channel's
+         * fields. While editing, d1 moves between fields and d2 adjusts the
+         * highlighted field's value -- applied to the real timer
+         * immediately by PWMScreen (see PWMScreen.h / PWMSimplex::editField
+         * / PWMComplex::editField).
+         */
+        if((btnMap & 0b00100000) == 0x00){
+            pwmConfig.toggleEditMode();
         }
 
-        if(d1 == CCW){
-            pwmConfig.show();
-            pwmConfig.setBeforeSelected();
-        }
-
-        if(d1 == CW){
-            pwmConfig.show();
-            pwmConfig.setNextSelected();
+        if(!pwmConfig.isEditingField()){
+            if(d1 == CCW) pwmConfig.selectPreviousChannel();
+            if(d1 == CW) pwmConfig.selectNextChannel();
+        } else {
+            if(d1 == CCW) pwmConfig.selectPreviousField();
+            if(d1 == CW) pwmConfig.selectNextField();
+            if(d2 != not_supported) pwmConfig.adjustSelectedField(d2);
         }
 
         pwmConfig.update();
