@@ -75,7 +75,8 @@ if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
 $libAllowlist = @(
     "lib/StateMachine/src",
     "lib/HAL/src",
-    "lib/MultiOutput/src"
+    "lib/MultiOutput/src",
+    "lib/RotaryEncoder"
 )
 $includeDirs = @($root) + ($libAllowlist | ForEach-Object { Join-Path $repoRoot $_ })
 foreach ($dir in $includeDirs) {
@@ -94,7 +95,8 @@ $prodSourceAllowlist = @(
     "lib/MultiOutput/src/PWMTiming.cpp",
     "lib/MultiOutput/src/PWMConfig.cpp",
     "lib/MultiOutput/src/PWMChannelConfig.cpp",
-    "lib/MultiOutput/src/PWMLabelFormat.cpp"
+    "lib/MultiOutput/src/PWMLabelFormat.cpp",
+    "lib/RotaryEncoder/ButtonMap.cpp"
 )
 $prodSources = $prodSourceAllowlist | ForEach-Object { Join-Path $repoRoot $_ }
 foreach ($src in $prodSources) {

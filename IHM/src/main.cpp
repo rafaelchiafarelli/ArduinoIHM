@@ -16,6 +16,7 @@
 #include <BinaryOutputs.h>
 #include <MultiOutput.h>
 #include <RotaryEncoder.h>
+#include <ButtonMap.h>
 #include "HardwareSerial.h"
 
 #define VOLTAGE_REGULATOR_0_ADDRESS 0
@@ -23,11 +24,15 @@
 
 #define TEN_MS_T0_TICKS 10 //
 #define TWENTY_FIVE_MS_T0_TICKS 25 //
-uint8_t counterT0 = 0;
-uint8_t counterT1 = 0;
-bool newDataAvailable = false;
-uint16_t timeStatistics = 0;
-uint8_t timeCounter = 0;
+uint8_t counterT0 = 0;  // ISR-local only: never read outside TIMER2_COMPA_vect
+uint8_t counterT1 = 0;  // ISR-local only: never read outside TIMER2_COMPA_vect
+
+// Written in TIMER2_COMPA_vect, read from main() -- must be volatile so the
+// compiler neither caches a stale value across main()'s loop body nor
+// reorders these reads/writes relative to the ISR.
+volatile bool newDataAvailable = false;
+volatile uint16_t timeStatistics = 0;
+volatile uint8_t timeCounter = 0;
 
 SerialCommunication comms;
 MultiOutput multiOuput;
@@ -39,7 +44,8 @@ PWM pwm;
 GUI gui = GUI(&tft, &pwm);
 uint16_t receivedRawData[10];
 BinaryInputs userInputs;
-uint16_t bMap = 0;
+// Written in TIMER2_COMPA_vect, read from main() -- see comment above.
+volatile uint16_t bMap = 0;
 RotaryEncoder rotaryEncoders(&userInputs);
 
 void setup()
@@ -160,17 +166,7 @@ int main()
             Serial.print(", ");
         }
         
-        uint8_t btnMap = 0x80;
-        btnMap |= 0x0f & bMap;
-        //rot2btn = 14
-        uint16_t btn0 = (0b0100000000000000 & bMap)>>14; //rot2btn
-        btnMap |= ((uint8_t)btn0)<<4;
-        //rot1btn = 10
-        uint16_t btn1 = (0b0000010000000000 & bMap)>>10; //rot1btn
-        btnMap |= ((uint8_t)btn1)<<5;
-        //rot0btn = 8
-        uint16_t btn2 = (0b0000000100000000 & bMap)>>8; //rot0btn
-        btnMap |= ((uint8_t)btn2)<<6;
+        uint8_t btnMap = buildButtonMap(bMap);
 
         Serial.print("map of buttons:");
         Serial.print(btnMap,2);
