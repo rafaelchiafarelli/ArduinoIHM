@@ -1,0 +1,50 @@
+# Changelog
+
+## 2026-08-10 -- PWM subsystem: state machine, register bugs, UI wiring, input fixes
+
+Follow-up to a full-codebase review (see conversation history / PR
+descriptions for the original findings). Delivered as 5 stacked branches off
+`dev` (each branches from the previous, sharing the native test harness
+added in the first one -- review/merge in order), one independent branch,
+and a final demo branch stacked on the tip. All branches build the real AVR
+firmware (`platformio run`) and pass the full native test suite at every
+step; see `IHM/test_native/` and `IHM/demo/`.
+
+### Branch stack (merge in this order)
+
+| # | Branch | Commit | Summary |
+|---|--------|--------|---------|
+| 1 | `fix/pwm-state-machine` | `5e00764` | Fixed `PWMStateMachine.h`'s broken `#include <events.h` (unterminated, file doesn't exist) and completed the class -- it was a stub with no transition logic. Added channel selection and field-cursor cycling for both simplex and complex channel UIs. Added `test_native/`, a host-native unit test harness (MSVC-driven; no gcc on this machine, PlatformIO's native platform needs one). **15 tests.** |
+| 2 | `fix/pwm-com-bits` | `8f62ecd` | `PWM.cpp` (1109 lines, hand-duplicated across 4 channels x 14 frequencies) had the missing-`COMnX1`-bit bug in every 9/10-bit mode, a `=`-instead-of-`\|=` clobbering bug in both 3-output channels, a stray extra bit copy-pasted into two cases, a clock-select macro typo, and -- found while fixing the rest -- channel 1 configured the wrong compare register entirely (`COM5C*`/writes to `OCR5A`) and could never have produced output at all. Rewrote the register math as a small, pure, fully-tested core (`PWMTiming.h/.cpp`, `PWMConfig.cpp`) behind a zero-overhead `Reg8`/`Reg16` register-handle HAL (`lib/HAL`), reducing `PWM.cpp` itself to four one-line AVR-bound wrappers. **31 tests.** |
+| 3 | `feat/wire-pwm-screen-to-hw` | `3328d2a` | Nothing tracked "what is this PWM channel currently configured to do" anywhere in the firmware -- the UI showed static placeholder text and `PWM pwm;` was never called. Added `PWMChannelConfig`/`PWMComplexChannelConfig` (UI-editable state + pure conversion to the exact register-call arguments) and `PWMLabelFormat` (on-screen text, no float-printf). Wired `PWMSimplex`/`PWMComplex`/`PWMScreen`/`GUI.cpp` so every field edit applies live to the real timer -- no separate confirm step. Renamed `frequency_16_625HZ` to `frequency_15_625HZ` (its real output is 15625Hz) since the whole point of the new frequency label is to show the user the truth. All of this runs from the main loop via `GUI::update()`, same as before -- nothing added here runs from an ISR or blocks. **37 tests.** |
+| 4 | `fix/encoder-bitmap-volatile` | `630ec87` | Rot1's encoder/button pins were swapped: `RotaryEncoder.h` read its own push-button pin (index 11) as a quadrature signal, while `main.cpp`'s `rot1btn` extraction read what should have been that signal pin (index 10) as the button. Fixed both, extracted the button-bitmap construction into a tested pure function (`ButtonMap.h/.cpp`), and marked `bMap`/`newDataAvailable`/`timeStatistics`/`timeCounter` `volatile` (written in `TIMER2_COMPA_vect`, read from `main()`). **10 tests.** |
+| 5 | `fix/timer2-isr-cleanup` | `c2ec0c7` | `setup()` enabled all three Timer2 interrupts but only Compare-A had a handler; Compare-B/Overflow firing would vector to the reset vector, so two empty ISRs existed just to catch that. Root-caused it: only enable Compare-A, delete both empty ISRs. Also corrected two stale comments in the same block (prescaler is /128 not /256; tick period is ~1.008ms not 256us) found while verifying the fix. **2 tests.** |
+
+**94 native tests total, all passing.** AVR build verified after every
+branch (`platformio run`, `megaatmega2560` env) -- final state RAM 61.9%
+(5073/8192 B), Flash 18.8% (47840/253952 B).
+
+### Independent branch
+
+| Branch | Commit | Summary |
+|--------|--------|---------|
+| `chore/restore-kicad-pcb-placement` | `43db406` | Restores `ElectricalProject/ArduinoIHM.kicad_pcb`'s 76-footprint placement, which was uncommitted work-in-progress from around 2026-01-17 that a `git reset --hard` (run while re-basing branch 2 onto branch 1, without first stashing *unrelated* uncommitted changes) accidentally discarded mid-session. Recovered from a KiCad backup zip still on disk. Branched from `dev` directly -- unrelated to the firmware stack above. |
+
+### Demo
+
+| Branch | Commit | Summary |
+|--------|--------|---------|
+| `demo/pwm-outputs-walkthrough` | `422b0bc` | `demo/demo_pwm_walkthrough.cpp` drives the real production code (the same functions `PWMSimplex`/`PWMComplex` call on-device) against fake registers and prints the resulting register bytes for every channel x frequency x edge combination -- readable proof the fixes above do what they claim (e.g. the 9-bit inverting case now produces `TCCRxA=0xC2`, not the old `0x42`). `demo/HARDWARE_RUNBOOK.md` is the same checks for real hardware, plus an explicit note on what's still out of scope: relay/servo/motor outputs and the serial protocol were never wired into the UI and remain that way -- untouched by any of the 5 branches above. |
+
+### Known follow-ups (not done in this pass)
+
+- Relay, servo, DC/stepper-motor outputs (`lib/MultiOutput/src/Relay.*`,
+  `ServoMotor.*`, `MotorDC.*`) and the serial command protocol
+  (`lib/Comms/src/SerialCommunication.*`) are still not wired into the UI.
+- `SerialCommunication::receive()`'s unbounded `rcv_counter` growth (no
+  header found within the buffer) is unfixed -- noted in the original
+  review, out of scope for this pass.
+- The demo's `PWMSimplex`/`PWMComplex`/`GUI.cpp` glue is verified by the AVR
+  build and by inspection, not by native unit tests -- it's Display-coupled
+  and mocking the display stack was judged out of proportion to this fix
+  (same reasoning applied to `PWM.cpp`'s thin AVR wrappers in branch 2).
