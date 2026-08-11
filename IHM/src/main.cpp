@@ -18,6 +18,7 @@
 #include <RotaryEncoder.h>
 #include <ButtonMap.h>
 #include "HardwareSerial.h"
+#include "Timer2Config.h"
 
 #define VOLTAGE_REGULATOR_0_ADDRESS 0
 #define VOLTAGE_REGULATOR_1_ADDRESS 1
@@ -58,38 +59,39 @@ void setup()
     // setting system timer
     GTCCR = 0B10000000;
     TCCR2A = 0;
-    TCCR2A |= (1 << WGM21) | (1 << WGM20); // Fast PWM Mode 
+    TCCR2A |= (1 << WGM21) | (1 << WGM20); // Fast PWM Mode
     TCCR2B = 0;
-    //TCCR2B |= (1 << CS22);   // Prescaler 256, WGM22 bit cleared (Fast PWM Mode)
-    TCCR2B |= (1 << WGM22) | (1 << CS22) | (1 << CS20);   // Prescaler 256, WGM22 bit SET (Fast PWM Mode with adjustable frequency)
-    OCR2A = 125;                          // Compare value for 256us at 16MHz with prescaler 256
+    TCCR2B |= (1 << WGM22) | (1 << CS22) | (1 << CS20);   // Prescaler 128, WGM22 bit SET (Fast PWM Mode with adjustable frequency)
+    OCR2A = 125;                          // Compare value for ~1.008ms at 16MHz with prescaler 128 ((125+1) * 128 / 16MHz)
     TIMSK2 = 0;
-    TCNT2 = 0;                           // Initialize counter value to 0   
-    TIMSK2 |= (1 << OCIE2A) | (1 << OCIE2B) | (1 << TOIE2); // Enable Compare A, Compare B and Overflow interrupts
+    TCNT2 = 0;                           // Initialize counter value to 0
+    // Only Compare-A is enabled: it's the only vector with a handler below.
+    // Compare-B/Overflow are deliberately left disabled (see Timer2Config.h).
+    TIMSK2 |= timer2InterruptMask();
 
     sei();
     gui.setup();
     multiOuput.setup();
-   
+
 }
 
-ISR(TIMER2_COMPA_vect){ /*256us handler*/
+ISR(TIMER2_COMPA_vect){ /*~1.008ms system tick*/
     //should we stop the timer interrupt?
     //multiOuput.fast_handler();
     bMap = userInputs.fast_handler();
-    
+
     counterT0++;
-    if (counterT0 >= TEN_MS_T0_TICKS) { //~1ms elapsed
+    if (counterT0 >= TEN_MS_T0_TICKS) { //~10ms elapsed
         counterT0 = 0;
         // Call the handler functions of various modules every 1ms
         // Example:
         // module1.ten_ms_handler();
         // module2.ten_ms_handler();
         //userInputs.slow_handler();
-        
+
     }
     counterT1++;
-    if (counterT1 >= TWENTY_FIVE_MS_T0_TICKS) { //~10ms elapsed
+    if (counterT1 >= TWENTY_FIVE_MS_T0_TICKS) { //~25ms elapsed
         counterT1 = 0;
         multiOuput.slow_handler();
         // Call the handler functions of various modules every 10ms
@@ -102,19 +104,6 @@ ISR(TIMER2_COMPA_vect){ /*256us handler*/
     timeStatistics += TCNT2;
     timeCounter+=1;
     //TCNT2 = 0; //reset the T0 timer to the next interrupt point taking into account the drift;
-}
-
-//TODO: find out why I need to put this ISR´s here.
-ISR(TIMER2_COMPB_vect){
-/**
- * must be defined here otherwise the system looses itself.
- */
-}
-
-ISR(TIMER2_OVF_vect){
-/**
- * must be defined here otherwise the system looses itself.
- */
 }
 
 ISR(TIMER1_COMPA_vect){

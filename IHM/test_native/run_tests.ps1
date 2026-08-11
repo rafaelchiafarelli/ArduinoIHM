@@ -76,7 +76,8 @@ $libAllowlist = @(
     "lib/StateMachine/src",
     "lib/HAL/src",
     "lib/MultiOutput/src",
-    "lib/RotaryEncoder"
+    "lib/RotaryEncoder",
+    "src"
 )
 $includeDirs = @($root) + ($libAllowlist | ForEach-Object { Join-Path $repoRoot $_ })
 foreach ($dir in $includeDirs) {
@@ -96,7 +97,8 @@ $prodSourceAllowlist = @(
     "lib/MultiOutput/src/PWMConfig.cpp",
     "lib/MultiOutput/src/PWMChannelConfig.cpp",
     "lib/MultiOutput/src/PWMLabelFormat.cpp",
-    "lib/RotaryEncoder/ButtonMap.cpp"
+    "lib/RotaryEncoder/ButtonMap.cpp",
+    "src/Timer2Config.cpp"
 )
 $prodSources = $prodSourceAllowlist | ForEach-Object { Join-Path $repoRoot $_ }
 foreach ($src in $prodSources) {
