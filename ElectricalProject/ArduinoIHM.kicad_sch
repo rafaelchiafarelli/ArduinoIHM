@@ -10403,7 +10403,7 @@
 			)
 		)
 	)
-	(global_label "D49"
+	(global_label "D40"
 		(shape bidirectional)
 		(at 77.47 52.07 0)
 		(fields_autoplaced yes)
@@ -10733,7 +10733,7 @@
 			)
 		)
 	)
-	(global_label "D43"
+	(global_label "D33"
 		(shape bidirectional)
 		(at 24.13 80.01 180)
 		(fields_autoplaced yes)
@@ -10777,7 +10777,7 @@
 			)
 		)
 	)
-	(global_label "D36"
+	(global_label "D48"
 		(shape bidirectional)
 		(at 220.98 120.65 180)
 		(fields_autoplaced yes)
@@ -10821,7 +10821,7 @@
 			)
 		)
 	)
-	(global_label "D47"
+	(global_label "D39"
 		(shape bidirectional)
 		(at 25.4 57.15 180)
 		(fields_autoplaced yes)
@@ -11129,7 +11129,7 @@
 			)
 		)
 	)
-	(global_label "D10"
+	(global_label "D9"
 		(shape bidirectional)
 		(at 240.03 53.34 180)
 		(fields_autoplaced yes)
@@ -11141,7 +11141,7 @@
 		)
 		(uuid "4138951c-d135-4fb1-a88e-f6feee9d4bc6")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 232.2445 53.34 0)
+			(at 233.454 53.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11437,7 +11437,7 @@
 			)
 		)
 	)
-	(global_label "D9"
+	(global_label "D41"
 		(shape bidirectional)
 		(at 238.76 101.6 180)
 		(fields_autoplaced yes)
@@ -11449,7 +11449,7 @@
 		)
 		(uuid "4d3153da-c2bd-410d-8364-3b3a556d4d0c")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 232.184 101.6 0)
+			(at 230.9745 101.6 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11481,7 +11481,7 @@
 			)
 		)
 	)
-	(global_label "D37"
+	(global_label "D49"
 		(shape bidirectional)
 		(at 220.98 118.11 180)
 		(fields_autoplaced yes)
@@ -11701,7 +11701,7 @@
 			)
 		)
 	)
-	(global_label "D39"
+	(global_label "D36"
 		(shape bidirectional)
 		(at 24.13 33.02 180)
 		(fields_autoplaced yes)
@@ -11767,7 +11767,7 @@
 			)
 		)
 	)
-	(global_label "D48"
+	(global_label "D38"
 		(shape bidirectional)
 		(at 25.4 52.07 180)
 		(fields_autoplaced yes)
@@ -12625,7 +12625,7 @@
 			)
 		)
 	)
-	(global_label "D32"
+	(global_label "D44"
 		(shape bidirectional)
 		(at 220.98 130.81 180)
 		(fields_autoplaced yes)
@@ -12911,7 +12911,7 @@
 			)
 		)
 	)
-	(global_label "D41"
+	(global_label "D37"
 		(shape bidirectional)
 		(at 74.93 27.94 0)
 		(fields_autoplaced yes)
@@ -13307,7 +13307,7 @@
 			)
 		)
 	)
-	(global_label "D31"
+	(global_label "D43"
 		(shape bidirectional)
 		(at 220.98 133.35 180)
 		(fields_autoplaced yes)
@@ -13483,7 +13483,7 @@
 			)
 		)
 	)
-	(global_label "D38"
+	(global_label "D31"
 		(shape input)
 		(at 138.43 147.32 0)
 		(fields_autoplaced yes)
@@ -13725,7 +13725,7 @@
 			)
 		)
 	)
-	(global_label "D30"
+	(global_label "D42"
 		(shape bidirectional)
 		(at 220.98 135.89 180)
 		(fields_autoplaced yes)
@@ -13791,7 +13791,7 @@
 			)
 		)
 	)
-	(global_label "D40"
+	(global_label "D35"
 		(shape bidirectional)
 		(at 24.13 27.94 180)
 		(fields_autoplaced yes)
@@ -14253,7 +14253,7 @@
 			)
 		)
 	)
-	(global_label "D45"
+	(global_label "D30"
 		(shape bidirectional)
 		(at 77.47 80.01 0)
 		(fields_autoplaced yes)
@@ -14407,7 +14407,7 @@
 			)
 		)
 	)
-	(global_label "D34"
+	(global_label "D46"
 		(shape bidirectional)
 		(at 220.98 125.73 180)
 		(fields_autoplaced yes)
@@ -14561,7 +14561,7 @@
 			)
 		)
 	)
-	(global_label "D33"
+	(global_label "D45"
 		(shape bidirectional)
 		(at 220.98 128.27 180)
 		(fields_autoplaced yes)
@@ -14715,7 +14715,7 @@
 			)
 		)
 	)
-	(global_label "D35"
+	(global_label "D47"
 		(shape bidirectional)
 		(at 220.98 123.19 180)
 		(fields_autoplaced yes)
@@ -15023,7 +15023,7 @@
 			)
 		)
 	)
-	(global_label "D44"
+	(global_label "D32"
 		(shape bidirectional)
 		(at 24.13 85.09 180)
 		(fields_autoplaced yes)
@@ -15067,7 +15067,7 @@
 			)
 		)
 	)
-	(global_label "D9"
+	(global_label "D41"
 		(shape bidirectional)
 		(at 238.76 147.32 180)
 		(fields_autoplaced yes)
@@ -15079,7 +15079,7 @@
 		)
 		(uuid "eda9a98b-6f9f-4ef3-8386-198be072b945")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 232.184 147.32 0)
+			(at 230.9745 147.32 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -15309,7 +15309,7 @@
 			)
 		)
 	)
-	(global_label "D9"
+	(global_label "D41"
 		(shape bidirectional)
 		(at 240.03 55.88 180)
 		(fields_autoplaced yes)
@@ -15321,7 +15321,7 @@
 		)
 		(uuid "fc1243eb-1d60-4767-809b-f7c3db2e3d24")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 233.454 55.88 0)
+			(at 232.2445 55.88 0)
 			(effects
 				(font
 					(size 1.27 1.27)
