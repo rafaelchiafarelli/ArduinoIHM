@@ -19628,7 +19628,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "Conn_01x10"
+		(property "Value" "relays"
 			(at 271.526 53.848 0)
 			(effects
 				(font

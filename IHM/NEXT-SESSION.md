@@ -30,32 +30,90 @@ everything above is pushed.
 
 **Worth knowing before continuing:** wiring just Relay's 8 rows took RAM
 from 61.9% to 75.0% (+1071 B). There's 25% headroom (2048 B) left, but
-servo (10 engines) and motor (2 motors + stepper mode) screens will eat
-into that further -- check the RAM number after each one, don't assume
-there's room for both.
+servo (8 channels, per the updated hardware model below, not 10) and
+motor screens will eat into that further -- check the RAM number after
+each one, don't assume there's room for both.
+
+**2026-08-12 session:** no code changes. Two things happened: (1) a full
+documentation pass -- `IHM/ARCHITECTURE.md`, a `README.md` in every
+`lib/*` module and `src/`, and `IHM/docs/architecture.drawio` -- covering
+the whole codebase's module map, scheduling model, and known gaps. (2)
+While investigating a suspected Timer4 register conflict for item 1 below,
+cross-checking against the user's `IOs IHM.xlsx` and the KiCad schematic
+uncovered that `Relay`/`ServoMotor`/`MotorDC` don't drive independent GPIO
+pins at all -- they share an addressed 8-bit bus behind three `74LS373`
+latches. This is a bigger, more foundational finding than the Timer4
+question it started as; see item 0 below for the full protocol. **Also
+worth checking:** since `BinaryOutputs::SetOutput()` doesn't implement
+this bus protocol, `Relay`'s existing UI wiring (done 2026-08-11, believed
+complete) may not actually drive real hardware correctly -- verify against
+a real board before trusting it.
 
 ## Immediate next steps (pick up here)
 
-1. **Servo motor UI wiring** -- `ServoMotor.cpp` writes directly to `OCR4A`
-   (Timer4) in `timer_handler()`, but nothing configures Timer4's
-   mode/prescaler/interrupt or calls `timer_handler()` from an ISR yet.
-   Also has a real bug: one `load()` overload clamps against `MIN_POSITION`
-   where it should clamp against `MAX_POSITION` (the array overload right
-   above it does it correctly) -- fix while wiring, same as PWM's "found
-   while fixing the rest" bugs.
-2. **DC/stepper motor UI wiring** -- `MotorDC.h`'s `setMotorA`/`setMotorB`
-   have `analogWrite(...)` commented out ("uncomment when using with
-   Arduino") -- speed control was never ported to this codebase's
-   direct-register style, unlike `PWM.cpp`. The stepper mode
-   (`fast_handler()`) is fully written but never called from anywhere.
-   `MotorDC.cpp` is a 0-byte empty file -- this one needs writing, not just
-   wiring.
+0. **Write the multiplexed-output-bus driver -- blocks items 1 and 2, do
+   this first.** Superseded 2026-08-12: an earlier version of this item
+   described a "Timer4 conflict" between PWM channel 3 and `ServoMotor`.
+   That framing was based on a wrong hardware model (that `Relay`/
+   `ServoMotor`/`MotorDC` each drive independent GPIO pins via
+   `BinaryOutputs`). Checked directly against the user's `IOs IHM.xlsx`
+   (`v0` sheet, current/authoritative) and confirmed with the user: **the
+   real hardware is nothing like that.**
 
-Both are real multi-session efforts, same shape as the Relay work just
-done but each with its own hardware quirks -- don't assume either is
-quick. Check the pin-index gotcha in "Known follow-ups" below (motor 8-13
-vs servo 8-17 overlap) before wiring either one to the UI -- unlike Relay,
-those two *do* share physical pins today, and this hasn't been resolved.
+   `Relay`, `ServoMotor`, and `MotorDC` share one 8-bit data bus (`O0-O7`,
+   AVR pins `PC2/PC1/PC0/PD7/PG2/PG1/PG0/PL7`) feeding three separate
+   `74LS373` latches, one per device, each selected by its own strobe
+   line: `dig_0` (`O10`/`PH6`) = Servo, `dig_1` (`O14`/`PG5`) = Relay,
+   `dig_2` (`O15`/`PF4`) = Motor. `OUTPUT_EN` (`O11`/`PB4`) is shared
+   tri-state control across all three latches, not part of the write
+   sequence. A `74LS373` is a *transparent* latch (not edge-triggered):
+   outputs follow the inputs continuously while its enable line is high,
+   and hold whatever value was present the instant that line falls. So
+   the correct write sequence is: **settle the 8-bit bus -> raise the
+   target device's `dig_X` -> drop it again** -- the *falling* edge of
+   `dig_X` is what actually captures the byte.
+
+   The 8 hardware PWM pins (`O8/O9` = `OC1C/OC1B`, `O12/O13` = `OC4C/OC4B`,
+   `O16-O19` = each timer's `OC*A`) are confirmed direct-to-output, no
+   buffer, and are **not** part of this bus at all -- under this model,
+   Servo and Motor never touch a PWM-capable pin or timer register, so
+   the original Timer4-vs-PWM-channel-3 conflict is moot, and so is the
+   `BinaryOutputs` index-overlap gotcha below (both were derived from the
+   wrong model).
+
+   `BinaryOutputs::SetOutput()` today does immediate, independent per-pin
+   GPIO writes -- it does not implement this bus/address/strobe protocol
+   at all, for any of indices 0-7. This needs a real driver rewrite before
+   `Relay` (already wired to indices 0-7 today, and likely not actually
+   working correctly against real hardware as a result -- worth checking)
+   or `ServoMotor`/`MotorDC` can be correct. Each device also needs to
+   keep its own current 8-bit state in RAM and rewrite the *whole* byte on
+   every change (the bus is shared and byte-wide, not individually
+   addressable per bit).
+
+   **Open sub-questions for whoever picks this up:** exact bit layout
+   `MotorDC` wants within its one byte (confirmed 1 device address,
+   `dig_2`, but not the per-bit meaning); and an atomicity concern --
+   the bus is physically shared, so a write from `ServoMotor`'s ISR
+   context racing a write from `Relay`/`MotorDC`'s foreground context
+   could corrupt either write unless the new driver brackets the
+   bus-write-then-strobe sequence against interrupts (`cli()`/`sei()` or
+   equivalent).
+
+1. **Servo motor UI wiring** -- blocked on item 0. Also has a real bug,
+   independent of the bus rewrite: one `load()` overload clamps against
+   `MIN_POSITION` where it should clamp against `MAX_POSITION` (the array
+   overload right above it does it correctly) -- fix while wiring, same as
+   PWM's "found while fixing the rest" bugs.
+2. **DC/stepper motor UI wiring** -- blocked on item 0. `MotorDC.h`'s
+   `setMotorA`/`setMotorB` have `analogWrite(...)` commented out
+   ("uncomment when using with Arduino") -- speed control was never ported
+   to this codebase's direct-register style, unlike `PWM.cpp`. The stepper
+   mode (`fast_handler()`) is fully written but never called from
+   anywhere. `MotorDC.cpp` is a 0-byte empty file -- this one needs
+   writing, not just wiring.
+
+All three are real multi-session efforts -- don't assume any is quick.
 
 (Display-glue native tests, formerly #2, was killed -- see follow-up
 below.)
@@ -69,20 +127,17 @@ From `CHANGELOG.md`'s "Known follow-ups" section:
   same as before this session's work, untouched by any of the 5 branches.
   **Relay done 2026-08-11** (see `CHANGELOG.md`); **servo and motor still
   not started.**
-  **Pin-index gotcha found while investigating (still unresolved):**
-  `BinaryOutputs`'s pin table (`lib/BinaryOutputs/src/BinaryOutputs.h:27-48`)
-  is one hardcoded 20-slot array, indexed by position, shared across
-  `Relay`/`MotorDC`/`ServoMotor`/`MultiOutput`. `Relay` uses indices 0-7.
-  `MotorDC` uses indices 8-13 (`PWMA_INDEX`..`ENB_INDEX` in `MotorDC.h`).
-  `ServoMotor` uses indices 8-17 (`engines[i].index = i+8` for its 10
-  engines, `ServoMotor.h`'s constructor) -- **this overlaps `MotorDC`'s
-  8-13 range.** `MultiOutput` constructs both `motors` and `engines`
-  unconditionally from the same `bnOuts`, so if both ever get enabled at
-  once, they'd physically drive the same AVR pins for two different
-  purposes. Harmless today only because nothing calls into either from the
-  UI yet. Resolve this (repartition the index ranges, most likely) *before*
-  wiring servo or motor into the UI -- do not just copy the Relay pattern
-  without fixing this first.
+  ~~**Pin-index gotcha found while investigating:** `BinaryOutputs`'s pin
+  table is one hardcoded 20-slot array, indexed by position, shared across
+  `Relay`/`MotorDC`/`ServoMotor`/`MultiOutput`, with `MotorDC` (8-13) and
+  `ServoMotor` (8-17) overlapping.~~ -- **superseded 2026-08-12.** That
+  analysis assumed `Relay`/`MotorDC`/`ServoMotor` each drive independent
+  GPIO pins through `BinaryOutputs`. The real hardware is a shared 8-bit
+  bus behind three `74LS373` latches (see item 0 above for the full
+  protocol) -- there's no per-pin index overlap to resolve because none of
+  these three devices own individual pins at all. The actual blocker is
+  writing a driver for the bus/strobe protocol, not repartitioning an
+  index range.
 - ~~`SerialCommunication::receive()` has an unbounded `rcv_counter`~~ --
   **fixed 2026-08-11**, committed directly to `dev`. See `CHANGELOG.md`.
 - ~~`PWMSimplex`/`PWMComplex`/`GUI.cpp`'s Display-facing glue is verified
@@ -105,6 +160,40 @@ From `CHANGELOG.md`'s "Known follow-ups" section:
   coverage from the 2026-08-10 stack -- it was only the
   `tft->drawRect(...)`/`tft->print(...)` call sites themselves that were
   ever untested, and that gap is now accepted, not fixed.
+
+Found during the 2026-08-12 documentation pass (`IHM/ARCHITECTURE.md` has
+full detail on each; not asked for, not fixed, listed so they aren't lost):
+
+- **`SerialCommunication::receive()` is never called by anything.** It's
+  the only entry point that feeds bytes into the framing/checksum state
+  machine, but the real `ISR(USART0_RX_vect)`
+  (`lib/ArduinoLib/src/HardwareSerial0.cpp`) only fills the standard
+  Arduino `Serial` ring buffer -- it doesn't forward to `receive()`.
+  Result: `able_to_parse` can never become true, `fast_handler()` always
+  returns false, and `voltage0`/`voltage1` (fed to the two `MCP4725`
+  DACs) never update from real serial input today. Needs either a
+  `USART0_RX_vect` override calling `comms.receive()`, or main-loop
+  polling of `Serial.available()`/`Serial.read()` feeding it.
+- **`lib/StateMachine/StateMachine.hpp`/`.cpp` doesn't compile and isn't
+  used.** References an undefined type (`StateMachineStates` vs. the
+  actual enum `FunctionalStates`); nothing includes it (`PWMStateMachine.h`,
+  same folder, is what's actually used). Safe to delete.
+- **`BinaryInput`'s `MCUCR |= ~(1<<PUD);`** doesn't do what its comment
+  ("ensure pull-ups aren't globally disabled") says -- it sets every
+  *other* `MCUCR` bit while leaving `PUD` itself untouched. Probably meant
+  `MCUCR &= ~(1<<PUD)`.
+- **`MCP4725` dac0/dac1 vs. voltage0/voltage1 naming looks crossed** in
+  `main.cpp`: `dac1.setVoltage(voltage0,...)`, `dac0.setVoltage(voltage1,...)`.
+  May be intentional (matching board wiring) -- worth a deliberate check
+  against the actual hardware before assuming "channel 0 = voltage0."
+- **`lib/Display/SPITFT.cpp`/`GrayOLED.cpp`** are vendored but entirely
+  unreferenced by the actual display path (`Display`/`GFX`/
+  `mcufriend_shield.h`) -- dead weight from the library import.
+
+Full architecture writeup, per-module `README.md`s, and a diagram now
+exist: `IHM/ARCHITECTURE.md`, `IHM/lib/*/README.md`,
+`IHM/docs/architecture.drawio`. Check those before re-deriving module
+structure from scratch.
 
 None of these were asked for beyond the `SerialCommunication` fix -- listed
 here so they don't get mistaken for "already done" or lost track of.
