@@ -98,7 +98,7 @@ public:
             *ports[i].ddr &= ports[i].mask_reset;
             *ports[i].port |= ports[i].mask_set;
         }
-        MCUCR |= ~(1<<PUD);
+        MCUCR &= ~(1<<PUD);
 
     };
 };

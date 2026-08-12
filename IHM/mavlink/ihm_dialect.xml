@@ -1,0 +1,107 @@
+<?xml version="1.0"?>
+<mavlink>
+  <!-- No <include>common.xml</include>: none of our messages reference
+       anything from it (no HEARTBEAT etc. yet), and it's a large file.
+       Add the include back if/when we actually need something from it. -->
+  <!-- Private/internal dialect, not registered upstream: this number only
+       needs to be unique within our own tooling. -->
+  <dialect>42</dialect>
+  <enums>
+    <enum name="IHM_ENCODER_DIRECTION">
+      <description>
+        Rotary encoder movement direction. Mirrors RotaryEncoder.h's
+        DIRECTION_TYPE exactly (IHM/lib/RotaryEncoder/RotaryEncoder.h) --
+        keep these two in sync if that enum ever changes.
+      </description>
+      <entry value="0" name="IHM_ENCODER_NOT_SUPPORTED">
+        <description>
+          No movement since this encoder was last read (RotaryEncoder::
+          getDirection() resets to this value after every read, so this
+          also just means "nothing new since the last sample").
+        </description>
+      </entry>
+      <entry value="1" name="IHM_ENCODER_CCW">
+        <description>Counter-clockwise movement.</description>
+      </entry>
+      <entry value="2" name="IHM_ENCODER_CW">
+        <description>Clockwise movement.</description>
+      </entry>
+    </enum>
+  </enums>
+  <messages>
+    <message id="300" name="IHM_BOARD_STATE">
+      <description>
+        Periodic/on-change snapshot of the board's user-input state, analog
+        inputs, and loop-timing debug info. Board -> PC, telemetry.
+
+        Field widths are intentionally not bit-packed across byte boundaries
+        (e.g. each encoder gets its own byte rather than 3 encoders sharing
+        9 bits): with MAVLINK_MAX_PAYLOAD_LEN raised to 64 for future
+        headroom, the few bytes saved by tight packing weren't worth the
+        hand-rolled bit-shift/mask code on both the firmware and PC sides.
+        This message is 19 bytes either way, well under the cap.
+      </description>
+      <field type="uint8_t" name="buttons">
+        Bitmask of the 7 push-buttons, 1 = pressed. Bits 0-3: btn0-btn3.
+        Bits 4-6: encoder0/1/2 push-buttons. Bit 7 unused (BinaryInput's own
+        buildButtonMap() hardcodes this bit as a sentinel; we don't carry
+        that here, it's just left 0).
+      </field>
+      <field type="uint8_t" name="encoder0_direction" enum="IHM_ENCODER_DIRECTION">Encoder 0 movement since last sample.</field>
+      <field type="uint8_t" name="encoder1_direction" enum="IHM_ENCODER_DIRECTION">Encoder 1 movement since last sample.</field>
+      <field type="uint8_t" name="encoder2_direction" enum="IHM_ENCODER_DIRECTION">Encoder 2 movement since last sample.</field>
+      <field type="uint8_t" name="rotation">House-keeping orientation/rotation sensor. 0/1.</field>
+      <field type="uint8_t" name="charging">House-keeping charging-status input. 0/1.</field>
+      <field type="uint16_t" name="batt_voltage">
+        Raw battery-voltage ADC reading, 10-bit (0-1023) -- ATmega2560's
+        built-in ADC, no external converter on this input.
+      </field>
+      <field type="uint16_t[4]" name="analog_in">
+        Raw an0_in..an3_in ADC readings, 10-bit each (0-1023).
+      </field>
+      <field type="uint16_t" name="time_statistics">
+        Raw value of main.cpp's volatile timeStatistics accumulator
+        (accumulated TCNT2 ticks). Send as-is, unaveraged -- pair with
+        time_counter below to compute the same ratio the firmware's own
+        status bar does.
+      </field>
+      <field type="uint8_t" name="time_counter">
+        Raw value of main.cpp's volatile timeCounter (number of ticks
+        accumulated into time_statistics so far, resets at 100).
+      </field>
+    </message>
+
+    <message id="301" name="CAN_SIGNAL_CONFIG">
+      <description>
+        Configure/start/stop a generated signal on one of the board's 2 CAN
+        buses. One active signal per bus -- sending a new config for a
+        bus_id replaces whatever was previously configured there. The board
+        transmits exactly the given bytes on a schedule; no waveform math
+        happens on-board. PC -> board, command.
+      </description>
+      <field type="uint8_t" name="bus_id">Target CAN bus: 0 or 1.</field>
+      <field type="uint32_t" name="can_id">CAN identifier (standard or extended, see extended_id).</field>
+      <field type="uint8_t" name="extended_id">0 = standard 11-bit ID, 1 = extended 29-bit ID.</field>
+      <field type="uint8_t" name="dlc">Data length, 0-8 (classic CAN).</field>
+      <field type="uint8_t[8]" name="data">Frame payload bytes; only the first dlc bytes are used.</field>
+      <field type="uint16_t" name="period_ms">Repeat interval in ms. 0 = send once (one-shot).</field>
+      <field type="uint16_t" name="repeat_count">Number of times to send. 0 = repeat until disabled.</field>
+      <field type="uint8_t" name="enable">1 = start/keep running, 0 = stop. Resend with 0 to stop a running generator.</field>
+    </message>
+
+    <message id="302" name="RS485_SIGNAL_CONFIG">
+      <description>
+        Configure/start/stop a generated signal on the board's RS-485
+        connection. One active signal at a time -- a new config replaces
+        whatever was previously running. Raw byte transmission, no framing
+        imposed (no protocol defined over this link yet). PC -> board,
+        command.
+      </description>
+      <field type="uint8_t" name="length">Valid byte count in data, 0-32.</field>
+      <field type="uint8_t[32]" name="data">Raw payload bytes; only the first length bytes are used.</field>
+      <field type="uint16_t" name="period_ms">Repeat interval in ms. 0 = send once (one-shot).</field>
+      <field type="uint16_t" name="repeat_count">Number of times to send. 0 = repeat until disabled.</field>
+      <field type="uint8_t" name="enable">1 = start/keep running, 0 = stop. Resend with 0 to stop a running generator.</field>
+    </message>
+  </messages>
+</mavlink>

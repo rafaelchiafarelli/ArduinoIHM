@@ -19,6 +19,8 @@
 #include <ButtonMap.h>
 #include "HardwareSerial.h"
 #include "Timer2Config.h"
+#include "AnalogInput.h"
+#include "MavlinkComms.h"
 
 #define VOLTAGE_REGULATOR_0_ADDRESS 0
 #define VOLTAGE_REGULATOR_1_ADDRESS 1
@@ -48,6 +50,8 @@ BinaryInputs userInputs;
 // Written in TIMER2_COMPA_vect, read from main() -- see comment above.
 volatile uint16_t bMap = 0;
 RotaryEncoder rotaryEncoders(&userInputs);
+AnalogInputs analogInputs;
+MavlinkComms mavlinkComms(&Serial);
 
 void setup()
 {
@@ -122,12 +126,8 @@ int main()
     //multiOuput.fast_handler();
 
    // gui.showRegularLoop(WarningType::TIMER0_OVERUN);
-        if(timeCounter>=100){
-            gui.updateTimeStatistics(timeStatistics/timeCounter);
-            timeStatistics=0;
-            timeCounter=0;
-        // gui.screenMachine(IDLE_SCREEN);
-        }    
+
+        mavlinkComms.poll();
 
         if(newDataAvailable){
             //gui.receiveData();
@@ -135,33 +135,40 @@ int main()
             voltage1 = receivedRawData[1];
             newDataAvailable = false;
         }
-        
+
         dac1.setVoltage(voltage0, false);
         dac0.setVoltage(voltage1, false);
-        
-        Serial.print("map of inputs:");
-        Serial.print(bMap,2);
 
         DIRECTION_TYPE dir[MAX_NUMBER_EMCODERS];
         for(int i =0;i<MAX_NUMBER_EMCODERS;i++){
             dir[i] = rotaryEncoders.getDirection(i);
         }
 
-        Serial.print(" encoders:");
-        for(int i =0;i<MAX_NUMBER_EMCODERS;i++){
-            Serial.print(i); 
-            Serial.print(" :");
-            Serial.print((uint8_t)dir[i]);
-            Serial.print(", ");
-        }
-        
         uint8_t btnMap = buildButtonMap(bMap);
 
-        Serial.print("map of buttons:");
-        Serial.print(btnMap,2);
-        Serial.println(".");
-
         gui.update(dir[0],dir[1],dir[2], btnMap);
+
+        if(timeCounter>=100){
+            uint16_t stats = timeStatistics;
+            uint8_t count = timeCounter;
+            gui.updateTimeStatistics(stats/count);
+            timeStatistics=0;
+            timeCounter=0;
+        // gui.screenMachine(IDLE_SCREEN);
+
+            uint16_t analogIn[4];
+            for(uint8_t i=0;i<4;i++){
+                analogIn[i] = analogInputs.read(i);
+            }
+            uint16_t battVoltage = analogInputs.read(ANALOG_INPUT_BATT_VOLTAGE_INDEX);
+            uint8_t rotation = (bMap>>4) & 0x01;
+            uint8_t charging = (bMap>>5) & 0x01;
+
+            mavlinkComms.sendBoardState(btnMap & 0x7F,
+                                         (uint8_t)dir[0], (uint8_t)dir[1], (uint8_t)dir[2],
+                                         rotation, charging, battVoltage,
+                                         analogIn, stats, count);
+        }
 
     }
     return 0;

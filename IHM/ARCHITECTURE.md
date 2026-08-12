@@ -185,10 +185,9 @@ here so they're visible, not implying any of them need fixing today.
    compile** (references an undefined type). Nothing includes it --
    `PWMStateMachine.h` (same folder) is what's actually used. Safe to
    delete.
-6. **`BinaryInput`'s `MCUCR |= ~(1<<PUD)`** doesn't do what its comment
-   says (see [lib/BinaryInput/README.md](lib/BinaryInput/README.md) for
-   the bit-level explanation) -- sets unrelated `MCUCR` bits instead of
-   clearing `PUD`.
+6. ~~**`BinaryInput`'s `MCUCR |= ~(1<<PUD)`** doesn't do what its comment
+   says -- sets unrelated `MCUCR` bits instead of clearing `PUD`.~~ --
+   **fixed 2026-08-12**, changed to `MCUCR &= ~(1<<PUD)`.
 7. **`MCP4725` dac0/dac1 vs. voltage0/voltage1 naming is crossed** in
    `main.cpp` (`dac1.setVoltage(voltage0,...)`, `dac0.setVoltage(voltage1,...)`)
    -- may be intentional (matching board wiring) but worth a deliberate
@@ -196,6 +195,17 @@ here so they're visible, not implying any of them need fixing today.
 8. **`lib/Display/SPITFT.cpp`/`GrayOLED.cpp`** are vendored but entirely
    unreferenced -- dead weight from the library import, not part of the
    active display path (`Display`/`GFX`/`mcufriend_shield.h`).
+9. **`AnalogInputs::read()` blocks on a polling loop** (`while (ADCSRA &
+   (1<<ADSC));`) waiting for each conversion to finish -- ~104us/channel,
+   up to ~520us total across all 5 channels every time `MavlinkComms`
+   sends `IHM_BOARD_STATE` (~every 100ms). Not a `delay()` call, but the
+   same class of problem this project's rule 2 (no blocking waits, a
+   timer tick drives scheduling instead -- see "The two strategies
+   referenced everywhere" above) exists to avoid. Should become
+   interrupt-driven (`ADIE` + `ISR(ADC_vect)`, cycling through the 5
+   channels asynchronously rather than blocking the superloop on each
+   one) -- not fixed yet, flagged so it isn't mistaken for the
+   established pattern. See [lib/AnalogInput/src/AnalogInput.h](lib/AnalogInput/src/AnalogInput.h).
 
 ## What's already solid
 
