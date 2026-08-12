@@ -32,10 +32,27 @@ From `CHANGELOG.md`'s "Known follow-ups" section:
 - ~~`SerialCommunication::receive()` has an unbounded `rcv_counter`~~ --
   **fixed 2026-08-11**, committed directly to `dev`. See `CHANGELOG.md`.
 - `PWMSimplex`/`PWMComplex`/`GUI.cpp`'s Display-facing glue is verified by
-  the AVR build and by inspection only, not by native unit tests (mocking
-  the Display stack was judged out of proportion to this fix). Same call
-  made again for the `SerialCommunication` fix above (it also needs
-  AVR/HardwareSerial mocking to test natively). **Not started.**
+  the AVR build and by inspection only, not by native unit tests. **Looked
+  into on 2026-08-11, turns out to be a bigger job than it sounds --
+  same size class as the relay/servo/motor item above, not a quick task.**
+  `Element` (base class of `PWMSimplex`/`PWMComplex`) holds a concrete
+  `Display*`, not an interface, and `Display`/`GFX.h` pull in
+  `Arduino.h`/`Print.h`/`I2CDevice.h`/`SPIDevice.h` -> `avr/io.h`, same as
+  `SerialCommunication.h` before it. `Display.cpp`+`GFX.cpp` alone are
+  ~6,371 lines (Adafruit-GFX-style TFT driver). To actually test the
+  drawing call sites you need one of: (a) a compatibility shim for the
+  whole Arduino/Display stack so a native `FakeDisplay` can link, or (b)
+  refactor `Element` to take an abstract display interface instead of the
+  concrete class, so tests can inject a fake -- but that touches shipped,
+  hardware-verified production code (`Element.h`, `GUI.h/.cpp`,
+  `PWMScreen`, `PWMSimplex`, `PWMComplex`) purely for testability, with
+  real regression risk. Neither is "add a test file." **Not started** --
+  decided not to do the refactor speculatively.
+  Note: the pure logic these two delegate to (`PWMChannelConfig`,
+  `PWMLabelFormat`, `PWMTiming`) already has native coverage from the
+  2026-08-10 stack; what's actually untested is narrower than "the Display
+  glue" sounds -- just the `tft->drawRect(...)`/`tft->print(...)` call
+  sites themselves.
 
 None of these were asked for beyond the `SerialCommunication` fix -- listed
 here so they don't get mistaken for "already done" or lost track of.
