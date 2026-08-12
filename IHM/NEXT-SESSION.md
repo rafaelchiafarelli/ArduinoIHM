@@ -19,6 +19,23 @@ No PRs were opened for any of this -- it was merged directly by fast-
 forward/merge commit with the user's confirmation, since everything landed
 without conflicts.
 
+This was a short session: fix item 1 (done), then scope item 2 -- found it
+wasn't quick after all (see below), and stopped there by choice rather than
+start a multi-session item with a partial budget. Nothing is mid-flight;
+`dev` is clean and everything above is pushed.
+
+## Immediate next steps (pick up here)
+
+Both remaining items are real multi-session efforts, not quick tasks --
+pick whichever matters more and go in with a full session:
+
+1. **Relay/servo/motor UI wiring** (see follow-up below) -- the bigger of
+   the two, three different peripherals each needing their own register
+   setup + UI screen + tests, mirroring the whole 2026-08-10 PWM stack.
+2. **Display-glue native tests** (see follow-up below) -- smaller in
+   surface area but requires a design decision first (compatibility shim
+   vs. interface refactor) before any code gets written.
+
 ## Known follow-ups
 
 From `CHANGELOG.md`'s "Known follow-ups" section:
