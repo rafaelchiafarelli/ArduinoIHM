@@ -1,6 +1,17 @@
 #include <SerialCommunication.h>
 uint8_t SerialCommunication::receive(uint8_t rcv)
 {
+    if (rcv_counter >= sizeof(ReceivedBytes) - 1)
+    {
+        // No HEADER/FOOTER/TERMINATOR seen within the buffer size -- the
+        // stream is desynced (or this is garbage on the line). Drop what
+        // we've buffered and start looking for a fresh HEADER instead of
+        // writing past the end of ReceivedBytes.
+        comm_state = Searching;
+        rcv_counter = 0;
+        checksum_counter = 0;
+    }
+
     rcv_counter++;
     ReceivedBytes[rcv_counter] = rcv; // Fetch the received byte value into the variable "ByteReceived"
     switch (comm_state)

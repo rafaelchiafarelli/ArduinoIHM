@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-08-11 -- Fix unbounded `rcv_counter` in `SerialCommunication::receive()`
+
+Follow-up from the 2026-08-10 pass below, which flagged this bug but left it
+unfixed. `receive()` wrote every incoming byte to `ReceivedBytes[rcv_counter]`
+after unconditionally incrementing `rcv_counter`, with no bound tied to the
+array's size (256 bytes). If a frame's `HEADER`/`FOOTER`/`TERMINATOR` never
+showed up in the stream (desync, noise, or a `Found` state with an
+unusually long/malformed payload), `rcv_counter` grew past the array end,
+corrupting adjacent class members (`ParseBuffer`, `OutBuffer`, etc.).
+
+Fixed by checking `rcv_counter` against `sizeof(ReceivedBytes) - 1` *before*
+each increment/write; on overflow, resets to `Searching` (drops the
+buffered bytes and starts looking for a fresh `HEADER`) instead of writing
+past the buffer. `lib/Comms/src/SerialCommunication.cpp`.
+
+Not covered by a native unit test: `SerialCommunication.h` pulls in
+`HardwareSerial.h`/`avr/io.h`/`avr/interrupt.h` directly, so it can't compile
+for the host target without mocking the whole AVR serial stack -- the same
+disproportionate-effort call made for the Display glue in the entry below.
+Verified instead by AVR build (`platformio run`, unchanged RAM/Flash: 61.9%
+/ 18.8%) and by tracing the state machine by hand for both the `Searching`
+and `Found` overflow paths.
+
 ## 2026-08-10 -- PWM subsystem: state machine, register bugs, UI wiring, input fixes
 
 Follow-up to a full-codebase review (see conversation history / PR
@@ -43,7 +66,7 @@ branch (`platformio run`, `megaatmega2560` env) -- final state RAM 61.9%
   (`lib/Comms/src/SerialCommunication.*`) are still not wired into the UI.
 - `SerialCommunication::receive()`'s unbounded `rcv_counter` growth (no
   header found within the buffer) is unfixed -- noted in the original
-  review, out of scope for this pass.
+  review, out of scope for this pass. **Fixed 2026-08-11, see entry above.**
 - The demo's `PWMSimplex`/`PWMComplex`/`GUI.cpp` glue is verified by the AVR
   build and by inspection, not by native unit tests -- it's Display-coupled
   and mocking the display stack was judged out of proportion to this fix

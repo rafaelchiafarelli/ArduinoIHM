@@ -1,58 +1,44 @@
 # Next session
 
-Picking up from 2026-08-10. Full detail on what was done is in
+Picking up from 2026-08-11. Full detail on what was done is in
 `IHM/CHANGELOG.md` -- this file is just the "where things stand / what's
 next" handoff.
 
 ## Where things stand
 
-All work is pushed to `origin`, nothing merged into `dev` yet:
+Everything is merged into `dev` and pushed to `origin`. The 2026-08-10 PWM
+stack (`fix/pwm-state-machine` through `demo/pwm-outputs-walkthrough`) was
+fast-forwarded into `dev`; `chore/restore-kicad-pcb-placement` was merged
+in with a merge commit (it had diverged independently). All 7 feature
+branches were deleted, local and remote, after merging -- `dev` is the only
+branch with any of this work on it now. The 2026-08-11
+`SerialCommunication` fix (see "Known follow-ups" below) was committed
+directly to `dev`, no feature branch.
 
-```
-dev
- └─ fix/pwm-state-machine          (pushed)
-     └─ fix/pwm-com-bits           (pushed)
-         └─ feat/wire-pwm-screen-to-hw  (pushed)
-             └─ fix/encoder-bitmap-volatile  (pushed)
-                 └─ fix/timer2-isr-cleanup   (pushed)
-                     └─ demo/pwm-outputs-walkthrough  (pushed, tip)
+No PRs were opened for any of this -- it was merged directly by fast-
+forward/merge commit with the user's confirmation, since everything landed
+without conflicts.
 
-dev
- └─ chore/restore-kicad-pcb-placement  (pushed, independent of the stack above)
-```
-
-No PRs have been opened yet -- that was asked about at the end of the last
-session and never confirmed either way.
-
-## Immediate next steps (pick up here)
-
-1. **Decide on PRs.** Either open one PR per branch in the stack (5 PRs,
-   reviewed/merged in order: `fix/pwm-state-machine` first, `demo/pwm-
-   outputs-walkthrough` last), or one PR for the whole stack against `dev`.
-   `chore/restore-kicad-pcb-placement` is independent and can be its own PR
-   merged whenever, in any order relative to the stack.
-2. **Merge order matters** if merging manually without PRs: the stack must
-   land in the order listed above, since each branch's diff is relative to
-   the one before it.
-3. After merging, delete the local+remote feature branches; `dev` will then
-   have real, tested PWM configuration, encoder input, and Timer2 setup.
-
-## Known follow-ups (not started)
+## Known follow-ups
 
 From `CHANGELOG.md`'s "Known follow-ups" section:
 
 - Relay, servo, and DC/stepper-motor outputs (`lib/MultiOutput/src/
   Relay.*`, `ServoMotor.*`, `MotorDC.*`) are still not wired into the UI --
   same as before this session's work, untouched by any of the 5 branches.
-- `SerialCommunication::receive()` has an unbounded `rcv_counter` (grows
-  with no header found in the buffer) -- flagged in the original review,
-  never fixed.
+  **Not started.** Biggest remaining item -- same shape of work as the
+  whole PWM stack (state machine, register core, screen wiring), likely
+  its own multi-session effort.
+- ~~`SerialCommunication::receive()` has an unbounded `rcv_counter`~~ --
+  **fixed 2026-08-11**, committed directly to `dev`. See `CHANGELOG.md`.
 - `PWMSimplex`/`PWMComplex`/`GUI.cpp`'s Display-facing glue is verified by
   the AVR build and by inspection only, not by native unit tests (mocking
-  the Display stack was judged out of proportion to this fix).
+  the Display stack was judged out of proportion to this fix). Same call
+  made again for the `SerialCommunication` fix above (it also needs
+  AVR/HardwareSerial mocking to test natively). **Not started.**
 
-None of these were asked for in this pass -- listed here so they don't get
-mistaken for "already done" or lost track of.
+None of these were asked for beyond the `SerialCommunication` fix -- listed
+here so they don't get mistaken for "already done" or lost track of.
 
 ## How to pick up dev work
 
