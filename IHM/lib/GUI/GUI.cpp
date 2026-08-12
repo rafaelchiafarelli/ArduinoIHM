@@ -86,12 +86,18 @@ void GUI::update(DIRECTION_TYPE d0,DIRECTION_TYPE d1, DIRECTION_TYPE d2, uint8_t
         if(tabSelector.getCurrentSelected() == PWM_SELECTED){
             pwmConfig.show();
         }
+        if(tabSelector.getCurrentSelected() == OUPTUT_SELECTED){
+            relayConfig.show();
+        }
     }
 
     if(d0 == CW){
         tabSelector.selectNext();
         if(tabSelector.getCurrentSelected() == PWM_SELECTED){
             pwmConfig.show();
+        }
+        if(tabSelector.getCurrentSelected() == OUPTUT_SELECTED){
+            relayConfig.show();
         }
     }
 
@@ -136,7 +142,19 @@ void GUI::update(DIRECTION_TYPE d0,DIRECTION_TYPE d1, DIRECTION_TYPE d2, uint8_t
         tft->drawFastHLine(0,300,300,WHITE);
         break;
     case OUPTUT_SELECTED:
-        tft->fillRect(2,47,318,431,BLACK);
+        /**
+         * rot1 (d1) moves the highlighted relay row; its button (same bit
+         * PWM_SELECTED uses for its own tab-local meaning, safe to reuse
+         * since it's scoped to this case) toggles that relay on/off --
+         * applied to the real relay immediately by RelayScreen (see
+         * RelayScreen.h / RelayElement::toggle).
+         */
+        if(d1 == CCW) relayConfig.selectPrevious();
+        if(d1 == CW) relayConfig.selectNext();
+        if((btnMap & 0b00100000) == 0x00){
+            relayConfig.toggleSelected();
+        }
+        relayConfig.update();
     break;
     default:
         tft->fillRect(2,47,318,431,WHITE);

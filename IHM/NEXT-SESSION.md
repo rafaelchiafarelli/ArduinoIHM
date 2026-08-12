@@ -19,19 +19,43 @@ No PRs were opened for any of this -- it was merged directly by fast-
 forward/merge commit with the user's confirmation, since everything landed
 without conflicts.
 
-This was a short session: fix item 1 (done), then scope item 2 -- found it
-wasn't quick after all (see below), and stopped there by choice rather than
-start a multi-session item with a partial budget. Nothing is mid-flight;
-`dev` is clean and everything above is pushed.
+After item 1 (fixed) and scoping item 2 (killed, see below), the session
+continued into item 3: Relay is now wired into the Output tab (see
+`CHANGELOG.md`'s 2026-08-11 "Wire Relay outputs into the UI" entry). Servo
+and motor outputs are still not wired -- same pattern would apply, but each
+peripheral has different hardware behavior (Timer4 single-compare for
+servos, Timer1 fast-PWM + a stepper mode for DC motors) so it's not a
+copy-paste of the Relay work. Nothing is mid-flight; `dev` is clean and
+everything above is pushed.
+
+**Worth knowing before continuing:** wiring just Relay's 8 rows took RAM
+from 61.9% to 75.0% (+1071 B). There's 25% headroom (2048 B) left, but
+servo (10 engines) and motor (2 motors + stepper mode) screens will eat
+into that further -- check the RAM number after each one, don't assume
+there's room for both.
 
 ## Immediate next steps (pick up here)
 
-Only one open item left; it's a real multi-session effort, not a quick
-task:
+1. **Servo motor UI wiring** -- `ServoMotor.cpp` writes directly to `OCR4A`
+   (Timer4) in `timer_handler()`, but nothing configures Timer4's
+   mode/prescaler/interrupt or calls `timer_handler()` from an ISR yet.
+   Also has a real bug: one `load()` overload clamps against `MIN_POSITION`
+   where it should clamp against `MAX_POSITION` (the array overload right
+   above it does it correctly) -- fix while wiring, same as PWM's "found
+   while fixing the rest" bugs.
+2. **DC/stepper motor UI wiring** -- `MotorDC.h`'s `setMotorA`/`setMotorB`
+   have `analogWrite(...)` commented out ("uncomment when using with
+   Arduino") -- speed control was never ported to this codebase's
+   direct-register style, unlike `PWM.cpp`. The stepper mode
+   (`fast_handler()`) is fully written but never called from anywhere.
+   `MotorDC.cpp` is a 0-byte empty file -- this one needs writing, not just
+   wiring.
 
-1. **Relay/servo/motor UI wiring** (see follow-up below) -- three
-   different peripherals each needing their own register setup + UI
-   screen + tests, mirroring the whole 2026-08-10 PWM stack.
+Both are real multi-session efforts, same shape as the Relay work just
+done but each with its own hardware quirks -- don't assume either is
+quick. Check the pin-index gotcha in "Known follow-ups" below (motor 8-13
+vs servo 8-17 overlap) before wiring either one to the UI -- unlike Relay,
+those two *do* share physical pins today, and this hasn't been resolved.
 
 (Display-glue native tests, formerly #2, was killed -- see follow-up
 below.)
@@ -43,9 +67,22 @@ From `CHANGELOG.md`'s "Known follow-ups" section:
 - Relay, servo, and DC/stepper-motor outputs (`lib/MultiOutput/src/
   Relay.*`, `ServoMotor.*`, `MotorDC.*`) are still not wired into the UI --
   same as before this session's work, untouched by any of the 5 branches.
-  **Not started.** Biggest remaining item -- same shape of work as the
-  whole PWM stack (state machine, register core, screen wiring), likely
-  its own multi-session effort.
+  **Relay done 2026-08-11** (see `CHANGELOG.md`); **servo and motor still
+  not started.**
+  **Pin-index gotcha found while investigating (still unresolved):**
+  `BinaryOutputs`'s pin table (`lib/BinaryOutputs/src/BinaryOutputs.h:27-48`)
+  is one hardcoded 20-slot array, indexed by position, shared across
+  `Relay`/`MotorDC`/`ServoMotor`/`MultiOutput`. `Relay` uses indices 0-7.
+  `MotorDC` uses indices 8-13 (`PWMA_INDEX`..`ENB_INDEX` in `MotorDC.h`).
+  `ServoMotor` uses indices 8-17 (`engines[i].index = i+8` for its 10
+  engines, `ServoMotor.h`'s constructor) -- **this overlaps `MotorDC`'s
+  8-13 range.** `MultiOutput` constructs both `motors` and `engines`
+  unconditionally from the same `bnOuts`, so if both ever get enabled at
+  once, they'd physically drive the same AVR pins for two different
+  purposes. Harmless today only because nothing calls into either from the
+  UI yet. Resolve this (repartition the index ranges, most likely) *before*
+  wiring servo or motor into the UI -- do not just copy the Relay pattern
+  without fixing this first.
 - ~~`SerialCommunication::receive()` has an unbounded `rcv_counter`~~ --
   **fixed 2026-08-11**, committed directly to `dev`. See `CHANGELOG.md`.
 - ~~`PWMSimplex`/`PWMComplex`/`GUI.cpp`'s Display-facing glue is verified
@@ -76,9 +113,11 @@ here so they don't get mistaken for "already done" or lost track of.
 
 - Native unit tests: `IHM/test_native/run_tests.ps1` (PowerShell; drives
   MSVC directly since no gcc is installed on this machine -- see that
-  script's header comment). 94 tests, all passing as of the last commit.
+  script's header comment). 96 tests, all passing as of the last commit.
 - AVR build: `platformio run` from `IHM/` (or `-d` pointed at it). Verified
-  after every commit in the stack; last known state RAM 61.9%, Flash 18.8%.
+  after every commit; last known state RAM 75.0% (6144/8192 B), Flash 19.5%
+  (49476/253952 B) -- RAM headroom is getting less comfortable than it
+  looks (see the note above on servo/motor RAM cost).
 - Demo: `IHM/demo/run_demo.ps1` -- prints the register-level walkthrough.
   `IHM/demo/HARDWARE_RUNBOOK.md` has the equivalent checks for real
   hardware.

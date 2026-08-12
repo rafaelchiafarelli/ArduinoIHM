@@ -42,7 +42,7 @@ uint16_t voltage0 = 0;
 uint16_t voltage1 = 0;
 Display tft; // Instantiate the display object
 PWM pwm;
-GUI gui = GUI(&tft, &pwm);
+GUI gui = GUI(&tft, &pwm, multiOuput.getRelays());
 uint16_t receivedRawData[10];
 BinaryInputs userInputs;
 // Written in TIMER2_COMPA_vect, read from main() -- see comment above.

@@ -31,8 +31,11 @@ public:
 
     void setup(){
         bnOuts.setup();
+        for(uint8_t i=0; i<NUMBER_OF_RELAYS; i++){
+            relays.enableRelay(i);
+        }
     };
-    
+
     void fast_handler(){
         motors.fast_handler();
     };
@@ -41,6 +44,8 @@ public:
         relays.ultra_slow_handler();
 
     };
-};  
+
+    Relay* getRelays(){ return &relays; };
+};
 
 #endif /* _MULTI_OUTPUT_H_ */

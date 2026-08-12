@@ -1,5 +1,57 @@
 # Changelog
 
+## 2026-08-11 -- Wire Relay outputs into the UI (Output tab)
+
+First of the three items in "Relay, servo, DC/stepper-motor outputs... not
+wired into the UI" (see 2026-08-10's Known follow-ups) -- scoped to Relay
+only; servo/motor are separate future work, see `NEXT-SESSION.md`. Followed
+the same pattern already proven for PWM: a pure/testable config class, thin
+Display-facing glue, a screen container, then GUI wiring.
+
+Investigated first and confirmed pin safety: `BinaryOutputs`'s hardcoded
+20-slot pin table (`lib/BinaryOutputs/src/BinaryOutputs.h`) has `Relay` using
+indices 0-7 exclusively; `MotorDC` (8-13) and `ServoMotor` (8-17) overlap
+*each other* (pre-existing, untouched, out of scope) but neither touches
+Relay's range, so wiring Relay in doesn't risk double-driving any pin.
+
+- `lib/MultiOutput/src/RelayConfig.h` -- new, pure on/off struct (mirrors
+  `PWMChannelConfig`'s shape, trivial: one bool + `toggle()`). Natively
+  tested (`test_native/test_relay_config.cpp`, 2 tests).
+- `lib/Elements/src/RelayElement.h` / `RelayScreen.h` -- new, Display-facing
+  glue: one row per relay (an `LED` on/off indicator + a `Label` reusing
+  `PWMLabelFormat::formatShortStatusLabel`'s "Ativo"/"Desl." text -- that
+  function is generic on/off text, not PWM-specific, so no duplicate
+  formatter was needed). `RelayScreen` mirrors `PWMScreen` but needs no
+  `PWMStateMachine`-style field-cursor, since a relay is only ever on/off.
+  Verified by AVR build + inspection only, same accepted gap as PWM's glue
+  (see the killed Display-glue-testing follow-up above).
+- `lib/MultiOutput/src/MultiOutput.h` -- added `getRelays()` accessor and
+  made `setup()` enable all 8 relays (still start off). Deliberately *not*
+  a second standalone `Relay` instance the way PWM has two disconnected
+  `PWM` objects (`main.cpp`'s standalone one wired to `GUI`, plus an unused
+  one inside `MultiOutput`) -- `MultiOutput::slow_handler()` already calls
+  `relays.ultra_slow_handler()` every ~25ms to re-assert relay state, so a
+  duplicate would mean the UI-controlled relays never get that refresh.
+  `GUI` now takes the same `Relay*` `MultiOutput` owns.
+- `lib/GUI/GUI.h`/`.cpp`, `src/main.cpp` -- Output tab wired: rot1 rotates
+  through the 8 relays, rot1's button (same bit `PWM_SELECTED` uses for its
+  own tab-local meaning, safe to reuse since it's scoped to this `case`)
+  toggles the highlighted one -- applied to the real relay immediately, no
+  separate confirm step, same UX as PWM fields.
+- `Relay.h`/`Relay.cpp` themselves: **untouched**. `setRelay`/`enableRelay`
+  were already public and exactly right.
+
+**96 native tests total, all passing.** AVR build verified
+(`platformio run`, `megaatmega2560` env) -- RAM jumped from 61.9% to **75.0%**
+(5073 -> 6144 / 8192 B, +1071 B) for 8 new UI rows, each an `LED`+`Label`
+pair; Flash barely moved (18.8% -> 19.5%). Flagged to the user as a bigger
+jump than expected for "8 toggles" -- 25% RAM headroom remains, not
+dangerous, but worth knowing before adding servo/motor screens on top.
+
+No physical hardware was available this session to verify an actual relay
+click -- verified by AVR build + native tests + manual trace only, same
+caveat as prior AVR-build-only verifications.
+
 ## 2026-08-11 -- Fix unbounded `rcv_counter` in `SerialCommunication::receive()`
 
 Follow-up from the 2026-08-10 pass below, which flagged this bug but left it

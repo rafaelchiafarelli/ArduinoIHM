@@ -5,6 +5,8 @@
 #include <Widgets.h>
 #include <PWMScreen.h>
 #include <PWM.h>
+#include <RelayScreen.h>
+#include <Relay.h>
 #include "RotaryEncoder.h"
 
 typedef enum {
@@ -40,6 +42,7 @@ class GUI {
         StatusBar statusBar;
         TabSelector tabSelector;
         PWMScreen pwmConfig;
+        RelayScreen relayConfig;
 
     public:
         void update(DIRECTION_TYPE d0,DIRECTION_TYPE d1, DIRECTION_TYPE d2, uint8_t btnMap);
@@ -52,7 +55,7 @@ class GUI {
         void showNormalOperation(WarningType type);
         void showRegularLoop(WarningType type);
 
-        GUI(Display *tft, PWM *pwm):tft(tft), statusBar(tft),tabSelector(2,21,tft),pwmConfig(tft,pwm){
+        GUI(Display *tft, PWM *pwm, Relay *relay):tft(tft), statusBar(tft),tabSelector(2,21,tft),pwmConfig(tft,pwm),relayConfig(tft,relay){
 
         }
         ~GUI(){}
