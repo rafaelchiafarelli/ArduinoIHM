@@ -71,3 +71,7 @@ branch (`platformio run`, `megaatmega2560` env) -- final state RAM 61.9%
   build and by inspection, not by native unit tests -- it's Display-coupled
   and mocking the display stack was judged out of proportion to this fix
   (same reasoning applied to `PWM.cpp`'s thin AVR wrappers in branch 2).
+  **Won't fix, decided 2026-08-11** -- the plan is to switch to an SPI
+  display next hardware revision, which replaces this driver outright, so
+  test investment in the current parallel-TFT glue would be thrown away.
+  See `NEXT-SESSION.md` for the full reasoning.

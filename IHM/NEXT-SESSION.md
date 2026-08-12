@@ -26,15 +26,15 @@ start a multi-session item with a partial budget. Nothing is mid-flight;
 
 ## Immediate next steps (pick up here)
 
-Both remaining items are real multi-session efforts, not quick tasks --
-pick whichever matters more and go in with a full session:
+Only one open item left; it's a real multi-session effort, not a quick
+task:
 
-1. **Relay/servo/motor UI wiring** (see follow-up below) -- the bigger of
-   the two, three different peripherals each needing their own register
-   setup + UI screen + tests, mirroring the whole 2026-08-10 PWM stack.
-2. **Display-glue native tests** (see follow-up below) -- smaller in
-   surface area but requires a design decision first (compatibility shim
-   vs. interface refactor) before any code gets written.
+1. **Relay/servo/motor UI wiring** (see follow-up below) -- three
+   different peripherals each needing their own register setup + UI
+   screen + tests, mirroring the whole 2026-08-10 PWM stack.
+
+(Display-glue native tests, formerly #2, was killed -- see follow-up
+below.)
 
 ## Known follow-ups
 
@@ -48,28 +48,26 @@ From `CHANGELOG.md`'s "Known follow-ups" section:
   its own multi-session effort.
 - ~~`SerialCommunication::receive()` has an unbounded `rcv_counter`~~ --
   **fixed 2026-08-11**, committed directly to `dev`. See `CHANGELOG.md`.
-- `PWMSimplex`/`PWMComplex`/`GUI.cpp`'s Display-facing glue is verified by
-  the AVR build and by inspection only, not by native unit tests. **Looked
-  into on 2026-08-11, turns out to be a bigger job than it sounds --
-  same size class as the relay/servo/motor item above, not a quick task.**
-  `Element` (base class of `PWMSimplex`/`PWMComplex`) holds a concrete
-  `Display*`, not an interface, and `Display`/`GFX.h` pull in
+- ~~`PWMSimplex`/`PWMComplex`/`GUI.cpp`'s Display-facing glue is verified
+  by the AVR build and by inspection only, not by native unit tests~~ --
+  **killed 2026-08-11, won't do.** Looked into it first: `Element` (base
+  class of `PWMSimplex`/`PWMComplex`) holds a concrete `Display*`, not an
+  interface, and `Display`/`GFX.h` pull in
   `Arduino.h`/`Print.h`/`I2CDevice.h`/`SPIDevice.h` -> `avr/io.h`, same as
-  `SerialCommunication.h` before it. `Display.cpp`+`GFX.cpp` alone are
-  ~6,371 lines (Adafruit-GFX-style TFT driver). To actually test the
-  drawing call sites you need one of: (a) a compatibility shim for the
-  whole Arduino/Display stack so a native `FakeDisplay` can link, or (b)
-  refactor `Element` to take an abstract display interface instead of the
-  concrete class, so tests can inject a fake -- but that touches shipped,
-  hardware-verified production code (`Element.h`, `GUI.h/.cpp`,
-  `PWMScreen`, `PWMSimplex`, `PWMComplex`) purely for testability, with
-  real regression risk. Neither is "add a test file." **Not started** --
-  decided not to do the refactor speculatively.
-  Note: the pure logic these two delegate to (`PWMChannelConfig`,
-  `PWMLabelFormat`, `PWMTiming`) already has native coverage from the
-  2026-08-10 stack; what's actually untested is narrower than "the Display
-  glue" sounds -- just the `tft->drawRect(...)`/`tft->print(...)` call
-  sites themselves.
+  `SerialCommunication.h` before it, with `Display.cpp`+`GFX.cpp` alone
+  ~6,371 lines (Adafruit-GFX-style parallel-TFT driver). Testing it
+  natively would need a full Arduino/Display compatibility shim, or a
+  production-code interface refactor with real regression risk -- neither
+  is "add a test file." Decision: not worth it, because the plan is to
+  switch to an SPI display next hardware revision, at which point this
+  driver gets replaced anyway and any test investment here would be
+  thrown away. Revisit test coverage for the *new* display's glue code
+  once that swap happens, not this one.
+  Note: the pure logic `PWMSimplex`/`PWMComplex` delegate to
+  (`PWMChannelConfig`, `PWMLabelFormat`, `PWMTiming`) already has native
+  coverage from the 2026-08-10 stack -- it was only the
+  `tft->drawRect(...)`/`tft->print(...)` call sites themselves that were
+  ever untested, and that gap is now accepted, not fixed.
 
 None of these were asked for beyond the `SerialCommunication` fix -- listed
 here so they don't get mistaken for "already done" or lost track of.
