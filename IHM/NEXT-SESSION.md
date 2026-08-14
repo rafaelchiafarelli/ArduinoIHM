@@ -10,6 +10,21 @@ is done -- `MultiplexedBus` exists and `Relay` uses it; see
 `MotorDC` UI wiring) are no longer *blocked*, but neither is done -- see
 "Immediate next steps" below.
 
+**Hardware verification attempted and blocked -- don't retry against the
+same board.** This session's firmware (with the new `MultiplexedBus`
+driver) was built and uploaded via `platformio run -t upload` to a Mega
+2560 clone on COM7 (CH340 USB-serial) -- upload succeeded, verified,
+56708 bytes flashed. But the user confirmed **the physical hardware
+connected is still an old revision** -- not the board this session's
+multiplexed-bus/`74LS373`-latch model was derived from. So even though
+the upload worked, this did *not* actually verify `Relay`'s new write
+sequence (or anything else in `MultiplexedBus`) against real hardware --
+the "unverified against a physical board" caveat throughout this doc,
+`CHANGELOG.md`, and `ARCHITECTURE.md` still stands. **Don't attempt
+hardware verification again against whatever's connected until the user
+says the current/matching-revision board is in place** -- ask first
+rather than assuming a connected board is the right one to test against.
+
 Same session, second pass: cleared out the safe-to-delete dead code found
 while writing the driver. Deleted `lib/StateMachine/StateMachine.hpp`/
 `.cpp` (didn't compile, unreferenced), `lib/Display/SPITFT.cpp`/`.h`/
