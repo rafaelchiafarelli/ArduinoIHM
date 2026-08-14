@@ -1,5 +1,83 @@
 # Changelog
 
+## 2026-08-13 -- Write the multiplexed-output-bus driver; fix Relay's write sequence
+
+`NEXT-SESSION.md` item 0, the blocker for `ServoMotor`/`MotorDC` UI wiring
+(items 1/2) and for `Relay`'s existing wiring actually being correct. New
+`MultiplexedBus` (`lib/MultiOutput/src/MultiplexedBus.h`) implements the
+settle-bus -> raise-strobe -> drop-strobe protocol the three `74LS373`
+latches need (see `ARCHITECTURE.md`'s "multiplexed output bus" section for
+the full hardware writeup): `write(strobeIndex, byte)` settles all 8
+data-bus bits via `BinaryOutputs::SetOutput()`, then strobes the target
+device's latch, wrapped in `ATOMIC_BLOCK(ATOMIC_RESTORESTATE)` so a
+`ServoMotor` ISR-context write can't interleave with a `Relay`/`MotorDC`
+foreground write and tear a byte mid-sequence -- resolves the atomicity
+open question from the 2026-08-12 doc pass. `enableOutputs()` drives
+`OUTPUT_EN` low once at setup; confirmed against the KiCad schematic that
+`74LS373`'s `OE` pin is the part's only electrically-inverted pin on the
+symbol (active-low), so low is what actually enables the latches --
+easy to get backwards since `false`/low reads less intuitively as "on."
+Holds a `const BinaryOutputs&`, not a copy -- the table is 160 bytes and
+every device already keeps its own copy; a fourth copy here would have
+cost another 160 bytes of already-scarce RAM for nothing.
+
+`Relay.h` rewired to use it: `refreshBus()` (new, private) assembles all
+8 relays' current `enabled && state` into one byte and calls
+`bus.write(MUX_RELAY_STROBE, value)`; `setRelay`/`disableRelay`/
+`ultra_slow_handler` all call it instead of the old one-`SetOutput()`-
+per-relay immediate-write model. `Relay`'s public API (`setRelay`,
+`enableRelay`, `disableRelay`, `ultra_slow_handler`) is unchanged, so
+`RelayElement`/`RelayScreen`/`GUI` needed no changes. `MultiOutput.h`
+gained a `MultiplexedBus bus` member (constructed from `bnOuts`, ahead of
+`relays` in declaration order) and calls `bus.enableOutputs()` alongside
+`bnOuts.setup()`.
+
+`ServoMotor`/`MotorDC` are untouched -- still take a raw `BinaryOutputs`,
+still not called from `main.cpp`'s live handlers. Item 0 only unblocks
+items 1/2; it doesn't do them. `MotorDC`'s exact bit layout within its one
+byte is still an open question for whoever picks that up next.
+
+**96 native tests, all still passing** (this change isn't reachable from
+any native-testable file -- `MultiplexedBus`/`Relay` both depend on
+`BinaryOutputs` -> `avr/io.h`, same AVR-only category as `BinaryOutputs`
+itself). AVR build (`platformio run`, `megaatmega2560` env): RAM
+**79.4% (6507/8192 B)**, actually *down* from the pre-existing 81.3%
+baseline (the MAVLink/AnalogInput commit two days prior) despite adding a
+whole new class -- the single assembled-byte `write()` call compiles
+smaller than the old per-relay immediate-write loop did. Flash 22.3%
+(56748/253952 B), essentially unchanged.
+
+No physical hardware was available this session to verify an actual
+relay click or confirm the `OE` polarity read from the schematic --
+same caveat as the 2026-08-11 Relay-wiring entry.
+
+## 2026-08-12 -- MAVLink telemetry/command protocol + analog-input driver (catch-up entry)
+
+Not recorded here at the time (commit `cc334ea` landed same-day as the
+architecture-documentation pass below, but this changelog and
+`NEXT-SESSION.md` weren't updated for it until now). New
+`IHM_BOARD_STATE`/`CAN_SIGNAL_CONFIG`/`RS485_SIGNAL_CONFIG` MAVLink
+dialect (`IHM/mavlink/`), wired into `main.cpp`'s superloop: the board
+pushes user-input + analog telemetry roughly every 100ms and parses
+incoming CAN/RS-485 signal-generator commands (stored only -- no bus
+driver exists yet to act on them). Replaced the old raw `Serial.print()`
+debug lines, which would otherwise corrupt the binary MAVLink stream on
+the same UART.
+
+Also new: a register-direct ADC driver (`lib/AnalogInput`) for the 4
+analog inputs + `BattVoltage`, none of which were read anywhere in this
+codebase before -- see `ARCHITECTURE.md` gap 9 for its accepted
+polling-loop caveat. Also includes the `BinaryInput` `MCUCR` pull-up fix
+from the same session (`ARCHITECTURE.md` gap 6).
+
+One real RAM regression was caught and fixed before landing:
+`mavlink_parse_char()`'s error path pulls in the library's internal
+per-channel buffers regardless of which buffers you pass it, costing
+~400 bytes for buffers this code never uses. Switched to
+`mavlink_frame_char_buffer()`, the library's own "no global variables"
+variant -- see `mavlink/README.md` for the measured before/after. Net RAM
+cost for the whole feature: 519 bytes (75.0% -> 81.3%).
+
 ## 2026-08-11 -- Wire Relay outputs into the UI (Output tab)
 
 First of the three items in "Relay, servo, DC/stepper-motor outputs... not

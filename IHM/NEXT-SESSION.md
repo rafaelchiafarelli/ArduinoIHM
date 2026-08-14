@@ -1,8 +1,29 @@
 # Next session
 
-Picking up from 2026-08-11. Full detail on what was done is in
+Picking up from 2026-08-13. Full detail on what was done is in
 `IHM/CHANGELOG.md` -- this file is just the "where things stand / what's
 next" handoff.
+
+**2026-08-13 session:** item 0 below (the multiplexed-output-bus driver)
+is done -- `MultiplexedBus` exists and `Relay` uses it; see
+`CHANGELOG.md`'s 2026-08-13 entry for full detail. Items 1/2 (`ServoMotor`/
+`MotorDC` UI wiring) are no longer *blocked*, but neither is done -- see
+"Immediate next steps" below. AVR RAM is now **79.4% (6507/8192 B)**,
+actually down from the 81.3% it was at the start of this session (a
+by-product of `Relay`'s new single-assembled-byte write compiling smaller
+than its old per-relay write loop). Two more issues were found and
+deliberately *not* fixed this session (see "Known follow-ups"):
+`MavlinkComms::poll()`'s unbounded `while(serial->available())` drain,
+and dead `millis()`-based blocking-wait code in `Stream.cpp`/`Sd2Card.cpp`
+(vendored, unreferenced by any production code, confirmed by grep).
+
+Also: this file and `CHANGELOG.md` had silently fallen a day behind
+actual `dev` history before this session started -- the 2026-08-12
+`cc334ea` commit (MAVLink dialect + wiring, `AnalogInput` driver) was
+real, shipped work but was never appended to either doc. `CHANGELOG.md`
+now has a catch-up entry for it. Worth checking `git log` against these
+docs periodically, not just trusting them, if a gap like this is
+suspected again.
 
 ## Where things stand
 
@@ -28,11 +49,13 @@ servos, Timer1 fast-PWM + a stepper mode for DC motors) so it's not a
 copy-paste of the Relay work. Nothing is mid-flight; `dev` is clean and
 everything above is pushed.
 
-**Worth knowing before continuing:** wiring just Relay's 8 rows took RAM
-from 61.9% to 75.0% (+1071 B). There's 25% headroom (2048 B) left, but
-servo (8 channels, per the updated hardware model below, not 10) and
-motor screens will eat into that further -- check the RAM number after
-each one, don't assume there's room for both.
+**Worth knowing before continuing:** RAM is now **79.4% (6507/8192 B,
+~20.6%/1685 B headroom)** as of the 2026-08-13 session -- re-run
+`platformio run` for a current number rather than trusting any figure in
+this doc, it has drifted before (see the 2026-08-13 session note above).
+Servo (8 channels, per the updated hardware model below, not 10) and
+motor screens will eat into that headroom further -- check the RAM number
+after each one, don't assume there's room for both.
 
 **2026-08-12 session:** no code changes. Two things happened: (1) a full
 documentation pass -- `IHM/ARCHITECTURE.md`, a `README.md` in every
@@ -51,69 +74,40 @@ a real board before trusting it.
 
 ## Immediate next steps (pick up here)
 
-0. **Write the multiplexed-output-bus driver -- blocks items 1 and 2, do
-   this first.** Superseded 2026-08-12: an earlier version of this item
-   described a "Timer4 conflict" between PWM channel 3 and `ServoMotor`.
-   That framing was based on a wrong hardware model (that `Relay`/
-   `ServoMotor`/`MotorDC` each drive independent GPIO pins via
-   `BinaryOutputs`). Checked directly against the user's `IOs IHM.xlsx`
-   (`v0` sheet, current/authoritative) and confirmed with the user: **the
-   real hardware is nothing like that.**
+0. ~~**Write the multiplexed-output-bus driver -- blocks items 1 and 2, do
+   this first.**~~ -- **Done 2026-08-13.** `MultiplexedBus`
+   (`lib/MultiOutput/src/MultiplexedBus.h`) implements the settle-bus ->
+   raise-strobe -> drop-strobe protocol for `Relay`/`ServoMotor`/`MotorDC`'s
+   shared 8-bit bus (see `ARCHITECTURE.md`'s "multiplexed output bus"
+   section for the full hardware writeup: pin map, `74LS373` transparent-
+   latch behavior, `OUTPUT_EN` polarity). `Relay` now uses it and is
+   believed to actually drive real hardware correctly for the first time
+   (still unverified against a physical board). The atomicity open
+   question below is resolved -- `write()` brackets its whole sequence in
+   `ATOMIC_BLOCK(ATOMIC_RESTORESTATE)`. `MotorDC`'s bit-layout question
+   is **not** resolved -- still open, see item 2.
 
-   `Relay`, `ServoMotor`, and `MotorDC` share one 8-bit data bus (`O0-O7`,
-   AVR pins `PC2/PC1/PC0/PD7/PG2/PG1/PG0/PL7`) feeding three separate
-   `74LS373` latches, one per device, each selected by its own strobe
-   line: `dig_0` (`O10`/`PH6`) = Servo, `dig_1` (`O14`/`PG5`) = Relay,
-   `dig_2` (`O15`/`PF4`) = Motor. `OUTPUT_EN` (`O11`/`PB4`) is shared
-   tri-state control across all three latches, not part of the write
-   sequence. A `74LS373` is a *transparent* latch (not edge-triggered):
-   outputs follow the inputs continuously while its enable line is high,
-   and hold whatever value was present the instant that line falls. So
-   the correct write sequence is: **settle the 8-bit bus -> raise the
-   target device's `dig_X` -> drop it again** -- the *falling* edge of
-   `dig_X` is what actually captures the byte.
+1. **Servo motor UI wiring** -- no longer blocked on item 0 (the driver
+   exists), but still undone: `ServoMotor` needs its own bit-layout
+   decision and a rethink of `timer_handler()`'s `OCR4A`-based approach,
+   which predates the multiplexed-bus finding and doesn't fit it. Also has
+   a real bug, independent of any of that: one `load()` overload clamps
+   against `MIN_POSITION` where it should clamp against `MAX_POSITION`
+   (the array overload right above it does it correctly) -- fix while
+   wiring, same as PWM's "found while fixing the rest" bugs.
+2. **DC/stepper motor UI wiring** -- no longer blocked on item 0, still
+   undone. **Open sub-question, still unresolved:** `MotorDC`'s exact bit
+   layout within its one byte (confirmed 1 device address, `dig_2`, but
+   not the per-bit meaning -- `enA`/`dirA`/`enB`/`dirB` need picking bit
+   positions). `MotorDC.h`'s `setMotorA`/`setMotorB` have `analogWrite(...)`
+   commented out ("uncomment when using with Arduino") -- speed control
+   was never ported to this codebase's direct-register style, unlike
+   `PWM.cpp`. The stepper mode (`fast_handler()`) is fully written but
+   never called from anywhere. `MotorDC.cpp` is a 0-byte empty file --
+   this one needs writing, not just wiring.
 
-   The 8 hardware PWM pins (`O8/O9` = `OC1C/OC1B`, `O12/O13` = `OC4C/OC4B`,
-   `O16-O19` = each timer's `OC*A`) are confirmed direct-to-output, no
-   buffer, and are **not** part of this bus at all -- under this model,
-   Servo and Motor never touch a PWM-capable pin or timer register, so
-   the original Timer4-vs-PWM-channel-3 conflict is moot, and so is the
-   `BinaryOutputs` index-overlap gotcha below (both were derived from the
-   wrong model).
-
-   `BinaryOutputs::SetOutput()` today does immediate, independent per-pin
-   GPIO writes -- it does not implement this bus/address/strobe protocol
-   at all, for any of indices 0-7. This needs a real driver rewrite before
-   `Relay` (already wired to indices 0-7 today, and likely not actually
-   working correctly against real hardware as a result -- worth checking)
-   or `ServoMotor`/`MotorDC` can be correct. Each device also needs to
-   keep its own current 8-bit state in RAM and rewrite the *whole* byte on
-   every change (the bus is shared and byte-wide, not individually
-   addressable per bit).
-
-   **Open sub-questions for whoever picks this up:** exact bit layout
-   `MotorDC` wants within its one byte (confirmed 1 device address,
-   `dig_2`, but not the per-bit meaning); and an atomicity concern --
-   the bus is physically shared, so a write from `ServoMotor`'s ISR
-   context racing a write from `Relay`/`MotorDC`'s foreground context
-   could corrupt either write unless the new driver brackets the
-   bus-write-then-strobe sequence against interrupts (`cli()`/`sei()` or
-   equivalent).
-
-1. **Servo motor UI wiring** -- blocked on item 0. Also has a real bug,
-   independent of the bus rewrite: one `load()` overload clamps against
-   `MIN_POSITION` where it should clamp against `MAX_POSITION` (the array
-   overload right above it does it correctly) -- fix while wiring, same as
-   PWM's "found while fixing the rest" bugs.
-2. **DC/stepper motor UI wiring** -- blocked on item 0. `MotorDC.h`'s
-   `setMotorA`/`setMotorB` have `analogWrite(...)` commented out
-   ("uncomment when using with Arduino") -- speed control was never ported
-   to this codebase's direct-register style, unlike `PWM.cpp`. The stepper
-   mode (`fast_handler()`) is fully written but never called from
-   anywhere. `MotorDC.cpp` is a 0-byte empty file -- this one needs
-   writing, not just wiring.
-
-All three are real multi-session efforts -- don't assume any is quick.
+Items 1 and 2 are still real multi-session efforts -- don't assume either
+is quick, even with item 0 out of the way.
 
 (Display-glue native tests, formerly #2, was killed -- see follow-up
 below.)
@@ -161,6 +155,37 @@ From `CHANGELOG.md`'s "Known follow-ups" section:
   `tft->drawRect(...)`/`tft->print(...)` call sites themselves that were
   ever untested, and that gap is now accepted, not fixed.
 
+- ~~**Write the multiplexed-output-bus driver**~~ -- **done 2026-08-13**,
+  see item 0 above and `CHANGELOG.md`'s 2026-08-13 entry. `Relay` uses it;
+  `ServoMotor`/`MotorDC` still don't (items 1/2).
+- **`CHANGELOG.md`/`NEXT-SESSION.md` had silently drifted a day behind
+  `dev`** -- the 2026-08-12 MAVLink/AnalogInput commit (`cc334ea`) was
+  real, shipped work never recorded in either doc until this session's
+  catch-up entry. Caught by comparing `git log` against these docs
+  directly, not by anything in the docs themselves -- worth doing that
+  comparison again if a gap like this is suspected.
+
+Found during the 2026-08-13 session (not asked for, not fixed, pinned so
+they aren't lost):
+
+- **`MavlinkComms::poll()` drains its whole RX ring buffer in one
+  unbounded `while (serial->available())` loop**
+  (`lib/MavlinkComms/src/MavlinkComms.h:72`) -- same class of problem as
+  the `AnalogInputs::read()` polling gap below (blocking the superloop
+  for a data-dependent amount of time), just not yet measured.
+- **Dead `millis()`-based blocking-wait code, confirmed unreachable by
+  grep, in two vendored libraries:** `Stream::timedRead()`/`timedPeek()`
+  (`lib/ArduinoLib/src/Stream.cpp:31-52`, up to a 1000ms default timeout)
+  back `readBytes`/`readBytesUntil`/`readString`/`readStringUntil`/
+  `parseInt`/`parseFloat`/`find`/`findUntil` -- none of those methods are
+  called anywhere outside `ArduinoLib` itself. Likewise
+  `lib/SD/src/Sd2Card.cpp`'s card-init wait loops -- `main.cpp` includes
+  `SD.h` but never calls `SD.begin()` or touches an `SDClass`/`Sd2Card`
+  instance. Same category as the already-known `SPITFT.cpp`/`GrayOLED.cpp`
+  dead weight. Not removed yet -- removing needs a check for anything
+  relying on `Stream`'s method *declarations* even if unused at runtime,
+  not just deleting the `.cpp` bodies blind.
+
 Found during the 2026-08-12 documentation pass (`IHM/ARCHITECTURE.md` has
 full detail on each; not asked for, not fixed, listed so they aren't lost):
 
@@ -204,9 +229,11 @@ here so they don't get mistaken for "already done" or lost track of.
   MSVC directly since no gcc is installed on this machine -- see that
   script's header comment). 96 tests, all passing as of the last commit.
 - AVR build: `platformio run` from `IHM/` (or `-d` pointed at it). Verified
-  after every commit; last known state RAM 75.0% (6144/8192 B), Flash 19.5%
-  (49476/253952 B) -- RAM headroom is getting less comfortable than it
-  looks (see the note above on servo/motor RAM cost).
+  after every commit; last known state RAM 79.4% (6507/8192 B), Flash 22.3%
+  (56748/253952 B) -- RAM headroom is getting less comfortable than it
+  looks (see the note above on servo/motor RAM cost). This number has
+  drifted out of sync with what this doc says before (see the 2026-08-13
+  session note at the top) -- re-run rather than trust it blindly.
 - Demo: `IHM/demo/run_demo.ps1` -- prints the register-level walkthrough.
   `IHM/demo/HARDWARE_RUNBOOK.md` has the equivalent checks for real
   hardware.
@@ -220,6 +247,16 @@ here so they don't get mistaken for "already done" or lost track of.
 
 ## Notes for whoever/whatever resumes this
 
+- **2026-08-13: `dev`'s history was rewritten and force-pushed** to strip
+  `ElectricalProject/ArduinoIHM-backups/*.zip` out of every commit (only
+  the working-tree copy is gitignored now; the 18 already-committed zips
+  are gone from history too). Every commit hash from `5308ab5` ("Electrical
+  project update - fix page size") onward changed as a result -- if you're
+  matching this doc or `CHANGELOG.md` against a commit hash from before
+  2026-08-13 and it doesn't resolve, that's why. A full pre-rewrite backup
+  bundle (`git bundle`, all refs) was taken first and is not part of the
+  repo itself -- ask the user if a pre-rewrite commit is ever actually
+  needed.
 - GitHub push access needed a key added to the `rafaelchiafarelli` account
   mid-session; that's resolved now (push succeeded), no action needed
   unless it regresses.

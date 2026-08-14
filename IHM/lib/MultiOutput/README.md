@@ -41,11 +41,10 @@ register-writing half (`PWMConfig.cpp`'s `applySimplexPWMConfig`/
 actually reachable from `main.cpp` today:
 
 - `MultiOutput::slow_handler()` -> `Relay::ultra_slow_handler()` -- **is**
-  called, from `TIMER2_COMPA_vect`'s ~25ms branch. The UI/module wiring
-  is complete (UI -> `Relay::setRelay` -> `BinaryOutputs::SetOutput`), but
-  per the multiplexed-bus finding below, `BinaryOutputs::SetOutput()`
-  likely does not actually drive real relay hardware correctly -- "wired"
-  here means the software call chain, not confirmed-working hardware.
+  called, from `TIMER2_COMPA_vect`'s ~25ms branch. UI -> `Relay::setRelay`
+  -> `MultiplexedBus::write()` now implements the real settle-strobe-drop
+  protocol (see below) -- "wired" still means software-verified only, no
+  physical hardware was available to confirm an actual relay click.
 - `MultiOutput::fast_handler()` -> `MotorDC::fast_handler()` (stepper
   microstepping) -- **not called anywhere.** Both call sites in
   `main.cpp` are commented out. `MotorDC` also still has `analogWrite(...)`
@@ -56,7 +55,7 @@ actually reachable from `main.cpp` today:
   rethinking now that `ServoMotor` is known to go through the
   multiplexed bus below rather than owning a dedicated timer.
 
-## The multiplexed output bus (corrected 2026-08-12)
+## The multiplexed output bus (driver written 2026-08-13)
 
 An earlier version of this section described a Timer4 register conflict
 between PWM channel 3 and `ServoMotor`. That was based on a wrong
@@ -88,12 +87,36 @@ buffer, entirely separate from Relay/Servo/Motor. The Timer4 conflict this
 section used to describe doesn't apply: `ServoMotor` doesn't touch Timer4
 or any PWM-capable pin under this design.
 
-`BinaryOutputs::SetOutput()` does not implement the bus/strobe protocol
-above -- writing a driver for it is `IHM/NEXT-SESSION.md` item 0, and
-blocks `ServoMotor`/`MotorDC` UI wiring (items 1/2) as well as fixing
-`Relay`'s existing wiring. See `IHM/ARCHITECTURE.md` for the same
-information plus open sub-questions (`MotorDC`'s bit layout, write
-atomicity against `ServoMotor`'s ISR context).
+**`MultiplexedBus`** (`lib/MultiOutput/src/MultiplexedBus.h`) is that
+driver: `write(strobeIndex, byte)` settles all 8 data-bus bits (via
+`BinaryOutputs::SetOutput()`, indices 0-7), raises the target device's
+strobe, then drops it, all inside `ATOMIC_BLOCK(ATOMIC_RESTORESTATE)` --
+`ServoMotor`'s ISR-context writes and `Relay`/`MotorDC`'s foreground
+writes can't interleave and tear a byte mid-sequence. `enableOutputs()`
+drives `OUTPUT_EN` (index 11) **low** once at setup -- confirmed against
+the KiCad schematic that `74LS373`'s `OE` pin is the part's only
+electrically-inverted pin, i.e. active-low, so low is what actually
+enables the latches' outputs (not the more intuitive-looking `true`).
+Holds a `const BinaryOutputs&` (not a copy) since `BinaryOutputs` is a
+160-byte table and every device already keeps its own copy -- a fourth
+copy here would cost another 160 bytes of already-scarce RAM for nothing.
+
+`Relay` is wired to it: `relays[]` still holds one bool per relay, but
+every mutation now calls a private `refreshBus()` that assembles all 8
+relays' state into one byte and calls
+`bus.write(MUX_RELAY_STROBE, value)`, instead of the old
+one-`SetOutput()`-per-relay immediate-write model. Net RAM effect was a
+*decrease* (79.4% vs. 81.3% before), not an increase, despite the new
+class -- the single assembled-byte write compiles smaller than the old
+per-relay call sequence did.
+
+`ServoMotor`/`MotorDC` are **not** touched by this change -- they still
+take a raw `BinaryOutputs` and are still not called from `main.cpp`'s
+live handlers (see "Known gaps" below). `MultiplexedBus` is generic
+enough for either to use once someone picks up items 1/2, but doing so
+needs each device's own bit-layout decided first (see
+`IHM/NEXT-SESSION.md`'s open sub-questions, still unresolved for
+`MotorDC`).
 
 ## Depends on
 

@@ -6,7 +6,12 @@ mechanical pattern every other output module builds on ("the
 register-direct strategy" elsewhere in these docs), but as of 2026-08-12,
 **most of its 20 slots are not actually meant to be driven this way** --
 see "What the 20 indices actually are" below before using this class for
-anything new.
+anything new. As of 2026-08-13, indices 0-7 (and the bus's control lines,
+10/11/14/15) are meant to be driven through
+[`MultiplexedBus`](../MultiOutput/README.md), which uses `SetOutput()` as
+its own low-level primitive -- `BinaryOutputs::SetOutput()` itself is
+unchanged, still a single independent register write with no bus/strobe
+awareness.
 
 ## API
 
@@ -31,12 +36,14 @@ user: that's wrong for indices 0-7 and 8-19 alike, just in different ways.
   `74LS373` latch fed by this same bus, captured by a per-device strobe
   line (`dig_0`/`dig_1`/`dig_2`, none of which are in this table -- see
   below). `SetOutput()`'s immediate independent-bit-write model **does
-  not implement this protocol** (no bus-settle-then-strobe sequence) --
-  using it as-is on indices 0-7 will not correctly drive Relay, Servo, or
-  Motor hardware. See [MultiOutput/README.md](../MultiOutput/README.md)
-  and `IHM/ARCHITECTURE.md`'s "multiplexed output bus" section for the
-  full protocol; a real driver for it doesn't exist yet
-  (`IHM/NEXT-SESSION.md` item 0).
+  not implement this protocol** on its own (no bus-settle-then-strobe
+  sequence) -- calling it directly on indices 0-7 will not correctly
+  drive Relay, Servo, or Motor hardware. As of 2026-08-13,
+  [`MultiplexedBus`](../MultiOutput/README.md) is the real driver for
+  this protocol, built as a thin layer on top of `SetOutput()` (it calls
+  `SetOutput()` once per bit to settle the bus, then again on the target
+  device's strobe index); `Relay` uses it, `ServoMotor`/`MotorDC` don't
+  yet (`IHM/NEXT-SESSION.md` items 1/2).
 - **Indices 8, 9, 12, 13, 16, 17, 18, 19** (`PB7,PB6,PH5,PH4,PE3,PH3,PB5,PL3`)
   are hardware PWM-capable pins (`OC1C/OC1B/OC4C/OC4B/OC3A/OC4A/OC1A/OC5A`),
   direct-to-output with no buffer, exclusively owned by
@@ -49,11 +56,13 @@ user: that's wrong for indices 0-7 and 8-19 alike, just in different ways.
   described there, not generic `SetOutput()` calls.
 
 In short: as of this hardware revision, none of `BinaryOutputs`' 20
-indices are actually appropriate to drive with its own `SetOutput()`
-one-index-at-a-time model. The class's register table (which physical pin
-each index is) is still accurate; the *access pattern* built on top of it
-needs to change for indices 0-7 (bus+strobe) and stop entirely for indices
-8-19 (owned by `PWM` or the bus's own control lines).
+indices are appropriate for a caller to drive directly with its own
+`SetOutput()` one-index-at-a-time model. The class's register table
+(which physical pin each index is) is still accurate, and `SetOutput()`
+is still the correct low-level primitive -- but indices 0-7 and 10/11/14/15
+should only be reached through [`MultiplexedBus`](../MultiOutput/README.md)
+now, and indices 8, 9, 12, 13, 16-19 should never be driven through
+`BinaryOutputs` at all (owned by `PWM`).
 
 ## Hardware resources
 

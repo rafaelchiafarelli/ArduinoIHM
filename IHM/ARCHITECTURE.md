@@ -118,20 +118,31 @@ untouched. Each device needs to keep its own current 8-bit state in RAM
 and rewrite the whole byte on every change (the bus is shared and
 byte-wide, not individually addressable per bit).
 
-**`BinaryOutputs::SetOutput()` does not implement this protocol** -- it
-does immediate, independent per-pin GPIO writes with no bus/strobe
-sequence at all. This means `Relay`'s existing UI wiring (2026-08-11,
-previously believed complete) likely does not drive real hardware
-correctly. Writing a driver for this protocol is `NEXT-SESSION.md` item
-0, and blocks `ServoMotor`/`MotorDC` UI wiring (items 1/2) as well as
-fixing `Relay`.
+**`BinaryOutputs::SetOutput()` does not implement this protocol on its
+own** -- it does immediate, independent per-pin GPIO writes with no
+bus/strobe sequence. **Fixed 2026-08-13:** `MultiplexedBus`
+(`lib/MultiOutput/src/MultiplexedBus.h`) is now the real driver, built on
+top of `SetOutput()` -- `write(strobeIndex, byte)` settles all 8 data-bus
+bits, raises the target device's strobe, then drops it, all inside
+`ATOMIC_BLOCK(ATOMIC_RESTORESTATE)` (resolves the atomicity question
+below). `enableOutputs()` drives `OUTPUT_EN` **low** once at setup --
+confirmed against the KiCad schematic that `74LS373`'s `OE` pin is the
+part's only electrically-inverted pin on the symbol, i.e. active-low.
+`Relay` now uses it (assembles all 8 relays' state into one byte via a
+`refreshBus()` helper and calls `bus.write(MUX_RELAY_STROBE, value)`)
+instead of one independent `SetOutput()` per relay -- net RAM effect was
+a *decrease* (81.3% -> 79.4%), not the increase a naive new class might
+suggest. `ServoMotor`/`MotorDC` still take a raw `BinaryOutputs` and are
+untouched (`NEXT-SESSION.md` items 1/2) -- see the remaining open
+question below.
 
-**Open questions for whoever implements this:** `MotorDC`'s exact bit
-layout within its one byte (confirmed 1 device, `dig_2`, layout tbd); and
-an atomicity concern, since the bus is physically shared hardware -- a
-write from `ServoMotor`'s ISR context racing a write from `Relay`'s or
-`MotorDC`'s foreground context could corrupt either write unless writes
-are bracketed against interrupts.
+**Open question for whoever implements items 1/2:** `MotorDC`'s exact bit
+layout within its one byte (confirmed 1 device, `dig_2`, layout still
+tbd). The atomicity concern from the earlier version of this section is
+resolved -- `MultiplexedBus::write()` brackets its whole settle-strobe-drop
+sequence in `ATOMIC_BLOCK`, so a `ServoMotor` ISR-context write can't
+interleave with a `Relay`/`MotorDC` foreground write, whenever `ServoMotor`
+is wired up to use it.
 
 ### Hardware timers (PWM only -- fully decoupled from the bus above)
 
@@ -151,7 +162,7 @@ version of this section described a Timer4 conflict between `ServoMotor`
 and PWM channel 3; that no longer applies, since `ServoMotor` goes
 through the bus instead).
 
-## Known gaps (as of 2026-08-12)
+## Known gaps (as of 2026-08-13)
 
 These aren't bugs introduced by any recent change -- they're pre-existing
 gaps this documentation pass surfaced while mapping the codebase. Listed
@@ -161,18 +172,20 @@ here so they're visible, not implying any of them need fixing today.
    `OCR4A`-based pulse-generation approach needs rethinking now that
    `ServoMotor` is known to go through the multiplexed bus, not a
    dedicated timer -- see "The multiplexed output bus" above.
-   (`NEXT-SESSION.md` item 1, blocked on item 0.)
+   (`NEXT-SESSION.md` item 1 -- item 0's driver now exists, so this is no
+   longer blocked on that, just still undone: `ServoMotor`'s own bit
+   layout/pulse-generation approach still needs designing.)
 2. **`MotorDC::fast_handler()` is never called** (stepper microstepping
    logic is fully written, unreachable). `setMotorA`/`setMotorB`'s DC
    speed control (`analogWrite`, commented out) was also never ported to
-   direct-register PWM. (`NEXT-SESSION.md` item 2, blocked on item 0.)
-3. **`BinaryOutputs::SetOutput()` doesn't implement the multiplexed-bus
-   protocol** `Relay`/`ServoMotor`/`MotorDC` actually need (immediate
-   independent per-pin GPIO writes instead of bus-settle + strobe) -- see
-   "The multiplexed output bus" above. This is the real blocker, not a
-   pin-index overlap (an earlier version of this list described one
-   between `MotorDC` and `ServoMotor`; that was based on the same wrong
-   independent-GPIO model and no longer applies).
+   direct-register PWM. (`NEXT-SESSION.md` item 2 -- same "no longer
+   blocked on item 0, still undone" status as item 1; `MotorDC`'s bit
+   layout is still an open question.)
+3. ~~**`BinaryOutputs::SetOutput()` doesn't implement the multiplexed-bus
+   protocol** `Relay`/`ServoMotor`/`MotorDC` actually need~~ -- **fixed
+   2026-08-13**, see "The multiplexed output bus" above: `MultiplexedBus`
+   is the real driver now, and `Relay` uses it. `ServoMotor`/`MotorDC`
+   still don't (items 1/2 above).
 4. **`SerialCommunication::receive()` is never called.** Nothing forwards
    incoming UART0 bytes to it (the real RX ISR only fills the standard
    `Serial` ring buffer) -- so the framing/checksum parser it feeds can
@@ -206,15 +219,35 @@ here so they're visible, not implying any of them need fixing today.
    channels asynchronously rather than blocking the superloop on each
    one) -- not fixed yet, flagged so it isn't mistaken for the
    established pattern. See [lib/AnalogInput/src/AnalogInput.h](lib/AnalogInput/src/AnalogInput.h).
+10. **`MavlinkComms::poll()` drains the whole RX ring buffer in one
+    `while (serial->available())` loop** (`lib/MavlinkComms/src/MavlinkComms.h:72`)
+    -- not bounded by a fixed iteration count, so a burst of buffered
+    bytes could hold up the rest of the superloop for however long it
+    takes to parse all of them. Same class of problem as item 9. Flagged
+    2026-08-13, not fixed -- pinned for a future session.
+11. **Dead `millis()`-based blocking-wait code exists in two vendored
+    libraries, neither reachable at runtime:**
+    `Stream::timedRead()`/`timedPeek()` (`lib/ArduinoLib/src/Stream.cpp:31-52`,
+    up to a 1000ms default timeout) back `readBytes`/`readBytesUntil`/
+    `readString`/`readStringUntil`/`parseInt`/`parseFloat`/`find`/`findUntil`
+    -- grepped the whole tree outside `ArduinoLib`: none of those methods
+    are called anywhere. Likewise `lib/SD/src/Sd2Card.cpp`'s card-init
+    wait loops -- `main.cpp:10` includes `SD.h` but never calls
+    `SD.begin()` or touches an `SDClass`/`Sd2Card` instance. Both compile
+    and link in (PlatformIO auto-links everything under `lib/`) but never
+    execute. Same category as item 8 (`SPITFT.cpp`/`GrayOLED.cpp`).
+    Flagged 2026-08-13, not removed -- pinned for a future session
+    (removing needs a check for anything relying on `Stream`'s
+    declarations even if unused, not just deleting the `.cpp` bodies).
 
 ## What's already solid
 
 Worth naming so it isn't lost among the gaps above: `Relay` is fully
-wired UI-to-`BinaryOutputs` and was the template for how the
-output-wiring pattern should look at the UI/module level -- though per
-the multiplexed-bus finding above, `BinaryOutputs` itself likely doesn't
-drive the real hardware correctly yet, so "wired" here means the
-software plumbing, not confirmed-working-on-a-real-board. `PWM`'s
+wired UI-to-`MultiplexedBus`-to-hardware and was the template for how the
+output-wiring pattern should look at the UI/module level -- "wired" still
+means software-verified only (no physical hardware was available this
+session to confirm an actual relay click), but the write sequence itself
+now implements the real settle-strobe-drop protocol end to end. `PWM`'s
 register math is natively unit-tested and was hardened for a real
 register-clobbering bug (see `CHANGELOG.md`, 2026-08-10) -- and per the
 bus finding, `PWM`'s timers are confirmed unaffected by any of this,

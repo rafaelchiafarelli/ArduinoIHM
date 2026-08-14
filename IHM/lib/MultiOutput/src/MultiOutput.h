@@ -4,25 +4,29 @@
 #include "ServoMotor.h"
 #include "PWM.h"
 #include "Relay.h"
+#include "MultiplexedBus.h"
 
 class MultiOutput
 {
     const BinaryOutputs bnOuts;
+    const MultiplexedBus bus;
     Relay relays;
     MotorDC motors;
     PWM pwm;
     ServoMotor engines;
-    
+
 private:
     bool value_f = false;
     bool value_s = false;
 public:
     MultiOutput():bnOuts(),
-                    relays(bnOuts),
+                    bus(bnOuts),
+                    relays(bus),
                     motors(bnOuts,MOTOR_STEPPER),
                     pwm(),
                     engines(bnOuts){
                         bnOuts.setup();
+                        bus.enableOutputs();
                     };
 
     void timer_handler(){

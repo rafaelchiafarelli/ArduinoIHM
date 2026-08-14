@@ -1,6 +1,6 @@
 #ifndef RELEY_H_
 #define RELEY_H_
-#include <BinaryOutputs.h>
+#include <MultiplexedBus.h>
 
 #define NUMBER_OF_RELAYS 8
 
@@ -11,12 +11,24 @@ typedef struct{
 }relayCtrl;
 
 class Relay
-{   
+{
 private:
     relayCtrl relays[NUMBER_OF_RELAYS];
-    const BinaryOutputs relays_pins;
+    const MultiplexedBus bus;
+
+    // The bus is byte-wide and shared, not individually addressable per
+    // bit -- every change re-latches all 8 relays' current state at once.
+    void refreshBus() const{
+        uint8_t value = 0;
+        for(int i=0;i<NUMBER_OF_RELAYS;i++){
+            if(relays[i].enabled && relays[i].state){
+                value |= (uint8_t)(1 << i);
+            }
+        }
+        bus.write(MUX_RELAY_STROBE, value);
+    }
 public:
-    Relay(const BinaryOutputs bnOuts):relays_pins(bnOuts){
+    Relay(const MultiplexedBus muxBus):bus(muxBus){
         for(int i=0;i<NUMBER_OF_RELAYS;i++){
             relays[i].index=i;
             relays[i].enabled = false;
@@ -25,7 +37,7 @@ public:
     void setRelay(uint8_t index, bool state){
         if(index<NUMBER_OF_RELAYS && relays[index].enabled){
             relays[index].state = state;
-            relays_pins.SetOutput(relays[index].index, (const bool)state);
+            refreshBus();
         }
     };
     void enableRelay(uint8_t index){
@@ -37,17 +49,12 @@ public:
         if(index<NUMBER_OF_RELAYS){
             relays[index].enabled = false;
             relays[index].state = false;
-            relays_pins.SetOutput(relays[index].index, false);
+            refreshBus();
         }
     };
     void ultra_slow_handler(){
-        //this function can be used to monitor the relays status or do some maintenance tasks
-        for(int i=0;i<NUMBER_OF_RELAYS;i++){
-            if(relays[i].enabled){
-                //refresh the relay state to avoid any unexpected state change
-                relays_pins.SetOutput(relays[i].index, relays[i].state);
-            }
-        }
+        //refresh the whole latched byte to avoid any unexpected state change
+        refreshBus();
     };
 };
 
