@@ -7,7 +7,6 @@
 #include "SerialCommunication.h"
 #include "BinaryOutputs.h"
 #include "BinaryInput.h"
-#include "SD.h"
 #include <GUI.h>
 #include <MCP4725.h>
 #include <Arduino.h>

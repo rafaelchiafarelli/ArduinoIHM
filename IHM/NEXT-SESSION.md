@@ -6,16 +6,32 @@ next" handoff.
 
 **2026-08-13 session:** item 0 below (the multiplexed-output-bus driver)
 is done -- `MultiplexedBus` exists and `Relay` uses it; see
-`CHANGELOG.md`'s 2026-08-13 entry for full detail. Items 1/2 (`ServoMotor`/
+`CHANGELOG.md`'s 2026-08-13 entries for full detail. Items 1/2 (`ServoMotor`/
 `MotorDC` UI wiring) are no longer *blocked*, but neither is done -- see
-"Immediate next steps" below. AVR RAM is now **79.4% (6507/8192 B)**,
-actually down from the 81.3% it was at the start of this session (a
-by-product of `Relay`'s new single-assembled-byte write compiling smaller
-than its old per-relay write loop). Two more issues were found and
-deliberately *not* fixed this session (see "Known follow-ups"):
-`MavlinkComms::poll()`'s unbounded `while(serial->available())` drain,
-and dead `millis()`-based blocking-wait code in `Stream.cpp`/`Sd2Card.cpp`
-(vendored, unreferenced by any production code, confirmed by grep).
+"Immediate next steps" below.
+
+Same session, second pass: cleared out the safe-to-delete dead code found
+while writing the driver. Deleted `lib/StateMachine/StateMachine.hpp`/
+`.cpp` (didn't compile, unreferenced), `lib/Display/SPITFT.cpp`/`.h`/
+`SPITFT_Macros.h`/`GrayOLED.cpp`/`.h` (vendored, unreferenced), and
+`Stream`'s dead `millis()`-based timeout/parsing methods (`readBytes`,
+`parseInt`, `find`, etc. -- confirmed zero callers outside `ArduinoLib`
+before deleting; `Stream.cpp` is gone entirely, nothing was left to
+implement). Removed the dead `#include "SD.h"` from `main.cpp`, but kept
+`lib/SD` itself vendored (including its own `millis()` wait loops) since
+`mavlink/README.md` reserves room for a future SD-card message -- see
+"Known follow-ups" below for why that one's different from the others.
+**Deliberately not touched** (need a real decision, not a deletion, so
+left for later): `MavlinkComms::poll()`'s unbounded RX-drain loop,
+`SerialCommunication::receive()` never being called, the `MCP4725`
+dac/voltage naming question, and `AnalogInputs::read()`'s blocking ADC
+poll -- all four are still open below.
+
+AVR RAM is now **79.2% (6491/8192 B)**, down from 81.3% at the start of
+this session (mostly `Relay`'s new single-assembled-byte write compiling
+smaller than its old per-relay write loop; the dead-code deletions barely
+moved it, since the linker was already garbage-collecting their unused
+symbols -- the value there was source-tree cleanliness, not RAM/flash).
 
 Also: this file and `CHANGELOG.md` had silently fallen a day behind
 actual `dev` history before this session started -- the 2026-08-12
@@ -49,8 +65,8 @@ servos, Timer1 fast-PWM + a stepper mode for DC motors) so it's not a
 copy-paste of the Relay work. Nothing is mid-flight; `dev` is clean and
 everything above is pushed.
 
-**Worth knowing before continuing:** RAM is now **79.4% (6507/8192 B,
-~20.6%/1685 B headroom)** as of the 2026-08-13 session -- re-run
+**Worth knowing before continuing:** RAM is now **79.2% (6491/8192 B,
+~20.8%/1701 B headroom)** as of the 2026-08-13 session -- re-run
 `platformio run` for a current number rather than trusting any figure in
 this doc, it has drifted before (see the 2026-08-13 session note above).
 Servo (8 channels, per the updated hardware model below, not 10) and
@@ -173,18 +189,21 @@ they aren't lost):
   (`lib/MavlinkComms/src/MavlinkComms.h:72`) -- same class of problem as
   the `AnalogInputs::read()` polling gap below (blocking the superloop
   for a data-dependent amount of time), just not yet measured.
-- **Dead `millis()`-based blocking-wait code, confirmed unreachable by
-  grep, in two vendored libraries:** `Stream::timedRead()`/`timedPeek()`
-  (`lib/ArduinoLib/src/Stream.cpp:31-52`, up to a 1000ms default timeout)
-  back `readBytes`/`readBytesUntil`/`readString`/`readStringUntil`/
-  `parseInt`/`parseFloat`/`find`/`findUntil` -- none of those methods are
-  called anywhere outside `ArduinoLib` itself. Likewise
-  `lib/SD/src/Sd2Card.cpp`'s card-init wait loops -- `main.cpp` includes
-  `SD.h` but never calls `SD.begin()` or touches an `SDClass`/`Sd2Card`
-  instance. Same category as the already-known `SPITFT.cpp`/`GrayOLED.cpp`
-  dead weight. Not removed yet -- removing needs a check for anything
-  relying on `Stream`'s method *declarations* even if unused at runtime,
-  not just deleting the `.cpp` bodies blind.
+- ~~**Dead `millis()`-based blocking-wait code in two vendored
+  libraries**~~ -- **`Stream` side deleted 2026-08-13.** `timedRead()`/
+  `timedPeek()` and everything that only existed to support them
+  (`readBytes`/`readBytesUntil`/`readString`/`readStringUntil`/
+  `parseInt`/`parseFloat`/`find`/`findUntil`/`findMulti`/`peekNextDigit`,
+  `setTimeout`/`getTimeout`) are gone from `Stream.h`; `Stream.cpp` was
+  deleted entirely (nothing left to implement). Checked first that no
+  subclass (`HardwareSerial`/`Client`/`Udp`/`USBAPI`/`Wire`/`SD`) relied
+  on the removed methods -- they only ever inherited the trimmed
+  `available()`/`read()`/`peek()` interface. **`SD` side: only the dead
+  `#include "SD.h"` in `main.cpp` was removed** -- `lib/SD` itself
+  (`Sd2Card.cpp`'s `millis()` loops included) stays vendored, not
+  deleted, since `mavlink/README.md` already reserves payload headroom
+  for a future "SD-card-status" message. Revisit deleting `lib/SD` for
+  real if that message never materializes.
 
 Found during the 2026-08-12 documentation pass (`IHM/ARCHITECTURE.md` has
 full detail on each; not asked for, not fixed, listed so they aren't lost):
@@ -199,10 +218,10 @@ full detail on each; not asked for, not fixed, listed so they aren't lost):
   DACs) never update from real serial input today. Needs either a
   `USART0_RX_vect` override calling `comms.receive()`, or main-loop
   polling of `Serial.available()`/`Serial.read()` feeding it.
-- **`lib/StateMachine/StateMachine.hpp`/`.cpp` doesn't compile and isn't
-  used.** References an undefined type (`StateMachineStates` vs. the
-  actual enum `FunctionalStates`); nothing includes it (`PWMStateMachine.h`,
-  same folder, is what's actually used). Safe to delete.
+- ~~**`lib/StateMachine/StateMachine.hpp`/`.cpp` doesn't compile and isn't
+  used.**~~ -- **deleted 2026-08-13.** Referenced an undefined type,
+  nothing included it; `PWMStateMachine.h` (same folder, actually used)
+  is untouched.
 - **`BinaryInput`'s `MCUCR |= ~(1<<PUD);`** doesn't do what its comment
   ("ensure pull-ups aren't globally disabled") says -- it sets every
   *other* `MCUCR` bit while leaving `PUD` itself untouched. Probably meant
@@ -211,9 +230,11 @@ full detail on each; not asked for, not fixed, listed so they aren't lost):
   `main.cpp`: `dac1.setVoltage(voltage0,...)`, `dac0.setVoltage(voltage1,...)`.
   May be intentional (matching board wiring) -- worth a deliberate check
   against the actual hardware before assuming "channel 0 = voltage0."
-- **`lib/Display/SPITFT.cpp`/`GrayOLED.cpp`** are vendored but entirely
-  unreferenced by the actual display path (`Display`/`GFX`/
-  `mcufriend_shield.h`) -- dead weight from the library import.
+- ~~**`lib/Display/SPITFT.cpp`/`GrayOLED.cpp`** are vendored but entirely
+  unreferenced~~ -- **deleted 2026-08-13** (`SPITFT.cpp`/`.h`,
+  `SPITFT_Macros.h`, `GrayOLED.cpp`/`.h`); confirmed nothing else included
+  them. The active display path (`Display`/`GFX`/`mcufriend_shield.h`) is
+  untouched.
 
 Full architecture writeup, per-module `README.md`s, and a diagram now
 exist: `IHM/ARCHITECTURE.md`, `IHM/lib/*/README.md`,
@@ -229,8 +250,8 @@ here so they don't get mistaken for "already done" or lost track of.
   MSVC directly since no gcc is installed on this machine -- see that
   script's header comment). 96 tests, all passing as of the last commit.
 - AVR build: `platformio run` from `IHM/` (or `-d` pointed at it). Verified
-  after every commit; last known state RAM 79.4% (6507/8192 B), Flash 22.3%
-  (56748/253952 B) -- RAM headroom is getting less comfortable than it
+  after every commit; last known state RAM 79.2% (6491/8192 B), Flash 22.3%
+  (56708/253952 B) -- RAM headroom is getting less comfortable than it
   looks (see the note above on servo/motor RAM cost). This number has
   drifted out of sync with what this doc says before (see the 2026-08-13
   session note at the top) -- re-run rather than trust it blindly.

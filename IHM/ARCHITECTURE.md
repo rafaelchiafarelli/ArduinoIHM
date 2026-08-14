@@ -194,10 +194,10 @@ here so they're visible, not implying any of them need fixing today.
    driven by whatever they were last set to (always 0 today). See
    [lib/Comms/README.md](lib/Comms/README.md) for what wiring this up
    would need.
-5. **`lib/StateMachine/StateMachine.hpp`/`.cpp` is dead code that doesn't
-   compile** (references an undefined type). Nothing includes it --
-   `PWMStateMachine.h` (same folder) is what's actually used. Safe to
-   delete.
+5. ~~**`lib/StateMachine/StateMachine.hpp`/`.cpp` is dead code that
+   doesn't compile**~~ -- **deleted 2026-08-13.** Referenced an undefined
+   type, nothing included it; `PWMStateMachine.h` (same folder) is what's
+   actually used and is untouched.
 6. ~~**`BinaryInput`'s `MCUCR |= ~(1<<PUD)`** doesn't do what its comment
    says -- sets unrelated `MCUCR` bits instead of clearing `PUD`.~~ --
    **fixed 2026-08-12**, changed to `MCUCR &= ~(1<<PUD)`.
@@ -205,9 +205,11 @@ here so they're visible, not implying any of them need fixing today.
    `main.cpp` (`dac1.setVoltage(voltage0,...)`, `dac0.setVoltage(voltage1,...)`)
    -- may be intentional (matching board wiring) but worth a deliberate
    check. See [lib/MCP4725/README.md](lib/MCP4725/README.md).
-8. **`lib/Display/SPITFT.cpp`/`GrayOLED.cpp`** are vendored but entirely
-   unreferenced -- dead weight from the library import, not part of the
-   active display path (`Display`/`GFX`/`mcufriend_shield.h`).
+8. ~~**`lib/Display/SPITFT.cpp`/`GrayOLED.cpp`** are vendored but entirely
+   unreferenced~~ -- **deleted 2026-08-13** (`SPITFT.cpp`/`.h`,
+   `SPITFT_Macros.h`, `GrayOLED.cpp`/`.h`), confirmed nothing else
+   included them. The active display path (`Display`/`GFX`/
+   `mcufriend_shield.h`) is untouched.
 9. **`AnalogInputs::read()` blocks on a polling loop** (`while (ADCSRA &
    (1<<ADSC));`) waiting for each conversion to finish -- ~104us/channel,
    up to ~520us total across all 5 channels every time `MavlinkComms`
@@ -225,20 +227,26 @@ here so they're visible, not implying any of them need fixing today.
     bytes could hold up the rest of the superloop for however long it
     takes to parse all of them. Same class of problem as item 9. Flagged
     2026-08-13, not fixed -- pinned for a future session.
-11. **Dead `millis()`-based blocking-wait code exists in two vendored
-    libraries, neither reachable at runtime:**
-    `Stream::timedRead()`/`timedPeek()` (`lib/ArduinoLib/src/Stream.cpp:31-52`,
-    up to a 1000ms default timeout) back `readBytes`/`readBytesUntil`/
-    `readString`/`readStringUntil`/`parseInt`/`parseFloat`/`find`/`findUntil`
-    -- grepped the whole tree outside `ArduinoLib`: none of those methods
-    are called anywhere. Likewise `lib/SD/src/Sd2Card.cpp`'s card-init
-    wait loops -- `main.cpp:10` includes `SD.h` but never calls
-    `SD.begin()` or touches an `SDClass`/`Sd2Card` instance. Both compile
-    and link in (PlatformIO auto-links everything under `lib/`) but never
-    execute. Same category as item 8 (`SPITFT.cpp`/`GrayOLED.cpp`).
-    Flagged 2026-08-13, not removed -- pinned for a future session
-    (removing needs a check for anything relying on `Stream`'s
-    declarations even if unused, not just deleting the `.cpp` bodies).
+11. ~~**Dead `millis()`-based blocking-wait code in two vendored
+    libraries**~~ -- **`Stream` side fixed 2026-08-13:** `timedRead()`/
+    `timedPeek()` and everything that only existed to support them
+    (`readBytes`/`readBytesUntil`/`readString`/`readStringUntil`/
+    `parseInt`/`parseFloat`/`find`/`findUntil`/`findMulti`/`peekNextDigit`,
+    plus `setTimeout`/`getTimeout` and the now-pointless `_timeout`/
+    `_startMillis` members) are deleted from `Stream.h`; `Stream.cpp` is
+    gone entirely (nothing was left to implement). Confirmed nothing else
+    calls any of those methods or subclasses `Stream` expecting them --
+    `HardwareSerial`/`Client`/`Udp`/`USBAPI`/`Wire`/`SD` all just inherit
+    the trimmed `available()`/`read()`/`peek()` interface, unaffected.
+    **`SD` side partially addressed:** the dead `#include "SD.h"` in
+    `main.cpp` is removed, but `lib/SD` itself (including
+    `Sd2Card.cpp`'s own `millis()` wait loops) is kept vendored, not
+    deleted -- `mavlink/README.md` already reserves payload headroom for
+    a future "SD-card-status" message, so unlike `SPITFT`/`GrayOLED` this
+    looked like it might actually get used, and deleting a whole vendored
+    library on that judgment call felt like the wrong kind of "small
+    potato" to decide alone. Revisit if that SD-card message never
+    materializes.
 
 ## What's already solid
 

@@ -1,5 +1,54 @@
 # Changelog
 
+## 2026-08-13 -- Delete confirmed-dead code (StateMachine, SPITFT/GrayOLED, Stream's timeout methods)
+
+Second pass of the same session, clearing out dead code found while
+writing the multiplexed-bus driver (see the entry below) and while
+investigating two things the user spotted mid-session: a `while(millis())`
+loop in `Stream.cpp` and a `while(Serial.available())` loop in
+`MavlinkComms.h`. The latter is a real, live unbounded loop -- pinned as
+a known follow-up, not touched. The former led to confirming several
+whole files are dead weight, which *were* safe to just delete:
+
+- `lib/StateMachine/StateMachine.hpp`/`.cpp` -- didn't compile
+  (referenced an undefined type), nothing included it.
+  `PWMStateMachine.h` (same folder, actually used) is untouched.
+- `lib/Display/SPITFT.cpp`/`.h`, `SPITFT_Macros.h`, `GrayOLED.cpp`/`.h`
+  -- vendored, confirmed nothing else in the tree included them. The
+  active display path (`Display`/`GFX`/`mcufriend_shield.h`) doesn't
+  touch these.
+- `Stream`'s `millis()`-based timeout/parsing methods (`timedRead`,
+  `timedPeek`, `readBytes`, `readBytesUntil`, `readString`,
+  `readStringUntil`, `parseInt`, `parseFloat`, `find`, `findUntil`,
+  `findMulti`, `peekNextDigit`, plus `setTimeout`/`getTimeout` and the
+  `_timeout`/`_startMillis` members they existed for) -- grepped the
+  whole tree outside `ArduinoLib`: zero callers. `Stream.h` now only
+  declares the pure-virtual `available()`/`read()`/`peek()` interface;
+  `Stream.cpp` is deleted entirely, nothing was left to implement.
+  Checked first that no subclass (`HardwareSerial`, `Client`, `Udp`,
+  `USBAPI`, `Wire`, `SD`) relied on the removed methods -- they only ever
+  inherited the base interface.
+- `main.cpp`'s dead `#include "SD.h"` -- removed. `lib/SD` itself
+  (`Sd2Card.cpp`'s own `millis()` wait loops included) was **not**
+  deleted, unlike the others above -- `mavlink/README.md` already
+  reserves payload headroom for a future "SD-card-status" MAVLink
+  message, so this one looked plausibly wanted later, not dead weight
+  from an abandoned import. Revisit for real deletion if that message
+  never materializes.
+
+Left alone, on purpose -- these need a design decision or hardware
+verification, not a deletion, so they stay as pinned follow-ups:
+`MavlinkComms::poll()`'s unbounded RX-drain loop, `SerialCommunication::
+receive()` never being called, and the `MCP4725` dac/voltage naming
+question (might be intentional, matches board wiring).
+
+**96 native tests still pass.** AVR build: RAM **79.2% (6491/8192 B)**,
+down slightly from 79.4%; Flash 22.3% (56708/253952 B), also down
+slightly. Both moved less than the deleted line count might suggest --
+`-ffunction-sections`/`-fdata-sections` plus linker GC were already
+dropping these unused symbols from the final binary before deletion. The
+real benefit here is source-tree clarity, not footprint.
+
 ## 2026-08-13 -- Write the multiplexed-output-bus driver; fix Relay's write sequence
 
 `NEXT-SESSION.md` item 0, the blocker for `ServoMotor`/`MotorDC` UI wiring
