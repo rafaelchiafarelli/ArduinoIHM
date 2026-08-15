@@ -2,7 +2,11 @@
 #define ICON_H
 #include "Element.h"
 
-
+// A small externally-owned array of bitmap icons (position/size/visibility
+// per icon), redrawn one-shot whenever setIconState() marks one dirty.
+// Subclasses (EdgeSelectionIcons, BattIcons) just supply their own
+// IconType_t[] and forward it here -- see EdgeSelectionIcons.h for the
+// pattern.
 typedef struct IconType
 {
     /* data */
@@ -18,23 +22,16 @@ typedef struct IconType
 
 class Icon: public Element {
     private:
-        
+
         IconType_t *icons;
         uint8_t maxNumberOfIcons;
     public:
-        
-        Icon(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t state, uint8_t nIcons, Display *tft, IconType_t *i):Element(ICON,tft),icons(i)
+
+        Icon(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t state, uint8_t nIcons, Display *tft, IconType_t *i):Element(tft),icons(i)
         {
             maxNumberOfIcons = nIcons;
         }
 
-        Element setLabel(const char* label){ return *this; }
-        Element setLocation(int location){ return *this; }
-        Element setPosition(int x, int y){ return *this; }
-        Element setSize(int width, int height){ return *this; }    
-        Element setState(int state){ 
-            return *this; 
-        }
         void setIconState(VisibilityControl visibilityControl, int id){
             if(id>=maxNumberOfIcons){
                 return;
@@ -42,7 +39,7 @@ class Icon: public Element {
             icons[id].state = visibilityControl;
             icons[id].isShown = false;
         }
-        Element update(){ 
+        void update(){
             for(int i = 0; i<maxNumberOfIcons; i++)
             {
                 if(icons[i].state == VISIBLE)
@@ -53,15 +50,9 @@ class Icon: public Element {
                             tft->drawRGBBitmap(icons[i].x,icons[i].y,icons[i].d,icons[i].w,icons[i].h);
                         }
                 }
-                
+
             }
-
-            return *this; 
         }
-    private:
-
-
-
 };
 
 #endif /* ICON_H */

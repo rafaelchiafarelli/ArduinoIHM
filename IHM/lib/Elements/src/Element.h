@@ -1,33 +1,15 @@
 #ifndef _ELEMENT_H_
 #define _ELEMENT_H_
 #include <standardDefinitions.h>
-//all elements are draw from this class, like buttons, textfields, labels, etc
-//this is a template class to allow different elements types to have the same interfaces with the outside world
-/**
- * @template T The type of the element (e.g., Button, Label, TextField)
- * @class Element
- * @brief A template class representing a generic GUI element.
- * This class serves as a base for various GUI components, providing a common interface.
- * It can be extended to include specific properties and methods for different element types.
- * the standart methods are:
- * setLabel
- * setPosition
- * setSize
- * setState
- * update
- * 
- */
-
- typedef enum{
-    LABEL,
-    INDICATOR,
-    GAUGE,
-    BAR_GRAPH,
-    TAB_SELECTOR,
-    STATUS_BAR,
-    PWM_SELECTION,
-    ICON
- }ElementType;
+// Base for every on-screen widget (Label, LED, Icon, TabSelector, ...):
+// shared position/size/state/label storage plus the Display* every widget
+// draws through. Not polymorphic -- nothing in this codebase ever holds an
+// Element* or Element& and calls through it, every call site uses its
+// widget's own concrete type directly, so these are plain (non-virtual)
+// methods, not an interface to override. Subclasses that need a setter with
+// real behavior (e.g. LED::setLocation) just declare their own; a subclass
+// that has nothing to do for a given setter simply doesn't declare it,
+// rather than providing a no-op override that looks like real API surface.
 
 typedef enum {
     top,
@@ -46,7 +28,6 @@ typedef enum{
 
 class Element {
 protected:
-    ElementType elementType; // Type of the element (e.g., Button, Label, TextField)
     char label[LABEL_STRING_SIZE]; // Label of the element
     uint16_t x, y; // Position of the element
     uint16_t width, height; // Size of the element
@@ -55,8 +36,7 @@ protected:
     Display* tft; // Pointer to the display object
 
 public:
-    Element(ElementType t, Display* display):elementType(t){
-        elementType = t;
+    Element(Display* display){
         tft = display;
     }
     ~Element(){}
@@ -67,13 +47,6 @@ public:
     int getState(){ return state; }
     char* getLabel(){ return label; }
     int getLocation(){ return location; }
-
-    virtual Element setLabel(const char* label){ return *this; }
-    virtual Element setLocation(int location){ return *this; }
-    virtual Element setPosition(int x, int y){ return *this; }
-    virtual Element setSize(int width, int height){ return *this; }    
-    virtual Element setState(int state){ return *this; }
-    virtual Element update(){ return *this; }   
 };
 
 

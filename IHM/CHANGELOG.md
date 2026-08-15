@@ -1,5 +1,119 @@
 # Changelog
 
+## 2026-08-15 -- Simplify the on-board TFT UI; build a real SERIAL/bus-status screen
+
+User called the on-board UI (`lib/GUI`, `lib/Elements`) "off-putting" in both
+code and on-screen result, and asked for both simplified together, while
+explicitly preserving partial/selective redraws and blink/counter-driven
+animation -- the two things that make a slow parallel-TFT UI feel more
+responsive than its actual superloop-cadence update rate.
+
+**`Element` (`lib/Elements/src/Element.h`) de-virtualized, not just
+fixed.** Every setter (`setLabel`/`setLocation`/`setPosition`/`setSize`/
+`setState`/`update`) was `virtual` and returned `Element` *by value* -- a
+slicing trap on a class meant to be subclassed, plus a pointless copy every
+call. Grepped the whole tree first: nothing anywhere holds an `Element*`/
+`Element&` or calls through one -- every call site uses its widget's own
+concrete type directly, so polymorphism was never actually exercised.
+Removed `virtual` entirely (no dispatch needed), changed returns to `void`,
+and dropped the unused `elementType`/`ElementType` field (stored, never
+read -- no getter existed). `setPosition`/`setSize` were called nowhere on
+any class -- deleted from `Element` and every subclass rather than "fixed."
+`setLocation` kept only where it does something real (`LED`, the optional
+side-label); the no-op overrides on `Label`/`Icon`/`BattIcons`/
+`TabSelector`/`StatusBar` are gone.
+
+**Duplicated blink logic factored into `BlinkAnimator.h`** (new, small):
+`Label`/`LED` each hand-rolled the same counter/threshold/toggle shape
+across 5-6 near-identical `switch` cases (with copy-pasted comments -- two
+different states both said "turned blinking very fast"). Both now share one
+`tick(threshold)` helper. Fixed along the way: `Label`'s blink-speed
+thresholds were mis-ordered (`BLINK_FAST` slower than `BLINK_SLOW`,
+`BLINK_VERY_FAST` identical to `BLINK_SLOW`) -- not intentional timing, a
+bug; now three genuinely distinct speeds, matching the ordering `LED`
+already had right. `LED`'s solid on/off states redraw every single call
+(no dirty-flag guard, unlike `Label`) -- now gated the same way.
+Preserved exactly: `TabSelector`'s default-selected tab still starts on
+`LABEL_BLINK_BACKGROUND` (was numeric `5`) before settling once encoder
+input happens -- caught and fixed an accidental substitution to
+`LABEL_HIGHLIGHTED` while converting that call site to a named constant,
+which would have silently dropped this startup animation.
+
+**Named constants replacing magic numbers**: `ButtonMap.h` gained
+`BTN_MASK_ROT0`/`BTN_MASK_ROT1`/etc. (matching its own pre-existing
+documentation comment) -- `GUI::update()` no longer spells these as raw
+`0b...` literals. `TabSelector`'s tab-width constants
+(`TABSELECTOR_PWM_WIDTH`/`_SERIAL_WIDTH`/`_OUTPUT_WIDTH`) now compose into
+`_SERIAL_OFFSET`/`_OUTPUT_OFFSET`/`_END_OFFSET` once, instead of being
+re-summed by hand at every label-position and divider-line call site --
+same pixel values, just one source of truth. Also fixed a real bug while
+there: `TabSelector::selectCurrTab()`'s `OUPTUT_SELECTED` case was missing
+a `break` (harmless today only because `default` is empty).
+
+**Confirmed-dead code deleted** (grepped: zero live call sites; one of the
+stale comments referenced a `screenMachine()` method that doesn't even
+exist): `GUI`'s `ScreenType`/`currentWork` (a second, disconnected
+"current screen" concept `TabSelector`'s own `SelectedOption` already
+replaced) and the six unwired `rotateGUI`/`receiveData`/`showWarning`/
+`showEmergency`/`showNormalOperation`/`showRegularLoop` methods.
+`BattIcons` was duplicating `Icon`'s entire array-loop-drawRGBBitmap logic
+independently instead of subclassing it (unlike `EdgeSelectionIcons`,
+which already did this correctly) -- now subclasses `Icon` like it should.
+
+**The SERIAL tab is now real**, not six hardcoded `drawFastHLine` calls
+forming a meaningless staircase. New `BusStatusScreen`/`BusStatusRow`
+(`lib/Elements/src/`), modeled on `RelayScreen`'s row-list shape (not
+`PWMScreen`'s two-level edit cursor -- nothing here is editable from the
+board, the PC app (`IHM-PCApp`, built earlier this session) is the intended
+editor for `CAN_SIGNAL_CONFIG`/`RS485_SIGNAL_CONFIG` now that it exists).
+Three read-only rows -- CAN0, CAN1, RS-485 -- showing what
+`MavlinkComms::getCanSignalConfig()`/`getRs485SignalConfig()` has received
+and stored, previously displayed nowhere at all. Each row keeps its own
+last-seen snapshot and diffs it every tick to pulse its LED briefly on
+change (`BlinkAnimator` again) before settling to solid on/off -- entirely
+UI-side, `MavlinkComms` itself untouched. Wired in via `GUI` gaining a
+`MavlinkComms*` (`main.cpp`'s `mavlinkComms` declaration had to move above
+`gui`'s so the name exists when `GUI`'s constructor references it --
+construction order itself doesn't matter, `GUI` just stores the pointer).
+
+**Verified:** native test suite still 96/96. Clean AVR build, no new
+compiler warnings (one `-Wreorder` self-introduced and fixed before
+landing -- `BusStatusRow`'s constructor parameter `h` shadows the member of
+the same name, same pattern `RelayElement` already relies on, just needed
+the member set in the constructor body rather than the init-list to avoid
+the warning). RAM **80.6% (6604/8192 B)**, up from 79.4% -- the new
+`BusStatusScreen`'s widgets cost more than the deleted dead code saved.
+Flash **21.8% (55452/253952 B)**, down from 22.3%. Flashed to the connected
+board (COM7, confirmed old hardware revision -- see
+`arduinoihm_hardware_revision_mismatch` note, asked before reflashing):
+firmware boots and keeps producing `IHM_BOARD_STATE` telemetry at the
+normal ~100ms cadence both before and after receiving a live
+`CAN_SIGNAL_CONFIG` sent from a throwaway probe, confirming the new code
+doesn't destabilize the board. **Not verified: the SERIAL tab's actual
+on-screen rendering** -- that needs turning the physical tab-select
+encoder, which requires the user's own hands/eyes, not something checkable
+remotely.
+
+**Found, not fixed** (flagged so they aren't lost, matching this project's
+own "known gaps" convention):
+- `LED::setLabel()` never re-arms `visibilityControl` back to `VISIBLE`
+  after the first draw, so `StatusBar::setTimeSlice()`'s repeated
+  `tSlice.setLabel(...)` calls update the buffer but the on-screen "TS:NN"
+  text never visibly refreshes after the very first render -- pre-existing,
+  not introduced by this session. A real fix needs the redraw path to clear
+  the old text before printing new text of possibly-different width (`LED`
+  doesn't do this today, unlike `Label`'s one-shot states), so wasn't
+  attempted without being able to visually verify the result.
+- `TabSelector`'s outer border has two smaller pre-existing oddities not
+  touched: the right vertical line uses the absolute constant
+  `TABSELECTOR_WIDTH` (318) instead of `x + TABSELECTOR_WIDTH`, ignoring
+  `x0` (currently 2, so the border likely lands 2px short of the true right
+  edge); the right border's height (`TABSELECTOR_HEIGHT - y`) doesn't match
+  the left border's (`TABSELECTOR_HEIGHT`), a ~21px mismatch. Left
+  untouched deliberately -- fixing pixel geometry without being able to see
+  the physical screen risks trading a known-harmless oddity for an
+  unverified new one.
+
 ## 2026-08-13 -- Delete confirmed-dead code (StateMachine, SPITFT/GrayOLED, Stream's timeout methods)
 
 Second pass of the same session, clearing out dead code found while

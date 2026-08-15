@@ -43,14 +43,17 @@ uint16_t voltage0 = 0;
 uint16_t voltage1 = 0;
 Display tft; // Instantiate the display object
 PWM pwm;
-GUI gui = GUI(&tft, &pwm, multiOuput.getRelays());
+// Declared before `gui` (was after, further down) so its name exists when
+// GUI's constructor takes a MavlinkComms* -- construction order itself
+// doesn't matter here, GUI only stores the pointer.
+MavlinkComms mavlinkComms(&Serial);
+GUI gui = GUI(&tft, &pwm, multiOuput.getRelays(), &mavlinkComms);
 uint16_t receivedRawData[10];
 BinaryInputs userInputs;
 // Written in TIMER2_COMPA_vect, read from main() -- see comment above.
 volatile uint16_t bMap = 0;
 RotaryEncoder rotaryEncoders(&userInputs);
 AnalogInputs analogInputs;
-MavlinkComms mavlinkComms(&Serial);
 
 void setup()
 {

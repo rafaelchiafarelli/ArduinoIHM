@@ -1,8 +1,43 @@
 # Next session
 
-Picking up from 2026-08-13. Full detail on what was done is in
+Picking up from 2026-08-15. Full detail on what was done is in
 `IHM/CHANGELOG.md` -- this file is just the "where things stand / what's
 next" handoff.
+
+**2026-08-15 session:** two things happened, in a separate sibling repo and
+in this one.
+
+1. A new **standalone sibling repo, `workspace/IHM-PCApp`**, was created --
+   the PC-side counterpart to this firmware. Win32/DirectX11/ImGui/ImPlot
+   app that speaks the board's MAVLink dialect over its debug/programming
+   COM port (verified live against this repo's board, COM7): displays
+   `IHM_BOARD_STATE` telemetry, and can send `CAN_SIGNAL_CONFIG`/
+   `RS485_SIGNAL_CONFIG`. Also scaffolded, not yet generated: a
+   [Harpia](../harpia)-based bridge that would re-publish board telemetry
+   onto a separate data-exchange fabric over ZMQ -- blocked on nothing now
+   (Docker is installed), just not done yet. See that repo's own
+   `NEXT-SESSION.md` for its handoff detail; not duplicated here since it's
+   a separate repo/history.
+2. In this repo: the on-board TFT UI (`lib/GUI`, `lib/Elements`) was
+   simplified -- `Element`'s broken-by-value virtual pattern removed
+   entirely (de-virtualized, not just fixed -- nothing anywhere used
+   polymorphism through it), duplicated blink-counter logic in `Label`/`LED`
+   factored into a shared `BlinkAnimator`, magic-number button masks and
+   tab-layout constants named/composed properly, several confirmed-dead
+   methods/fields deleted. The previously-placeholder **SERIAL tab is now a
+   real read-only monitor** (`BusStatusScreen`) of the CAN0/CAN1/RS-485
+   config the board receives from the new PC app -- closes the loop between
+   the two pieces of this session's work. Full detail, including two
+   pre-existing bugs found but deliberately not touched (a frozen status-bar
+   `LED` label, `TabSelector`'s outer-border pixel oddities), in
+   `CHANGELOG.md`'s 2026-08-15 entry.
+   - **Not verified: the SERIAL tab's actual on-screen rendering** --
+     confirming it needs turning the physical tab-select encoder, which
+     needs the user's own hands/eyes on the device, not checkable remotely.
+     Do this first next session if the same board is still connected.
+   - RAM is now **80.6% (6604/8192 B)**, up from 79.4% -- re-run
+     `platformio run` for a current number rather than trusting this, per
+     this doc's own repeated caution below.
 
 **2026-08-13 session:** item 0 below (the multiplexed-output-bus driver)
 is done -- `MultiplexedBus` exists and `Relay` uses it; see

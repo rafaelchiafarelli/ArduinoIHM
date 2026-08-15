@@ -8,26 +8,21 @@
 
 
  typedef enum{
-    //DebugConnection,
-    //RS485Connection,
-    //SDCardConnected,
-    //SDCardRecording,
-    //SDCArdError,
-    //CANBus1Connected,
-    //CANBus2Connected,
-    //CommPortConnected,
     BattEmpty,
     BattCharding,
     BattCharged,
     MAX_NUMBER_OF_ICONS
 }IconSelection;
 
-
-
-class BattIcons: public Element {
+// The status bar's battery icon, 3 mutually-exclusive bitmaps (empty/
+// charging/full) driven by StatusBar::setBattLevel(). Same shape as
+// EdgeSelectionIcons: owns its own IconType_t[] and forwards it to Icon,
+// which does the actual dirty-flagged draw -- previously duplicated that
+// whole array-loop-drawRGBBitmap logic independently instead of reusing it.
+class BattIcons: public Icon {
     private:
 
-    IconType_t icons[MAX_NUMBER_OF_ICONS] ={
+    IconType_t battIcons[MAX_NUMBER_OF_ICONS] = {
         {
             .d = batt_full,
             .w = batt_full_w,
@@ -58,44 +53,9 @@ class BattIcons: public Element {
     };
 
     public:
-    
-        BattIcons(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t state, Display *tft):Element(ICON,tft)
+
+        BattIcons(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t state, Display *tft):
+            Icon(x, y, w, h, state, MAX_NUMBER_OF_ICONS, tft, battIcons)
         {
-            
         }
-
-        virtual Element setLabel(const char* label){ return *this; }
-        virtual Element setLocation(int location){ return *this; }
-        virtual Element setPosition(int x, int y){ return *this; }
-        virtual Element setSize(int width, int height){ return *this; }    
-        virtual Element setState(int state){ 
-            return *this; 
-        }
-        void setIconState(VisibilityControl visibilityControl, int id){
-            if(id>=MAX_NUMBER_OF_ICONS){
-                return;
-            }
-            icons[id].state = visibilityControl;
-            icons[id].isShown = false;
-        }
-        virtual Element update(){ 
-            for(int i = 0; i<MAX_NUMBER_OF_ICONS; i++)
-            {
-                if(icons[i].state == VISIBLE)
-                {
-                    if(!icons[i].isShown)
-                        {
-                            icons[i].isShown = true;
-                            tft->drawRGBBitmap(icons[i].x,icons[i].y,icons[i].d,icons[i].w,icons[i].h);
-                        }
-                }
-                
-            }
-
-            return *this; 
-        }
-    private:
-
-
-
 };

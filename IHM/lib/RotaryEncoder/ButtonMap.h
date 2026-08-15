@@ -14,3 +14,10 @@
  *                input pin)
  */
 uint8_t buildButtonMap(uint16_t bMap);
+
+// Named bits for the map above -- GUI::update() (lib/GUI/GUI.cpp) used to
+// spell these as raw 0b... literals; same bit positions, just named.
+#define BTN_MASK_0_3      0x0F // push buttons 0-3
+#define BTN_MASK_ROT2     0b00010000 // rot2's push button
+#define BTN_MASK_ROT1     0b00100000 // rot1's push button -- tab-local "select" (PWM edit-mode toggle, relay toggle)
+#define BTN_MASK_ROT0     0b01000000 // rot0's push button -- tab "select"/confirm

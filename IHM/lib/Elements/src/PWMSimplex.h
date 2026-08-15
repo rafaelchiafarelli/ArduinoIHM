@@ -107,7 +107,7 @@ class PWMSimplex: public Element {
 
     public:
         PWMSimplex(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t state, Display *tft, PWM *pwm, uint8_t channelIndex):
-                                            Element(PWM_SELECTION,tft),
+                                            Element(tft),
                                             edgeSelection(x+EDGESELECTION_X0,y+EDGESELECTION_Y0,w,h,EDGESELECTION_STATE,tft),
                                             dutyCycle(x+DUTYCYCLE_X0,y+DUTYCYCLE_Y0,DUTYCYCLE_FONT_SIZE,h,DUTYCYCLE_STATE,"---%",1,tft),
                                             freqMode(x+FREQMODE_X0,y+FREQMODE_Y0,FREQUENCY_FONT_SIZE,h,FREQMODE_STATE,"Mode:variavel.",1,tft),
@@ -122,7 +122,7 @@ class PWMSimplex: public Element {
             Element::state = state;
         }
 
-        Element update(){
+        void update(){
             if(!isShown){
                 isShown=true;
                 //OUTER-BOX
@@ -155,7 +155,6 @@ class PWMSimplex: public Element {
 
             }
             status.update();
-            return *this;
         }
         void show(){
             isShown = false;

@@ -2,147 +2,113 @@
 #define LABEL_H
 #include <Element.h>
 #include <standardDefinitions.h>
+#include "BlinkAnimator.h"
 
-#define BLINKING_THRESHOLD 20
-#define BLINKING_FAST_THRESHOLD 40
-#define BLINKING_VERY_FAST_THRESHOLD 20
-#define BACKBROUND_BLINK_THRESHOLD 30
+// Ticks-to-toggle for each blink speed (see BlinkAnimator.h) -- smaller is
+// faster. Fixed here vs. the original constants: those had "fast" blink
+// *slower* than "slow" (40 vs 20 ticks) and "very fast" at the same rate as
+// "slow" -- an ordering bug, not intentional timing. These three are now
+// genuinely distinct, decreasing speeds.
+#define BLINK_THRESHOLD_SLOW 80
+#define BLINK_THRESHOLD_FAST 40
+#define BLINK_THRESHOLD_VERY_FAST 20
+#define BLINK_THRESHOLD_BACKGROUND 30
+
+typedef enum {
+    LABEL_OFF,
+    LABEL_ON,
+    LABEL_BLINK_SLOW,
+    LABEL_BLINK_FAST,
+    LABEL_BLINK_VERY_FAST,
+    LABEL_BLINK_BACKGROUND, // inverted colors, alternating
+    LABEL_HIGHLIGHTED       // solid inverted (selected, non-blinking)
+} LabelState;
 
 class Label : public Element{
 private:
-    uint8_t blinkCounter = 0;
-    uint8_t blinkState = 0;
-    bool isShown = false;
-     //text size 
+    BlinkAnimator blink;
+    bool isShown = false; // gates the one-shot states (OFF/ON/HIGHLIGHTED)
+    LabelState labelState = LABEL_OFF;
+
     uint8_t wide() {return strlen(label)*width*6;};
     uint8_t large(){return width*8;};
 
-    void drawLabel(){
+    void clear(){ tft->fillRect(x, y, wide(), large(), BLACK); }
 
+    void drawLabel(){
         tft->setTextColor(WHITE);
         tft->setTextSize(width);
         tft->setCursor(x, y);
-        if(isShown)
-            return;
-        switch (state)
-        {
-        case 0:
-            /* turned off */
 
-            tft->fillRect(x, y, wide(), large(), BLACK);
+        switch (labelState)
+        {
+        case LABEL_OFF:
+            if(isShown) return;
+            clear();
             isShown = true;
             break;
-        case 1:
-            /* turned on */
-            tft->fillRect(x, y, wide(), large(), BLACK);
+        case LABEL_ON:
+            if(isShown) return;
+            clear();
             tft->println(label);
             isShown = true;
             break;
-        case 2:
-            /* turned blinking */
-            if(blinkCounter++ >= BLINKING_THRESHOLD){
-                blinkCounter = 0;
-                blinkState = !blinkState;
-                if(blinkState){
-                    tft->println(label);
-                }else{
-                    tft->fillRect(x, y, wide(), large(), BLACK);
-                }
-            }            
-            break;
-        case 3:
-            /* turned blinking fast */
-            if(blinkCounter++ >= BLINKING_FAST_THRESHOLD){
-                blinkCounter = 0;
-                blinkState = !blinkState;
-                if(blinkState){
-                    tft->println(label);
-                }else{
-                    tft->fillRect(x, y, wide(), large(), BLACK);
-                }
-            }
-            break;                        
-        case 4:
-            /* turned blinking very fast */
-            if(blinkCounter++ >= BLINKING_VERY_FAST_THRESHOLD){
-                blinkCounter = 0;
-                blinkState = !blinkState;
-                if(blinkState){
-                    tft->println(label);
-                }else{
-                    tft->fillRect(x, y, wide(), large(), BLACK);
-                }
-            }            
-            break;                             
-        case 5:
-            /* turned blinking very fast */
-            blinkCounter++;
-            if(blinkCounter >= BACKBROUND_BLINK_THRESHOLD){
-                blinkCounter = 0;
-                blinkState = !blinkState;
-                if(blinkState){
-                    tft->fillRect(x, y, wide(), large(), WHITE);
-                    tft->setTextColor(BLACK);
-                    tft->println(label);
-                }else{
-                    tft->fillRect(x, y, wide(), large(), BLACK);
-                    tft->setTextColor(WHITE);
-                    tft->println(label);
-                }
-            }            
-            break;   
-        case 6:
-            /* turned on */
+        case LABEL_HIGHLIGHTED:
+            if(isShown) return;
             tft->fillRect(x, y, wide(), large(), WHITE);
             tft->setTextColor(BLACK);
             tft->println(label);
             isShown = true;
-            break;                        
-        default:
+            break;
+        case LABEL_BLINK_SLOW:
+        case LABEL_BLINK_FAST:
+        case LABEL_BLINK_VERY_FAST: {
+            uint8_t threshold = labelState == LABEL_BLINK_SLOW ? BLINK_THRESHOLD_SLOW
+                               : labelState == LABEL_BLINK_FAST ? BLINK_THRESHOLD_FAST
+                               : BLINK_THRESHOLD_VERY_FAST;
+            if(blink.tick(threshold)){
+                if(blink.on) tft->println(label); else clear();
+            }
             break;
         }
-
+        case LABEL_BLINK_BACKGROUND:
+            if(blink.tick(BLINK_THRESHOLD_BACKGROUND)){
+                if(blink.on){
+                    tft->fillRect(x, y, wide(), large(), WHITE);
+                    tft->setTextColor(BLACK);
+                } else {
+                    clear();
+                    tft->setTextColor(WHITE);
+                }
+                tft->println(label);
+            }
+            break;
+        }
     }
 public:
-    Label(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t state,const char *ldl, uint8_t l,Display *tft):Element(INDICATOR,tft){
+    Label(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t state,const char *ldl, uint8_t l,Display *tft):Element(tft){
         this->x = x;
         this->y = y;
         this->width = w;
         this->height = h;
-        this->state = state;
+        this->labelState = (LabelState)state;
         strncpy(this->label,ldl,LABEL_STRING_SIZE);
         this->location = l;
     }
 
     ~Label(){}
-    
-    Element setLabel(const char* lbl) override {
+
+    void setLabel(const char* lbl){
         strncpy(label, lbl,LABEL_STRING_SIZE);
         isShown = false; //force redraw
-        return *this;
     }
-    Element setLocation(int location) override {
-        // Implement location setting logic here
-        return *this;
-    }
-    Element setPosition(int x, int y) override {
-        // Implement position setting logic here
-        return *this;
-    }
-    Element setSize(int width, int height) override { 
-        // Implement size setting logic here
-        return *this;
-    }
-    Element setState(int state) override {
-        // Implement state setting logic here
-        this->state = state;
+    void setState(int state){
+        labelState = (LabelState)state;
         isShown = false; //force redraw
-        return *this;
+        blink.reset(false);
     }
-    Element update() override {
-        // Implement label update logic here
+    void update(){
         drawLabel();
-        return *this;
     }
 };
 #endif // LABEL_H

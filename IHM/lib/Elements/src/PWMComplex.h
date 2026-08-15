@@ -165,7 +165,7 @@ class PWMComplex: public Element {
         }
 
     public:
-    PWMComplex(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t state, Display *tft, PWM *pwm, uint8_t channelIndex):Element(PWM_SELECTION,tft),
+    PWMComplex(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t state, Display *tft, PWM *pwm, uint8_t channelIndex):Element(tft),
                                             edgeSelection({
                                                 {x+EDGESELECTION_A_X0,y+EDGESELECTION_A_Y0,w,h,EDGESELECTION_STATE_A,tft},
                                                 {x+EDGESELECTION_B_X0,y+EDGESELECTION_B_Y0,w,h,EDGESELECTION_STATE_B,tft},
@@ -193,7 +193,7 @@ class PWMComplex: public Element {
         Element::state = state;
     }
 
-    Element update(){
+    void update(){
         if(!isShown){
             isShown=true;
             //OUTER-BOX
@@ -233,7 +233,6 @@ class PWMComplex: public Element {
         for(int i =0 ; i<AmountOfOutput;i++){
             status[i].update();
         }
-        return *this;
     }
     void show(){
         isShown = false;
