@@ -113,3 +113,75 @@ is there a cheaper shared approach? Not decided.
    into the existing superloop/`GUI::update()` flow.
 4. Only then design the per-angle screen layouts (item above) -- pointless
    to do before the mechanism that will drive them is settled.
+
+## Second pass, same day (2026-08-15) -- assessment, then shelved
+
+The user asked for a no-bullshit assessment of scope before committing to
+implementation. Findings below; net decision was **not to implement now**
+-- this is a bigger redesign than "add a scheduler," see the closing note.
+
+**The bit-mapping question above is resolved, and it's simpler than the
+open problem made it sound:** PA0 isn't an absolute-position sensor, it's a
+momentary pulse -- one pulse per 90 degrees clicked, starting from whatever
+orientation the board is already in. Software owns the 0-3 angle state and
+increments it (mod 4) per pulse; the pin doesn't need to encode 4 states by
+itself. This removes the "needs a second sensor bit" concern entirely.
+
+That said, it changes *how* the pin must be read, and surfaces problems the
+original framing didn't anticipate:
+
+- **`main.cpp:166`'s existing read is already wrong for this signal.**
+  `rotation = (bMap>>4) & 0x01` is a raw level snapshot taken once per
+  superloop pass, forwarded as-is into the outgoing `IHM_BOARD_STATE`
+  MAVLink message. A momentary pulse sampled as a level will read 0 almost
+  all the time and only occasionally catch a 1 depending on timing luck --
+  so the PC app is likely already receiving near-meaningless data on this
+  field today, independent of any on-board UI work. Pre-existing latent
+  bug, not something this feature introduces -- but this feature is what
+  will force fixing it, since edge detection is required either way.
+- **What's needed instead is edge detection, and there's a template for it
+  already in this codebase:** `RotaryEncoder`'s latch pattern (sample in
+  the ISR's 25ms branch, `getDirection()` reads-and-clears once per
+  superloop pass -- see `lib/RotaryEncoder/RotaryEncoder.h` / its README).
+  Copy that shape rather than inventing a new one.
+- **No debounce logic exists anywhere in this codebase.** Checked
+  `BinaryInput.h` fully -- `fast_handler()` is a raw 1ms port snapshot,
+  nothing more. If whatever drives PA0 is a bare mechanical switch (not
+  already debounced upstream in hardware), contact bounce could register
+  as 2-3 pulses per physical click and silently over-rotate. Needs
+  confirming what's actually on the other end of PA0 before writing the
+  edge-detect logic.
+- **The "repeated/rapid rotation events" problem flagged above as an edge
+  case is actually the normal path now, not a hypothetical.** A user
+  standing at the board clicking through 90 -> 180 -> 270 is 3 legitimate
+  pulses in quick succession, each likely arriving faster than one
+  incremental redraw can finish. Supersession behavior needs to be right
+  from the first version, not hardened in later.
+
+**Two more blockers found that the original framing missed entirely:**
+
+- **RAM.** Per `CHANGELOG.md` the board is at 80.6% (6604/8192B) as of the
+  latest entry -- roughly 1.6KB free before AVR stack margin even comes
+  off that. A job/step scheduler struct plus, if per-angle layouts aren't
+  shared, up to 4x the layout constants across 5 screens (`RelayScreen`,
+  `PWMScreen`, `BusStatusScreen`, `StatusBar`, `TabSelector`) is a real
+  risk of simply not fitting. This should be a hard constraint on the
+  design, not a thing discovered mid-implementation.
+- **Widgets currently hold position as an implicit truth that a live
+  rotation breaks.** `BlinkAnimator` erases a blinked-on widget by
+  redrawing a background rect at a fixed, remembered position. If a
+  rotation lands between "draw lit" and "erase," that erase now targets
+  coordinates that either aren't part of the new layout at all or now
+  belong to something else -- stuck pixels or corrupted UI, not just a
+  stale value. The same hazard applies to the incremental redraw job
+  itself if a second rotation pulse interrupts it mid-job. Fixing this
+  isn't "give each widget 4 coordinate sets" -- it's redesigning the
+  widget contract so nothing holds position-as-truth across a rotation
+  boundary, which is a bigger and different problem than the one this doc
+  originally scoped.
+
+**Decision:** shelved. Not being implemented this session or scheduled for
+an immediate next one. Revisit this whole doc, including the "suggested
+starting point" above, once/if the widget-contract question and the RAM
+budget both have real answers -- doing the scheduler design first (as
+originally sequenced) risks throwing it away once those land.
