@@ -38,6 +38,17 @@ in this one.
    - RAM is now **80.6% (6604/8192 B)**, up from 79.4% -- re-run
      `platformio run` for a current number rather than trusting this, per
      this doc's own repeated caution below.
+3. **New, not started: `IHM/ui-rotation.md`** -- portrait/landscape UI
+   support driven by the housekeeping rotation pin (bit 4 of `bMap`, PA0),
+   switchable live while the board is running, via a non-blocking
+   incremental redraw (no full-screen redraw in one shot -- see
+   `ARCHITECTURE.md`'s no-`delay()`/no-blocking-work rule). Deliberately left
+   for a fresh session to pick up the key open decision (where the
+   redraw-scheduler logic lives) rather than settling it in the same
+   conversation it was scoped in. `IHM/ui-rotation.md` has full context,
+   open questions (notably: how a single sensor bit is meant to select among
+   4 rotation angles), and a new supporting diagram,
+   `docs/gui-render-pipeline.drawio` (current-state only, not a proposal).
 
 **2026-08-13 session:** item 0 below (the multiplexed-output-bus driver)
 is done -- `MultiplexedBus` exists and `Relay` uses it; see
