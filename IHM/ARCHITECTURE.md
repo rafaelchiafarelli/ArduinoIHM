@@ -86,7 +86,7 @@ module's README for the full investigation (2026-08-12).
 | Layer | Modules | README |
 |---|---|---|
 | Composition root | `main.cpp`, `Timer2Config` | [src/README.md](src/README.md) |
-| Inputs | `BinaryInput`, `RotaryEncoder`, `ButtonMap` | [lib/BinaryInput](lib/BinaryInput/README.md), [lib/RotaryEncoder](lib/RotaryEncoder/README.md) |
+| Inputs | `BinaryInput`, `RotaryEncoder`, `ButtonMap`, `AnalogInput` | [lib/BinaryInput](lib/BinaryInput/README.md), [lib/RotaryEncoder](lib/RotaryEncoder/README.md) |
 | Outputs | `BinaryOutputs`, `Relay`, `MotorDC`, `PWM` + config/timing/label-format types | [lib/BinaryOutputs](lib/BinaryOutputs/README.md), [lib/MultiOutput](lib/MultiOutput/README.md) |
 | UI | `GUI`, `Elements` (widgets, PWMScreen, RelayScreen), `PWMStateMachine` | [lib/GUI](lib/GUI/README.md), [lib/Elements](lib/Elements/README.md), [lib/StateMachine](lib/StateMachine/README.md) |
 | Comms/peripherals | `SerialCommunication`, `MCP4725` | [lib/Comms](lib/Comms/README.md), [lib/MCP4725](lib/MCP4725/README.md) |
@@ -236,17 +236,16 @@ here so they're visible, not implying any of them need fixing today.
    `SPITFT_Macros.h`, `GrayOLED.cpp`/`.h`), confirmed nothing else
    included them. The active display path (`Display`/`GFX`/
    `mcufriend_shield.h`) is untouched.
-9. **`AnalogInputs::read()` blocks on a polling loop** (`while (ADCSRA &
-   (1<<ADSC));`) waiting for each conversion to finish -- ~104us/channel,
-   up to ~520us total across all 5 channels every time `MavlinkComms`
-   sends `IHM_BOARD_STATE` (~every 100ms). Not a `delay()` call, but the
-   same class of problem this project's rule 2 (no blocking waits, a
-   timer tick drives scheduling instead -- see "The two strategies
-   referenced everywhere" above) exists to avoid. Should become
-   interrupt-driven (`ADIE` + `ISR(ADC_vect)`, cycling through the 5
-   channels asynchronously rather than blocking the superloop on each
-   one) -- not fixed yet, flagged so it isn't mistaken for the
-   established pattern. See [lib/AnalogInput/src/AnalogInput.h](lib/AnalogInput/src/AnalogInput.h).
+9. ~~**`AnalogInputs::read()` blocks on a polling loop**~~ -- **fixed
+   2026-08-16.** `AnalogInputs` now runs a continuous interrupt-driven
+   round-robin scan: `setup()` enables `ADIE` and starts the first
+   conversion, and `ISR(ADC_vect)` (in `main.cpp`, calling
+   `AnalogInputs::isr_handler()`) caches each completed conversion and
+   immediately starts the next channel's, forever. `read(index)` just
+   returns the cached value -- non-blocking, and freshness improved as a
+   side effect (bounded by one ~1ms scan cycle instead of the caller's
+   own ~100ms read cadence). See
+   [lib/AnalogInput/src/AnalogInput.h](lib/AnalogInput/src/AnalogInput.h).
 10. **`MavlinkComms::poll()` drains the whole RX ring buffer in one
     `while (serial->available())` loop** (`lib/MavlinkComms/src/MavlinkComms.h:72`)
     -- not bounded by a fixed iteration count, so a burst of buffered

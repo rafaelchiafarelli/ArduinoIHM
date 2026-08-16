@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026-08-16 -- Make AnalogInputs::read() non-blocking (interrupt-driven ADC scan)
+
+Third item this session (after the `MotorDC` rewrite and `ServoMotor`
+deletion below). `AnalogInputs::read()` used to block the caller on a
+`while (ADCSRA & (1<<ADSC));` polling loop -- ~104us/channel, up to
+~520us total across all 5 channels every ~100ms when `MavlinkComms`
+builds `IHM_BOARD_STATE`. Flagged in `ARCHITECTURE.md` as the same class
+of problem as a `delay()` call (this project's rule 2: no blocking
+waits, a timer tick drives scheduling instead), just polling a hardware
+flag instead of counting cycles.
+
+Rewritten to a continuous, self-sustaining round-robin scan:
+`AnalogInputs::setup()` enables `ADIE` and starts channel 0's conversion;
+`ISR(ADC_vect)` (new, in `main.cpp`) calls `AnalogInputs::isr_handler()`,
+which caches the completed conversion into a `volatile results[]` array,
+advances to the next channel, and immediately restarts the ADC -- the
+scan keeps itself going forever with no further external trigger needed.
+`read(index)` now just returns the cached value: non-blocking, and as a
+side effect *fresher* than before (bounded by one ~1ms full-scan cycle
+instead of the caller's own ~100ms read cadence).
+
+Follows the project's established single-ISR-owner convention (`main.cpp`
+is the only place that defines `ISR(...)` vectors; modules expose handler
+methods called from there) -- same pattern `BinaryInputs`/`MultiOutput`/
+`RotaryEncoder` already use with `TIMER2_COMPA_vect`.
+
+RAM: 75.8% (6213/8192 B), up 11 bytes from the `ServoMotor` deletion
+baseline (75.7%/6202 B) -- the new `results[]` cache. Native tests (96)
+unaffected -- `AnalogInputs` isn't natively tested (AVR-only headers,
+same reason as `Relay`/`MotorDC`).
+
 ## 2026-08-16 -- Delete ServoMotor: servo control is not part of the IHM solution
 
 Same session as the `MotorDC` rewrite below. While scoping servo work as

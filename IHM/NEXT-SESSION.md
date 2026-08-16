@@ -31,6 +31,15 @@ README.md`, `BinaryOutputs/README.md`, and `IHM/README.md` are updated;
 was not regenerated -- treat servo mentions there as stale. RAM dropped
 to 75.7% (6202/8192 B) as a result.
 
+**Same session, third item: `AnalogInputs::read()` made non-blocking.**
+Was a `while (ADCSRA & (1<<ADSC));` polling loop, ~104-520us blocking the
+superloop every ~100ms (`ARCHITECTURE.md`'s former gap 9). Now a
+continuous interrupt-driven round-robin scan -- `AnalogInputs::setup()`
+starts it, new `ISR(ADC_vect)` in `main.cpp` (calling
+`AnalogInputs::isr_handler()`) keeps it running forever, `read()` just
+returns the cached last value. See `CHANGELOG.md`'s 2026-08-16 entry.
+RAM: 75.8% (6213/8192 B), +11 bytes for the new cache array.
+
 **2026-08-15 session:** two things happened, in a separate sibling repo and
 in this one.
 

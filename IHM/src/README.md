@@ -1,7 +1,7 @@
 # src
 
 The composition root. `main.cpp` owns every top-level module instance and
-the one hardware tick that drives most of the project's scheduling.
+the two hardware interrupts that drive most of the project's scheduling.
 
 ## The scheduling model
 
@@ -10,7 +10,10 @@ mode, prescaler 128, `OCR2A = 125`; see `Timer2Config.h/.cpp` for which
 sub-interrupt is enabled -- only Compare-A, deliberately). Inside it:
 
 - **Every tick (~1ms):** `userInputs.fast_handler()` (`BinaryInputs` --
-  see [lib/BinaryInput](../lib/BinaryInput/README.md)).
+  see [lib/BinaryInput](../lib/BinaryInput/README.md)), and
+  `multiOutput.fast_handler()` (-> `MotorDC::fast_handler()`, stepper
+  commutation / DC software-PWM duty cycling -- see
+  [lib/MultiOutput](../lib/MultiOutput/README.md)).
 - **Every 10th tick (~10ms):** counter increments, currently no handlers
   attached (placeholder comment in `main.cpp` for future `ten_ms_handler`
   calls).
@@ -21,10 +24,14 @@ sub-interrupt is enabled -- only Compare-A, deliberately). Inside it:
   (see [lib/RotaryEncoder](../lib/RotaryEncoder/README.md) -- same
   naming caveat).
 
-`ISR(TIMER1_COMPA_vect)` exists but is empty (the one call it could make,
-`multiOutput.timer_handler()`, is commented out) -- see
-[lib/MultiOutput/README.md](../lib/MultiOutput/README.md) for why this
-is also the wrong timer vector for what it would need to drive.
+`ISR(ADC_vect)` (added 2026-08-16) fires on every completed ADC
+conversion (~104-200us apart, independent of the Timer2 tick) and calls
+`analogInputs.isr_handler()`, which caches the result and immediately
+starts the next channel's conversion -- a continuous, self-sustaining
+round-robin scan across all 5 channels. See
+[lib/AnalogInput/src/AnalogInput.h](../lib/AnalogInput/src/AnalogInput.h).
+This replaced a blocking polling loop in `AnalogInputs::read()`; `read()`
+now just returns the cached value, non-blocking.
 
 Everything else (`GUI::update()`, the two `MCP4725::setVoltage()` calls,
 `buildButtonMap()`, `rotaryEncoders.getDirection()`) runs directly in
@@ -45,6 +52,8 @@ just to avoid an uninitialized-vector reset.
 ## Global state
 
 `newDataAvailable`, `timeStatistics`, `timeCounter`, `bMap` are all
-`volatile`, written in the Timer2 ISR and read in `main()` -- this is the
-project's only cross-context shared state, and it's already correctly
-marked volatile throughout.
+`volatile`, written in the Timer2 ISR and read in `main()`. `AnalogInputs`
+has its own equivalent cross-context state (`results[]`, written in
+`ISR(ADC_vect)` via `isr_handler()`, read in `main()` via `read()`) --
+same volatile pattern, encapsulated inside the class instead of living as
+a `main.cpp` global.
