@@ -58,8 +58,10 @@ module's README for the full investigation (2026-08-12).
         v                v                      (unused slot)     |
   BinaryInputs      MultiOutput.slow_handler                      |
   .fast_handler()     -> Relay.ultra_slow_handler()               |
-        |            Comms.fast_handler()  (parses; see gap below)|
-        |            RotaryEncoder.ms_handler()                   |
+  MultiOutput        Comms.fast_handler()  (parses; see gap below)|
+  .fast_handler()    RotaryEncoder.ms_handler()                   |
+  -> MotorDC.fast_handler()                                       |
+        |                                                         |
         v                                                         |
       bMap  ---------------------------------------------------> main()
                                                                  superloop
@@ -132,17 +134,19 @@ part's only electrically-inverted pin on the symbol, i.e. active-low.
 `refreshBus()` helper and calls `bus.write(MUX_RELAY_STROBE, value)`)
 instead of one independent `SetOutput()` per relay -- net RAM effect was
 a *decrease* (81.3% -> 79.4%), not the increase a naive new class might
-suggest. `ServoMotor`/`MotorDC` still take a raw `BinaryOutputs` and are
-untouched (`NEXT-SESSION.md` items 1/2) -- see the remaining open
-question below.
+suggest. **`MotorDC` was moved onto `MultiplexedBus` 2026-08-16** (see
+"Known gaps" item 2 below) -- `ServoMotor` still takes a raw
+`BinaryOutputs` and is untouched (`NEXT-SESSION.md` item 1).
 
-**Open question for whoever implements items 1/2:** `MotorDC`'s exact bit
-layout within its one byte (confirmed 1 device, `dig_2`, layout still
-tbd). The atomicity concern from the earlier version of this section is
-resolved -- `MultiplexedBus::write()` brackets its whole settle-strobe-drop
-sequence in `ATOMIC_BLOCK`, so a `ServoMotor` ISR-context write can't
-interleave with a `Relay`/`MotorDC` foreground write, whenever `ServoMotor`
-is wired up to use it.
+**Open question for whoever implements item 1 (and confirms `MotorDC`'s
+bit layout):** `MotorDC`'s bit positions within its one byte are
+currently a **placeholder** (`enA`=bit0, `dirA`=bit1, `enB`=bit2,
+`dirB`=bit3), not yet confirmed against `IOs IHM.xlsx`/the KiCad
+schematic. The atomicity concern from the earlier version of this
+section is resolved -- `MultiplexedBus::write()` brackets its whole
+settle-strobe-drop sequence in `ATOMIC_BLOCK`, so a `ServoMotor`
+ISR-context write can't interleave with a `Relay`/`MotorDC` foreground
+write, whenever `ServoMotor` is wired up to use it.
 
 ### Hardware timers (PWM only -- fully decoupled from the bus above)
 
@@ -175,12 +179,24 @@ here so they're visible, not implying any of them need fixing today.
    (`NEXT-SESSION.md` item 1 -- item 0's driver now exists, so this is no
    longer blocked on that, just still undone: `ServoMotor`'s own bit
    layout/pulse-generation approach still needs designing.)
-2. **`MotorDC::fast_handler()` is never called** (stepper microstepping
-   logic is fully written, unreachable). `setMotorA`/`setMotorB`'s DC
-   speed control (`analogWrite`, commented out) was also never ported to
-   direct-register PWM. (`NEXT-SESSION.md` item 2 -- same "no longer
-   blocked on item 0, still undone" status as item 1; `MotorDC`'s bit
-   layout is still an open question.)
+2. ~~**`MotorDC::fast_handler()` is never called**~~ -- **fixed
+   2026-08-16.** `MotorDC` now goes through `MultiplexedBus`
+   (`MUX_MOTOR_STROBE`), same pattern as `Relay`; `MultiOutput::
+   fast_handler() -> MotorDC::fast_handler()` is wired into
+   `TIMER2_COMPA_vect`'s every-tick branch. DC speed control is coarse
+   software PWM on that ~1.008ms tick (~99Hz carrier, 10% duty steps) --
+   no dedicated fast hardware timer is free (Timer1/3/4/5 are fully
+   committed to `PWM`'s 4-channel generator), and borrowing a spare
+   compare unit on Timer3/5 would couple motor carrier frequency to that
+   PWM channel's user-editable frequency, so this was rejected. The old
+   `PWMA_INDEX`/`DIRA_INDEX`/etc. raw `BinaryOutputs` indices (which
+   collided with `PWM`'s pins and the bus's own strobe/`OUTPUT_EN` lines)
+   and the dead `TCCR1A`/`TCCR1B` writes in `setup()` (Timer1 is
+   exclusively `PWM` channel 2's) are both deleted. **Still open:** the
+   bit layout within `MotorDC`'s one latched byte (`enA`=bit0,
+   `dirA`=bit1, `enB`=bit2, `dirB`=bit3) is a placeholder, unconfirmed
+   against `IOs IHM.xlsx`/the KiCad schematic. UI wiring (on-screen TFT
+   tab) is unstarted, out of scope for this driver work.
 3. ~~**`BinaryOutputs::SetOutput()` doesn't implement the multiplexed-bus
    protocol** `Relay`/`ServoMotor`/`MotorDC` actually need~~ -- **fixed
    2026-08-13**, see "The multiplexed output bus" above: `MultiplexedBus`

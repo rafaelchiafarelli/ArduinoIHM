@@ -1,8 +1,20 @@
 # Next session
 
-Picking up from 2026-08-15. Full detail on what was done is in
+Picking up from 2026-08-16. Full detail on what was done is in
 `IHM/CHANGELOG.md` -- this file is just the "where things stand / what's
 next" handoff.
+
+**2026-08-16 session:** `MotorDC` rewritten onto `MultiplexedBus` (same
+pattern as `Relay`), with coarse software-PWM speed control on the
+existing ~1.008ms system tick (no dedicated fast timer was free -- see
+`CHANGELOG.md`'s 2026-08-16 entry for the full reasoning). `MultiOutput::
+fast_handler()` is now actually wired into `TIMER2_COMPA_vect`. **One
+open item carried forward, not resolved this session:** the bit layout
+within `MotorDC`'s one latched byte (`enA`=bit0, `dirA`=bit1, `enB`=bit2,
+`dirB`=bit3) is a placeholder -- needs checking against `IOs IHM.xlsx` or
+the KiCad schematic before this is trusted against real hardware. DC/
+stepper motor UI wiring (the on-screen TFT tab) is still not started --
+deliberately out of scope this session, backend driver only.
 
 **2026-08-15 session:** two things happened, in a separate sibling repo and
 in this one.
@@ -172,16 +184,17 @@ a real board before trusting it.
    against `MIN_POSITION` where it should clamp against `MAX_POSITION`
    (the array overload right above it does it correctly) -- fix while
    wiring, same as PWM's "found while fixing the rest" bugs.
-2. **DC/stepper motor UI wiring** -- no longer blocked on item 0, still
-   undone. **Open sub-question, still unresolved:** `MotorDC`'s exact bit
-   layout within its one byte (confirmed 1 device address, `dig_2`, but
-   not the per-bit meaning -- `enA`/`dirA`/`enB`/`dirB` need picking bit
-   positions). `MotorDC.h`'s `setMotorA`/`setMotorB` have `analogWrite(...)`
-   commented out ("uncomment when using with Arduino") -- speed control
-   was never ported to this codebase's direct-register style, unlike
-   `PWM.cpp`. The stepper mode (`fast_handler()`) is fully written but
-   never called from anywhere. `MotorDC.cpp` is a 0-byte empty file --
-   this one needs writing, not just wiring.
+2. ~~**DC/stepper motor driver wiring**~~ -- **driver done 2026-08-16**,
+   see `CHANGELOG.md`'s 2026-08-16 entry: `MotorDC` now goes through
+   `MultiplexedBus` (`MUX_MOTOR_STROBE`), `fast_handler()` is actually
+   called from `TIMER2_COMPA_vect`, and DC speed control works via coarse
+   software PWM (~99Hz, 10% duty steps) since no dedicated fast timer is
+   free. **Still open:** `MotorDC`'s exact bit layout within its one byte
+   is a **placeholder** (`enA`=bit0, `dirA`=bit1, `enB`=bit2, `dirB`=bit3)
+   -- needs checking against `IOs IHM.xlsx`/the KiCad schematic before
+   trusting it against real hardware. **Still not started:** the on-screen
+   TFT UI tab for motor output (deliberately out of scope for the driver
+   session).
 
 Items 1 and 2 are still real multi-session efforts -- don't assume either
 is quick, even with item 0 out of the way.
@@ -194,10 +207,11 @@ below.)
 From `CHANGELOG.md`'s "Known follow-ups" section:
 
 - Relay, servo, and DC/stepper-motor outputs (`lib/MultiOutput/src/
-  Relay.*`, `ServoMotor.*`, `MotorDC.*`) are still not wired into the UI --
-  same as before this session's work, untouched by any of the 5 branches.
-  **Relay done 2026-08-11** (see `CHANGELOG.md`); **servo and motor still
-  not started.**
+  Relay.*`, `ServoMotor.*`, `MotorDC.*`) are still not wired into the
+  on-screen TFT UI. **Relay done 2026-08-11** (see `CHANGELOG.md`);
+  **motor's backend driver done 2026-08-16** (bus wiring + software-PWM
+  speed control, see that date's `CHANGELOG.md` entry) **but its UI tab
+  still not started**; **servo not started at all.**
   ~~**Pin-index gotcha found while investigating:** `BinaryOutputs`'s pin
   table is one hardcoded 20-slot array, indexed by position, shared across
   `Relay`/`MotorDC`/`ServoMotor`/`MultiOutput`, with `MotorDC` (8-13) and

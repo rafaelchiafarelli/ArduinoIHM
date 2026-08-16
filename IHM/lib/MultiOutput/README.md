@@ -12,7 +12,7 @@ below); `PWM` is fully separate, direct-to-output hardware timers.
 |---|---|---|
 | `Relay.h` | One device on the multiplexed bus (`dig_1`) | `setRelay`, `enableRelay`, `disableRelay`, `ultra_slow_handler` |
 | `ServoMotor.h/.cpp` | One device on the multiplexed bus (`dig_0`) | `load`, `enableEngine`, `timer_handler` |
-| `MotorDC.h` (`.cpp` is a 0-byte placeholder) | One device on the multiplexed bus (`dig_2`) | `setup`, `setMotorA/B`, `stopMotorA/B`, `fast_handler` |
+| `MotorDC.h` (`.cpp` is a 0-byte placeholder) | One device on the multiplexed bus (`dig_2`) | `setMotorA/B`, `stopMotorA/B`, `fast_handler` |
 | `PWM.h/.cpp` + `PWMConfig.cpp` | Timer1/3/4/5 (see table below) | `setupPWMChannel0..3` |
 | `PWMChannelConfig.h/.cpp` | -- (pure data + math) | UI-editable single-channel PWM config, feeds `applySimplexPWMConfig` |
 | `PWMTiming.h/.cpp` | -- (pure data + math) | frequency-selector -> prescaler/WGM-bits lookup |
@@ -35,9 +35,9 @@ register-writing half (`PWMConfig.cpp`'s `applySimplexPWMConfig`/
 | 2 | Timer1 | OC1A/B/C (complex) | `PWMComplex` #2 |
 | 3 | Timer4 | OC4A/B/C (complex) | `PWMComplex` #3 |
 
-## Known gaps in the handler wiring (as of 2026-08-12)
+## Known gaps in the handler wiring (as of 2026-08-16)
 
-`MultiOutput`'s handler methods exist but two of the four are not
+`MultiOutput`'s handler methods exist but one of the three is not
 actually reachable from `main.cpp` today:
 
 - `MultiOutput::slow_handler()` -> `Relay::ultra_slow_handler()` -- **is**
@@ -45,15 +45,32 @@ actually reachable from `main.cpp` today:
   -> `MultiplexedBus::write()` now implements the real settle-strobe-drop
   protocol (see below) -- "wired" still means software-verified only, no
   physical hardware was available to confirm an actual relay click.
-- `MultiOutput::fast_handler()` -> `MotorDC::fast_handler()` (stepper
-  microstepping) -- **not called anywhere.** Both call sites in
-  `main.cpp` are commented out. `MotorDC` also still has `analogWrite(...)`
-  commented out in `setMotorA`/`setMotorB` for DC speed control -- unlike
-  `PWM.cpp`, speed was never ported to direct-register PWM.
+- `MultiOutput::fast_handler()` -> `MotorDC::fast_handler()` -- **fixed
+  2026-08-16**, now called from `TIMER2_COMPA_vect`'s every-tick branch.
+  `MotorDC` was rewritten onto `MultiplexedBus` (`MUX_MOTOR_STROBE`), same
+  pattern as `Relay`; stepper commutation and DC speed control (coarse
+  software PWM, ~99Hz carrier / 10% duty steps -- no dedicated fast timer
+  is free, see below) both go through it. Still open: the bit layout
+  within `MotorDC`'s one latched byte is a **placeholder**
+  (`enA`=bit0/`dirA`=bit1/`enB`=bit2/`dirB`=bit3), unconfirmed against
+  `IOs IHM.xlsx`/the KiCad schematic; and the on-screen TFT UI tab for
+  motor output is unstarted.
 - `MultiOutput::timer_handler()` -> `ServoMotor::timer_handler()` --
   **not called anywhere**, and its `OCR4A`-based approach needs
   rethinking now that `ServoMotor` is known to go through the
   multiplexed bus below rather than owning a dedicated timer.
+
+**Why `MotorDC` doesn't use a hardware timer for speed control:**
+Timer1/3/4/5 are fully committed to `PWM`'s 4-channel generator (all 8 of
+their compare-output pins are live PWM outputs). Timer3/Timer5 each only
+drive one of their three compare units as an actual output (`OC3A`,
+`OC5A` -- simplex channels), so their other compare units are technically
+free to fire an interrupt without touching a pin -- but doing that would
+couple `MotorDC`'s PWM carrier frequency to whatever prescaler that PWM
+channel's user-editable frequency setting currently has. Rejected in
+favor of driving duty-cycle toggling off the existing ~1.008ms system
+tick instead: coarser resolution (10 steps/period at best), but zero new
+coupling between two otherwise-independent subsystems.
 
 ## The multiplexed output bus (driver written 2026-08-13)
 
@@ -110,13 +127,14 @@ one-`SetOutput()`-per-relay immediate-write model. Net RAM effect was a
 class -- the single assembled-byte write compiles smaller than the old
 per-relay call sequence did.
 
-`ServoMotor`/`MotorDC` are **not** touched by this change -- they still
-take a raw `BinaryOutputs` and are still not called from `main.cpp`'s
-live handlers (see "Known gaps" below). `MultiplexedBus` is generic
-enough for either to use once someone picks up items 1/2, but doing so
-needs each device's own bit-layout decided first (see
-`IHM/NEXT-SESSION.md`'s open sub-questions, still unresolved for
-`MotorDC`).
+`ServoMotor` is **not** touched by this change -- it still takes a raw
+`BinaryOutputs` and is still not called from `main.cpp`'s live handlers
+(see "Known gaps" below). `MotorDC` **was** moved onto `MultiplexedBus`
+2026-08-16 (see "Known gaps" below) -- its bit layout is a placeholder,
+not yet confirmed against the schematic. `MultiplexedBus` is generic
+enough for `ServoMotor` to use once someone picks up
+`IHM/NEXT-SESSION.md` item 1, but doing so needs its own bit-layout
+decided first, same open question `MotorDC` had.
 
 ## Depends on
 

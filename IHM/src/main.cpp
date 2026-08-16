@@ -83,7 +83,7 @@ void setup()
 
 ISR(TIMER2_COMPA_vect){ /*~1.008ms system tick*/
     //should we stop the timer interrupt?
-    //multiOuput.fast_handler();
+    multiOuput.fast_handler();
     bMap = userInputs.fast_handler();
 
     counterT0++;
@@ -124,8 +124,6 @@ int main()
     
     while (1)
     {
-
-    //multiOuput.fast_handler();
 
    // gui.showRegularLoop(WarningType::TIMER0_OVERUN);
 

@@ -22,7 +22,7 @@ public:
     MultiOutput():bnOuts(),
                     bus(bnOuts),
                     relays(bus),
-                    motors(bnOuts,MOTOR_STEPPER),
+                    motors(bus,MOTOR_STEPPER),
                     pwm(),
                     engines(bnOuts){
                         bnOuts.setup();

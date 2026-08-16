@@ -1,5 +1,47 @@
 # Changelog
 
+## 2026-08-16 -- Rewrite MotorDC onto the multiplexed bus, wire its tick handler
+
+`MotorDC` (`lib/MultiOutput/src/MotorDC.h`) predated the 2026-08-13
+multiplexed-bus finding and still used raw `BinaryOutputs` indices
+(`PWMA_INDEX 8`, `DIRA_INDEX 10`, `ENA_INDEX 11`, etc.) that collide with
+`PWM`'s exclusive hardware-PWM pins and the bus's own strobe/`OUTPUT_EN`
+lines -- never triggered only because nothing called into `MotorDC` from
+`main.cpp`. Rewritten to hold a `MultiplexedBus` and go through
+`bus.write(MUX_MOTOR_STROBE, ...)`, same pattern as `Relay`.
+
+**DC speed control:** no dedicated fast timer is free for real hardware
+PWM -- Timer1/3/4/5 are fully committed to the 4-channel `PWM`
+generator's 8 compare-output pins, and borrowing one of Timer3/5's spare
+compare units would couple motor carrier frequency to that PWM channel's
+user-editable frequency. Decided instead to drive coarse software PWM off
+the existing ~1.008ms system tick: 10 ticks/period (~99.2Hz, the floor of
+the confirmed-acceptable 100Hz-1kHz range), duty quantized to 10% steps.
+`MultiOutput::fast_handler() -> MotorDC::fast_handler()` is now actually
+called, from `TIMER2_COMPA_vect`'s every-tick branch in `main.cpp` (the
+call site existed but was commented out); the stepper commutation
+sequence was also rewritten to go through the bus instead of raw
+per-pin `SetOutput()`, which never latched correctly under the real
+protocol.
+
+Also deleted `MotorDC::setup()`'s `TCCR1A`/`TCCR1B` writes -- Timer1 is
+exclusively owned by `PWM` channel 2; this was a live corruption risk
+that only never fired because `motors.setup()` was never called.
+
+**Bit layout within `MotorDC`'s one latched byte is a placeholder**
+(bit0=`enA`, bit1=`dirA`, bit2=`enB`, bit3=`dirB`) -- not confirmed
+against `IOs IHM.xlsx`/the KiCad schematic, both binary/graphical files
+this session couldn't parse. Flagged in code and in `NEXT-SESSION.md`.
+
+Scope deliberately excludes on-screen TFT UI wiring (`MotorScreen`/output
+tab) and any hardware verification -- the connected board is a confirmed
+mismatched hardware revision.
+
+RAM: 78.7% (6450/8192 B), down slightly from 79.2% -- native tests (96,
+`test_native/run_tests.ps1`) unaffected, `MotorDC` isn't natively tested
+(same as `Relay`, both pull in AVR-only headers via `MultiplexedBus`/
+`BinaryOutputs`).
+
 ## 2026-08-15 -- Simplify the on-board TFT UI; build a real SERIAL/bus-status screen
 
 User called the on-board UI (`lib/GUI`, `lib/Elements`) "off-putting" in both
