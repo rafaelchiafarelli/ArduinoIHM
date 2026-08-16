@@ -1,5 +1,56 @@
 # Changelog
 
+## 2026-08-16 -- Delete ServoMotor: servo control is not part of the IHM solution
+
+Same session as the `MotorDC` rewrite below. While scoping servo work as
+the natural next item, found the problem is meaningfully harder than
+`MotorDC`'s was: `ServoMotor::timer_handler()` wrote directly to
+`OCR4A`, which belongs to `PWM` channel 3 (`Timer4`, complex PWM,
+actively used) -- a live corruption risk, same "landmine, never
+triggered because never called" pattern the old `MotorDC` had.
+`engines[i].index = i+8` and `NUMBER_OF_ENGINES = 10` were also from the
+pre-multiplexed-bus model (collided with `PWM`'s pins/the bus's control
+lines; real hardware has 8 servo channels, not 10), and there was a real
+clamp bug in `load(uint16_t, uint8_t)` (checked `ar <= MIN_POSITION`
+where the array overload right above it correctly checks `ar[i] <=
+MAX_POSITION`).
+
+Beyond the bugs, the deeper issue: servos need real pulse-width
+resolution (a ~1-2ms pulse repeated every ~20ms, with fine-grained
+timing within that window), and -- same finding as `MotorDC` -- no
+dedicated fast timer is free (Timer1/3/4/5 are fully committed to
+`PWM`'s 4-channel generator). `MotorDC` could get away with riding the
+existing ~1ms system tick because on/off duty cycling at ~100Hz only
+needed ~10 steps of resolution; servos need far more than that tick can
+give, and borrowing a PWM channel's spare compare unit would couple
+servo timing to that channel's user-editable frequency.
+
+**User's decision: kill servo support entirely rather than solve that
+timing problem here.** Servo control is not part of the IHM solution --
+a separate, dedicated servo controller is planned for the future, not a
+rewrite of this driver.
+
+**Removed:** `lib/MultiOutput/src/ServoMotor.h`/`.cpp`; `MultiOutput`'s
+`ServoMotor` member, include, and `timer_handler()` method; the empty
+`ISR(TIMER1_COMPA_vect)` in `main.cpp` (its only purpose was calling
+`multiOutput.timer_handler()` -- already commented out -- and `TIMSK1`
+was never configured, so that vector never actually fired regardless).
+
+**Kept:** `MultiplexedBus.h`'s `MUX_SERVO_STROBE` constant and the
+bus/latch hardware description in `ARCHITECTURE.md` -- the third
+`74LS373` latch (`dig_0`) is a real, physically-wired hardware fact
+regardless of firmware support; it's just undriven now. Documented as
+such (with a pointer to this entry) in `ARCHITECTURE.md`,
+`NEXT-SESSION.md`, `lib/MultiOutput/README.md`,
+`lib/BinaryOutputs/README.md`, and `IHM/README.md`'s pitch paragraph.
+`docs/architecture.drawio` still shows the old `ServoMotor` nodes and
+was not regenerated -- treat servo mentions there as stale.
+
+RAM: 75.7% (6202/8192 B), down from 78.7% after the `MotorDC` rewrite
+below. Native tests (96, `test_native/run_tests.ps1`) unaffected --
+`ServoMotor` was never natively tested (same AVR-only-header reason as
+`Relay`/`MotorDC`).
+
 ## 2026-08-16 -- Rewrite MotorDC onto the multiplexed bus, wire its tick handler
 
 `MotorDC` (`lib/MultiOutput/src/MotorDC.h`) predated the 2026-08-13

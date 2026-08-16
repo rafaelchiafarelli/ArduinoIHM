@@ -112,11 +112,6 @@ ISR(TIMER2_COMPA_vect){ /*~1.008ms system tick*/
     //TCNT2 = 0; //reset the T0 timer to the next interrupt point taking into account the drift;
 }
 
-ISR(TIMER1_COMPA_vect){
- //   multiOuput.timer_handler();
- 
-}
-
 int main()
 {
     init();

@@ -1,11 +1,15 @@
 #ifndef _MULTI_OUTPUT_H_
 #define _MULTI_OUTPUT_H_
 #include "MotorDC.h"
-#include "ServoMotor.h"
 #include "PWM.h"
 #include "Relay.h"
 #include "MultiplexedBus.h"
 
+// Servo control is not part of the IHM solution -- removed 2026-08-16.
+// The multiplexed bus still has a third latch physically wired (dig_0,
+// see MultiplexedBus.h's MUX_SERVO_STROBE) for a servo device, but no
+// firmware in this repo drives it. A dedicated servo controller is
+// planned as future, separate work -- not a rewrite of this driver.
 class MultiOutput
 {
     const BinaryOutputs bnOuts;
@@ -13,7 +17,6 @@ class MultiOutput
     Relay relays;
     MotorDC motors;
     PWM pwm;
-    ServoMotor engines;
 
 private:
     bool value_f = false;
@@ -23,15 +26,10 @@ public:
                     bus(bnOuts),
                     relays(bus),
                     motors(bus,MOTOR_STEPPER),
-                    pwm(),
-                    engines(bnOuts){
+                    pwm(){
                         bnOuts.setup();
                         bus.enableOutputs();
                     };
-
-    void timer_handler(){
-        engines.timer_handler();
-    };
 
     void setup(){
         bnOuts.setup();

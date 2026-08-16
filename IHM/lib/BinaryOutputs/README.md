@@ -32,18 +32,19 @@ user: that's wrong for indices 0-7 and 8-19 alike, just in different ways.
 
 - **Indices 0-7** (`PC2,PC1,PC0,PD7,PG2,PG1,PG0,PL7`) are the physical
   pins of a **shared 8-bit data bus**, not eight independent outputs.
-  `Relay`, `ServoMotor`, and `MotorDC` each sit behind their own
-  `74LS373` latch fed by this same bus, captured by a per-device strobe
-  line (`dig_0`/`dig_1`/`dig_2`, none of which are in this table -- see
-  below). `SetOutput()`'s immediate independent-bit-write model **does
-  not implement this protocol** on its own (no bus-settle-then-strobe
-  sequence) -- calling it directly on indices 0-7 will not correctly
-  drive Relay, Servo, or Motor hardware. As of 2026-08-13,
+  `Relay` and `MotorDC` each sit behind their own `74LS373` latch fed by
+  this same bus, captured by a per-device strobe line (`dig_1`/`dig_2`,
+  neither of which is in this table -- see below). A third latch
+  (`dig_0`) is physically wired for a servo device but not driven by any
+  firmware here -- servo control isn't part of the IHM solution (removed
+  2026-08-16). `SetOutput()`'s immediate independent-bit-write model
+  **does not implement this protocol** on its own (no
+  bus-settle-then-strobe sequence) -- calling it directly on indices 0-7
+  will not correctly drive Relay or Motor hardware. As of 2026-08-13,
   [`MultiplexedBus`](../MultiOutput/README.md) is the real driver for
   this protocol, built as a thin layer on top of `SetOutput()` (it calls
   `SetOutput()` once per bit to settle the bus, then again on the target
-  device's strobe index); `Relay` uses it, `ServoMotor`/`MotorDC` don't
-  yet (`IHM/NEXT-SESSION.md` items 1/2).
+  device's strobe index); `Relay` and `MotorDC` both use it.
 - **Indices 8, 9, 12, 13, 16, 17, 18, 19** (`PB7,PB6,PH5,PH4,PE3,PH3,PB5,PL3`)
   are hardware PWM-capable pins (`OC1C/OC1B/OC4C/OC4B/OC3A/OC4A/OC1A/OC5A`),
   direct-to-output with no buffer, exclusively owned by

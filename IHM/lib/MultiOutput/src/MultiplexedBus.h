@@ -5,7 +5,12 @@
 // Strobe/control-line indices into BinaryOutputs' 20-slot table -- see
 // BinaryOutputs/README.md ("indices 10, 11, 14, 15") and MultiOutput/README.md
 // ("The multiplexed output bus") for the full protocol these implement.
-#define MUX_SERVO_STROBE 10 // dig_0 (PH6) -- Servo's 74LS373 latch
+#define MUX_SERVO_STROBE 10 // dig_0 (PH6) -- Servo's 74LS373 latch.
+                             // Physically wired, but no firmware in this
+                             // repo drives it -- servo control is not
+                             // part of the IHM solution (removed
+                             // 2026-08-16, see CHANGELOG.md). A future
+                             // servo controller is separate, planned work.
 #define MUX_OUTPUT_EN 11    // shared OE (PB4) -- active-LOW at the chip
 #define MUX_RELAY_STROBE 14 // dig_1 (PG5) -- Relay's 74LS373 latch
 #define MUX_MOTOR_STROBE 15 // dig_2 (PF4) -- Motor's 74LS373 latch

@@ -6,9 +6,16 @@ document is about how they fit together. See `docs/architecture.drawio`
 for a diagram of the same information.
 
 Target: PlatformIO `megaatmega2560` (ATmega2560). See `IHM/README.md` for
-the one-paragraph pitch (PWM function generator + relay/servo/motor I/O
-behind a parallel-TFT touch-free UI) and `IHM/NEXT-SESSION.md` /
+the one-paragraph pitch (PWM function generator + relay/motor I/O behind
+a parallel-TFT touch-free UI) and `IHM/NEXT-SESSION.md` /
 `IHM/CHANGELOG.md` for the current work log.
+
+**Servo control is not part of the IHM solution** (removed 2026-08-16,
+see `CHANGELOG.md`) -- a dedicated servo controller is planned as
+separate future work, not a revival of the driver that used to live
+here. `docs/architecture.drawio` still shows the old `ServoMotor` nodes
+from before that removal and hasn't been regenerated -- treat any servo
+mentions in that diagram as stale.
 
 ## The two strategies referenced everywhere
 
@@ -36,9 +43,9 @@ usual strategy," this is what they mean.
    dispatches to modules at three cadences (every tick / every 25th tick
    / an unused every-10th-tick slot); `main()`'s `while(1)` superloop
    handles everything else with no fixed cadence. See
-   [`src/README.md`](src/README.md) for the exact dispatch table. PWM/
-   servo timing runs on its own dedicated hardware timers (Timer1/3/4/5),
-   not on delay loops.
+   [`src/README.md`](src/README.md) for the exact dispatch table. PWM
+   timing runs on its own dedicated hardware timers (Timer1/3/4/5), not
+   on delay loops.
 
 The one place these two rules don't apply is the vendored
 [`lib/Display`](lib/Display/README.md) parallel-TFT driver, and even
@@ -65,8 +72,6 @@ module's README for the full investigation (2026-08-12).
         v                                                         |
       bMap  ---------------------------------------------------> main()
                                                                  superloop
-  ISR(TIMER1_COMPA_vect)  -- present, empty (see gap below)
-                                                                    |
    +----------------------------------------------------------------+
    | main() while(1) superloop -- no fixed cadence                  |
    |   buildButtonMap(bMap) -> btnMap                                |
@@ -82,7 +87,7 @@ module's README for the full investigation (2026-08-12).
 |---|---|---|
 | Composition root | `main.cpp`, `Timer2Config` | [src/README.md](src/README.md) |
 | Inputs | `BinaryInput`, `RotaryEncoder`, `ButtonMap` | [lib/BinaryInput](lib/BinaryInput/README.md), [lib/RotaryEncoder](lib/RotaryEncoder/README.md) |
-| Outputs | `BinaryOutputs`, `Relay`, `ServoMotor`, `MotorDC`, `PWM` + config/timing/label-format types | [lib/BinaryOutputs](lib/BinaryOutputs/README.md), [lib/MultiOutput](lib/MultiOutput/README.md) |
+| Outputs | `BinaryOutputs`, `Relay`, `MotorDC`, `PWM` + config/timing/label-format types | [lib/BinaryOutputs](lib/BinaryOutputs/README.md), [lib/MultiOutput](lib/MultiOutput/README.md) |
 | UI | `GUI`, `Elements` (widgets, PWMScreen, RelayScreen), `PWMStateMachine` | [lib/GUI](lib/GUI/README.md), [lib/Elements](lib/Elements/README.md), [lib/StateMachine](lib/StateMachine/README.md) |
 | Comms/peripherals | `SerialCommunication`, `MCP4725` | [lib/Comms](lib/Comms/README.md), [lib/MCP4725](lib/MCP4725/README.md) |
 | HAL / shared low-level | `Ports`, `HAL/RegisterIO`, `BusIO` (vendored) | [lib/Ports](lib/Ports/README.md), [lib/HAL](lib/HAL/README.md), [lib/BusIO](lib/BusIO/README.md) |
@@ -94,18 +99,24 @@ module's README for the full investigation (2026-08-12).
 that assumed `Relay`/`ServoMotor`/`MotorDC` each drive independent GPIO
 pins through `BinaryOutputs`. Checked against the user's `IOs IHM.xlsx`
 (`v0` sheet) and confirmed directly with the user: that's not how the
-real board works.
+real board works. (`ServoMotor` itself was removed 2026-08-16 -- see
+below -- but the bus/latch hardware facts here still describe the real
+board, including the third, now-undriven latch.)
 
-### The multiplexed output bus (`Relay`/`ServoMotor`/`MotorDC`)
+### The multiplexed output bus (`Relay`/`MotorDC`, firmware-driven; a third latch for Servo exists but is unused)
 
-`Relay`, `ServoMotor`, and `MotorDC` share one 8-bit data bus feeding
-three separate `74LS373` transparent latches, one per device, each
-captured by its own strobe line:
+`Relay`, `MotorDC`, and (physically) a servo device share one 8-bit data
+bus feeding three separate `74LS373` transparent latches, one per
+device, each captured by its own strobe line. Only the `Relay` and
+`MotorDC` latches are driven by any firmware in this repo -- servo
+control is not part of the IHM solution (removed 2026-08-16, see
+`CHANGELOG.md`); a dedicated servo controller is planned as separate,
+future work.
 
 | Signal | AVR pin | Role |
 |---|---|---|
 | Data bus (8 bits) | `PC2,PC1,PC0,PD7,PG2,PG1,PG0,PL7` | Shared -- holds the byte about to be latched |
-| `dig_0` | `PH6` | Strobe -- Servo's latch |
+| `dig_0` | `PH6` | Strobe -- Servo's latch (physically wired, not driven by any firmware here) |
 | `dig_1` | `PG5` | Strobe -- Relay's latch |
 | `dig_2` | `PF4` | Strobe -- Motor's latch |
 | `OUTPUT_EN` | `PB4` | Shared tri-state control, not part of the write sequence |
@@ -135,18 +146,19 @@ part's only electrically-inverted pin on the symbol, i.e. active-low.
 instead of one independent `SetOutput()` per relay -- net RAM effect was
 a *decrease* (81.3% -> 79.4%), not the increase a naive new class might
 suggest. **`MotorDC` was moved onto `MultiplexedBus` 2026-08-16** (see
-"Known gaps" item 2 below) -- `ServoMotor` still takes a raw
-`BinaryOutputs` and is untouched (`NEXT-SESSION.md` item 1).
+"Known gaps" item 2 below). `ServoMotor` -- the third device that would
+have used this driver -- was deleted the same day; servo control is not
+part of the IHM solution.
 
-**Open question for whoever implements item 1 (and confirms `MotorDC`'s
-bit layout):** `MotorDC`'s bit positions within its one byte are
-currently a **placeholder** (`enA`=bit0, `dirA`=bit1, `enB`=bit2,
-`dirB`=bit3), not yet confirmed against `IOs IHM.xlsx`/the KiCad
-schematic. The atomicity concern from the earlier version of this
-section is resolved -- `MultiplexedBus::write()` brackets its whole
-settle-strobe-drop sequence in `ATOMIC_BLOCK`, so a `ServoMotor`
-ISR-context write can't interleave with a `Relay`/`MotorDC` foreground
-write, whenever `ServoMotor` is wired up to use it.
+**Open question for whoever confirms `MotorDC`'s bit layout:**
+`MotorDC`'s bit positions within its one byte are currently a
+**placeholder** (`enA`=bit0, `dirA`=bit1, `enB`=bit2, `dirB`=bit3), not
+yet confirmed against `IOs IHM.xlsx`/the KiCad schematic. The atomicity
+concern from the earlier version of this section is resolved --
+`MultiplexedBus::write()` brackets its whole settle-strobe-drop sequence
+in `ATOMIC_BLOCK`, so a `Relay` foreground write and a `MotorDC`
+ISR-context write (called every ~1ms tick) can't interleave and tear a
+byte mid-sequence.
 
 ### Hardware timers (PWM only -- fully decoupled from the bus above)
 
@@ -160,25 +172,22 @@ write, whenever `ServoMotor` is wired up to use it.
 
 All 8 of these timer-compare pins (`OC1A/B/C`, `OC3A`, `OC4A/B/C`,
 `OC5A`) are confirmed direct-to-output, no buffer, and are entirely
-separate from `Relay`/`ServoMotor`/`MotorDC`'s bus above -- `ServoMotor`
-does not use `OCR4A`/Timer4 under the current hardware design (an earlier
-version of this section described a Timer4 conflict between `ServoMotor`
-and PWM channel 3; that no longer applies, since `ServoMotor` goes
-through the bus instead).
+separate from `Relay`/`MotorDC`'s bus above. (An earlier version of this
+section described a Timer4 conflict between the since-removed
+`ServoMotor` and PWM channel 3, based on a wrong assumption about how
+`ServoMotor` would use `OCR4A`; moot now that it's gone.)
 
-## Known gaps (as of 2026-08-13)
+## Known gaps (as of 2026-08-16)
 
 These aren't bugs introduced by any recent change -- they're pre-existing
 gaps this documentation pass surfaced while mapping the codebase. Listed
 here so they're visible, not implying any of them need fixing today.
 
-1. **`ServoMotor::timer_handler()` is never called**, and its whole
-   `OCR4A`-based pulse-generation approach needs rethinking now that
-   `ServoMotor` is known to go through the multiplexed bus, not a
-   dedicated timer -- see "The multiplexed output bus" above.
-   (`NEXT-SESSION.md` item 1 -- item 0's driver now exists, so this is no
-   longer blocked on that, just still undone: `ServoMotor`'s own bit
-   layout/pulse-generation approach still needs designing.)
+1. ~~**`ServoMotor::timer_handler()` is never called**~~ -- **not a gap
+   anymore: `ServoMotor` was deleted 2026-08-16.** Servo control is not
+   part of the IHM solution -- a dedicated servo controller is planned as
+   separate future work. See "The multiplexed output bus" above and
+   `CHANGELOG.md`'s 2026-08-16 entry.
 2. ~~**`MotorDC::fast_handler()` is never called**~~ -- **fixed
    2026-08-16.** `MotorDC` now goes through `MultiplexedBus`
    (`MUX_MOTOR_STROBE`), same pattern as `Relay`; `MultiOutput::
@@ -198,10 +207,11 @@ here so they're visible, not implying any of them need fixing today.
    against `IOs IHM.xlsx`/the KiCad schematic. UI wiring (on-screen TFT
    tab) is unstarted, out of scope for this driver work.
 3. ~~**`BinaryOutputs::SetOutput()` doesn't implement the multiplexed-bus
-   protocol** `Relay`/`ServoMotor`/`MotorDC` actually need~~ -- **fixed
-   2026-08-13**, see "The multiplexed output bus" above: `MultiplexedBus`
-   is the real driver now, and `Relay` uses it. `ServoMotor`/`MotorDC`
-   still don't (items 1/2 above).
+   protocol** `Relay`/`ServoMotor`/`MotorDC` actually need~~ -- **fixed**,
+   see "The multiplexed output bus" above: `MultiplexedBus` is the real
+   driver, and both `Relay` (2026-08-13) and `MotorDC` (2026-08-16) use
+   it. `ServoMotor`, the third device this originally applied to, was
+   deleted 2026-08-16 (servo control isn't part of the IHM solution).
 4. **`SerialCommunication::receive()` is never called.** Nothing forwards
    incoming UART0 bytes to it (the real RX ISR only fills the standard
    `Serial` ring buffer) -- so the framing/checksum parser it feeds can

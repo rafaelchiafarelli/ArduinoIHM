@@ -16,6 +16,21 @@ the KiCad schematic before this is trusted against real hardware. DC/
 stepper motor UI wiring (the on-screen TFT tab) is still not started --
 deliberately out of scope this session, backend driver only.
 
+**Same session, second decision: `ServoMotor` deleted entirely.**
+User's call: servo control is **not part of the IHM solution** -- a
+separate, dedicated servo controller is planned for the future, not a
+rewrite of this driver. `lib/MultiOutput/src/ServoMotor.h/.cpp` are
+gone, along with `MultiOutput`'s `timer_handler()` method and the empty
+`ISR(TIMER1_COMPA_vect)` in `main.cpp` that only existed to call it
+(`TIMSK1` was never configured, so that vector never actually fired).
+The bus's third latch (`dig_0`/`MUX_SERVO_STROBE`) is still documented
+in `MultiplexedBus.h` as a real, physically-wired hardware fact, just
+unused by any firmware here now. `ARCHITECTURE.md`, `MultiOutput/
+README.md`, `BinaryOutputs/README.md`, and `IHM/README.md` are updated;
+`docs/architecture.drawio` still shows the old `ServoMotor` nodes and
+was not regenerated -- treat servo mentions there as stale. RAM dropped
+to 75.7% (6202/8192 B) as a result.
+
 **2026-08-15 session:** two things happened, in a separate sibling repo and
 in this one.
 
@@ -176,14 +191,10 @@ a real board before trusting it.
    `ATOMIC_BLOCK(ATOMIC_RESTORESTATE)`. `MotorDC`'s bit-layout question
    is **not** resolved -- still open, see item 2.
 
-1. **Servo motor UI wiring** -- no longer blocked on item 0 (the driver
-   exists), but still undone: `ServoMotor` needs its own bit-layout
-   decision and a rethink of `timer_handler()`'s `OCR4A`-based approach,
-   which predates the multiplexed-bus finding and doesn't fit it. Also has
-   a real bug, independent of any of that: one `load()` overload clamps
-   against `MIN_POSITION` where it should clamp against `MAX_POSITION`
-   (the array overload right above it does it correctly) -- fix while
-   wiring, same as PWM's "found while fixing the rest" bugs.
+1. ~~**Servo motor UI wiring**~~ -- **withdrawn 2026-08-16, not just
+   deferred.** Servo control is not part of the IHM solution; `ServoMotor`
+   was deleted rather than wired up. A dedicated servo controller is
+   planned as separate future work. See `CHANGELOG.md`'s 2026-08-16 entry.
 2. ~~**DC/stepper motor driver wiring**~~ -- **driver done 2026-08-16**,
    see `CHANGELOG.md`'s 2026-08-16 entry: `MotorDC` now goes through
    `MultiplexedBus` (`MUX_MOTOR_STROBE`), `fast_handler()` is actually
@@ -196,8 +207,8 @@ a real board before trusting it.
    TFT UI tab for motor output (deliberately out of scope for the driver
    session).
 
-Items 1 and 2 are still real multi-session efforts -- don't assume either
-is quick, even with item 0 out of the way.
+Item 2's on-screen TFT UI tab (still not started) is a real effort of its
+own -- don't assume it's quick just because the driver work is done.
 
 (Display-glue native tests, formerly #2, was killed -- see follow-up
 below.)
@@ -206,12 +217,14 @@ below.)
 
 From `CHANGELOG.md`'s "Known follow-ups" section:
 
-- Relay, servo, and DC/stepper-motor outputs (`lib/MultiOutput/src/
-  Relay.*`, `ServoMotor.*`, `MotorDC.*`) are still not wired into the
-  on-screen TFT UI. **Relay done 2026-08-11** (see `CHANGELOG.md`);
-  **motor's backend driver done 2026-08-16** (bus wiring + software-PWM
-  speed control, see that date's `CHANGELOG.md` entry) **but its UI tab
-  still not started**; **servo not started at all.**
+- Relay and DC/stepper-motor outputs (`lib/MultiOutput/src/Relay.*`,
+  `MotorDC.*`) are still not wired into the on-screen TFT UI. **Relay
+  done 2026-08-11** (see `CHANGELOG.md`); **motor's backend driver done
+  2026-08-16** (bus wiring + software-PWM speed control, see that date's
+  `CHANGELOG.md` entry) **but its UI tab still not started.** (Servo was
+  a third item here -- **removed from scope entirely 2026-08-16**, not
+  just deferred; `ServoMotor` is deleted, see that date's `CHANGELOG.md`
+  entry.)
   ~~**Pin-index gotcha found while investigating:** `BinaryOutputs`'s pin
   table is one hardcoded 20-slot array, indexed by position, shared across
   `Relay`/`MotorDC`/`ServoMotor`/`MultiOutput`, with `MotorDC` (8-13) and
