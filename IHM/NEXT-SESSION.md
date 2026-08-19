@@ -319,10 +319,13 @@ full detail on each; not asked for, not fixed, listed so they aren't lost):
   used.**~~ -- **deleted 2026-08-13.** Referenced an undefined type,
   nothing included it; `PWMStateMachine.h` (same folder, actually used)
   is untouched.
-- **`BinaryInput`'s `MCUCR |= ~(1<<PUD);`** doesn't do what its comment
-  ("ensure pull-ups aren't globally disabled") says -- it sets every
-  *other* `MCUCR` bit while leaving `PUD` itself untouched. Probably meant
-  `MCUCR &= ~(1<<PUD)`.
+- ~~**`BinaryInput`'s `MCUCR |= ~(1<<PUD);`** doesn't do what its comment
+  ("ensure pull-ups aren't globally disabled") says~~ -- **already fixed**,
+  turns out (found 2026-08-18 while looking for a quick task -- this list
+  had gone stale). `BinaryInput.h` already reads `MCUCR &= ~(1<<PUD);`,
+  fixed in `39bf816` ("Add MAVLink telemetry/command protocol and
+  analog-input driver") without this doc being updated. `BinaryInput/
+  README.md` had the same stale bug writeup, corrected alongside this.
 - **`MCP4725` dac0/dac1 vs. voltage0/voltage1 naming looks crossed** in
   `main.cpp`: `dac1.setVoltage(voltage0,...)`, `dac0.setVoltage(voltage1,...)`.
   May be intentional (matching board wiring) -- worth a deliberate check

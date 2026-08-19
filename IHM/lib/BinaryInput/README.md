@@ -49,21 +49,15 @@ Configured as inputs with pull-ups in the constructor via the
 [Ports.h](../Ports/README.md) `port_type` table (`DDRx` cleared, `PORTx`
 bits set).
 
-## A likely bug, worth checking
+## Pull-up bit fix (already applied)
 
 The constructor also does:
 
 ```cpp
-MCUCR |= ~(1<<PUD);
+MCUCR &= ~(1<<PUD);
 ```
 
-`~(1<<PUD)` is "every bit except `PUD`" -- so this *sets* every other bit
-in `MCUCR` (all the bits the comment isn't asking to touch: things like
-`IVCE`/`IVSEL`/`JTD`/`SRE`/`SRW` depending on which are present) while
-leaving `PUD` itself untouched (since its bit in the OR-mask is 0). The
-apparent intent, per the comment ("ensure pull-ups aren't globally
-disabled"), was almost certainly `MCUCR &= ~(1<<PUD)` -- clear just the
-`PUD` bit. As written, it doesn't reliably do that and unconditionally
-sets unrelated `MCUCR` bits. Hasn't caused a visible problem so far
-(most of those bits are self-clearing or otherwise inert on this AVR
-config), but it's not doing what the comment says.
+This clears just the `PUD` bit, matching the comment's intent ("ensure
+pull-ups aren't globally disabled"). An earlier version used
+`MCUCR |= ~(1<<PUD);`, which set every *other* `MCUCR` bit while leaving
+`PUD` itself untouched -- fixed in `39bf816`.
