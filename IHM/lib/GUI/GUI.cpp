@@ -24,6 +24,7 @@ void GUI::update(DIRECTION_TYPE d0,DIRECTION_TYPE d1, DIRECTION_TYPE d2, uint8_t
 
     if(d0 == CCW){
         tabSelector.selectBefore();
+        tft->fillRect(2,47,318,431,BLACK); // clear content area -- each screen's show() only redraws its own widgets, not the background left by the previous tab
         if(tabSelector.getCurrentSelected() == PWM_SELECTED){
             pwmConfig.show();
         }
@@ -37,6 +38,7 @@ void GUI::update(DIRECTION_TYPE d0,DIRECTION_TYPE d1, DIRECTION_TYPE d2, uint8_t
 
     if(d0 == CW){
         tabSelector.selectNext();
+        tft->fillRect(2,47,318,431,BLACK); // clear content area -- see CCW branch above
         if(tabSelector.getCurrentSelected() == PWM_SELECTED){
             pwmConfig.show();
         }
@@ -101,7 +103,6 @@ void GUI::update(DIRECTION_TYPE d0,DIRECTION_TYPE d1, DIRECTION_TYPE d2, uint8_t
         relayConfig.update();
     break;
     default:
-        tft->fillRect(2,47,318,431,WHITE);
         break;
     }
 

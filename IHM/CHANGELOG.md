@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-08-18 -- Clear content area on tab switch (GUI.cpp)
+
+`GUI::update()`'s tab-change branches (`d0 == CCW`/`CW`) called the newly
+selected screen's `show()` without first clearing the content area
+(`2,47,318,431`). `show()` only marks each element dirty for the next
+`update()` redraw -- it doesn't clear anything itself, and each screen's
+elements only draw their own bounds, not the full content rect -- so
+switching tabs left stale pixels from the previous tab's layout wherever
+the new tab doesn't happen to overdraw (e.g. `RelayScreen`'s 8 rows vs.
+`PWMScreen`'s 4 taller boxes, or `BusStatusScreen`'s 3 rows leaving most
+of the rect untouched).
+
+Fixed by adding `tft->fillRect(2,47,318,431,BLACK)` right before the
+`show()` call in both branches. Also dropped the `switch`'s `default:`
+case, which used to clear the same rect to `WHITE` -- dead code, since
+`tabSelector.getCurrentSelected()` only ever returns one of the three
+`SelectedOption` enum values, so `default` was unreachable.
+
+Not natively tested -- `GUI.cpp` is AVR/`Display`-only, same reason it's
+absent from `test_native/` as `Relay`/`MotorDC`/`AnalogInputs`.
+
 ## 2026-08-16 -- Make AnalogInputs::read() non-blocking (interrupt-driven ADC scan)
 
 Third item this session (after the `MotorDC` rewrite and `ServoMotor`
