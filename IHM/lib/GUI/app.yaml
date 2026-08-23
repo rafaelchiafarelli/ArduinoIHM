@@ -1,0 +1,19 @@
+# Janus app spec for the ArduinoIHM board (ATmega2560).
+# Mirrors the real, currently-implemented GUI (lib/GUI/GUI.h, lib/Elements/
+# TabSelector.h): three tabs in this exact order -- PWM, SERIAL, Output.
+screens:
+  - pwm.screen.yaml
+  - bus_status.screen.yaml
+  - relay.screen.yaml
+nav:
+  kind: tabs
+  targets:
+    - { screen: PWM, title: "PWM" }
+    - { screen: BusStatus, title: "SERIAL" }
+    - { screen: Relay, title: "Output" }
+display:
+  size: { w: 320, h: 240 }
+  color: rgb565
+  bus: parallel
+input:
+  modality: encoder

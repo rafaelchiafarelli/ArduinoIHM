@@ -1,8 +1,30 @@
 # Next session
 
-Picking up from 2026-08-16. Full detail on what was done is in
+Picking up from 2026-08-23. Full detail on what was done is in
 `IHM/CHANGELOG.md` -- this file is just the "where things stand / what's
 next" handoff.
+
+**2026-08-23 session:** first real hardware bring-up of the Janus-
+generated UI (`lib/GUI`/`lib/Elements` replacement -- the migration itself
+predates this session, done but never committed before now). Found and
+fixed two AVR `PROGMEM` bugs in Janus's fixed runtime library (not the
+generated `.gen.c` files) -- see `CHANGELOG.md`'s 2026-08-23 entry for the
+full writeup, and `../handle-to-janus.md` (repo root, one level up from
+`IHM/`) for the version meant to be ported back into the Janus project
+itself. `pwm_screen` now renders correctly and was measured at ~41-42ms
+per full blocking render, well inside the ~100ms redraw cadence. RAM/Flash
+dropped sharply (43.9%/3595 B, 16.1%/40992 B) since Janus's generated data
+is `PROGMEM`-resident by design, unlike the old hand-written UI it
+replaces.
+
+**Open, top priority next session:** `dac0.begin(0x62)`/`dac1.begin(0x63)`
+(`MCP4725`) hangs forever in `twi.c`'s unbounded TWI wait loops when the
+DAC doesn't ack -- both `.begin()` calls and the two `dac*.setVoltage()`
+calls in `main.cpp` are commented out as a bypass, not a real fix. Needs
+either confirming the DAC wiring/I2C address against real hardware, or a
+timeout around the TWI waits so a missing/unresponsive DAC can't hang
+`setup()` again. This is now the only thing standing between the current
+build and full functionality (display works, DAC output doesn't).
 
 **2026-08-16 session:** `MotorDC` rewritten onto `MultiplexedBus` (same
 pattern as `Relay`), with coarse software-PWM speed control on the
@@ -223,6 +245,13 @@ own -- don't assume it's quick just because the driver work is done.
 below.)
 
 ## Known follow-ups
+
+- **`ARCHITECTURE.md` and its module map are stale re: the UI** (still
+  describe `GUI`/`Elements`/`PWMScreen`/`RelayScreen`, deleted 2026-08-23
+  in favor of Janus-generated code -- see `CHANGELOG.md`'s 2026-08-23
+  entry). Not rewritten this session -- a full module-map/diagram pass is
+  its own effort, deliberately not done alongside the hardware bring-up
+  and bugfixing this session was already about.
 
 From `CHANGELOG.md`'s "Known follow-ups" section:
 

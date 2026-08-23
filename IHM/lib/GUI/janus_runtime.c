@@ -1,0 +1,626 @@
+/* Janus embedded-C runtime — Stage 4. See architecture.md.
+ *
+ * Real traversal + tiling + per-kind dispatch + box state — not the
+ * original prototype's stub (which drew an empty tile buffer regardless
+ * of screen contents). Leaf content used to be a kind-distinct solid fill
+ * only; now label/header/button/box-header draw real glyphs over that
+ * same fill when a widget has authored `text:` (janus_font.h), and
+ * label/header additionally draw a live bound string value when there's
+ * no authored `text:` (slice 2 — see read_bound_string below).
+ * progress/gauge/checkbox/led remain the pre-existing exception for
+ * non-text content — they read the live bound value and vary the fill
+ * accordingly. Fill/text colors come from each widget's own `.color`/
+ * `.bg_color` (RGB565, authored per-widget in YAML — see
+ * emit_embedded_c.py's _pack_rgb565), not a hardcoded runtime constant.
+ */
+#include "janus_runtime.h"
+
+#include "janus_font.h"
+
+#include <stddef.h>
+#include <string.h>
+
+/* See janus_runtime.h's doc comment. Widget-descriptor arrays are
+ * JANUS_PROGMEM (flash) -- this is the one place that copies a widget out
+ * of flash into a RAM-resident local the rest of this file's draw_<kind>
+ * functions can read with ordinary struct-member access, same as before
+ * this existed. */
+void janus_widget_load(janus_widget_desc_t *dst, const janus_widget_desc_t *src) {
+    memcpy_P(dst, src, sizeof(*dst));
+}
+
+void janus_screen_load(janus_screen_desc_t *dst, const janus_screen_desc_t *src) {
+    memcpy_P(dst, src, sizeof(*dst));
+}
+
+/* ---------------------------------------------------------- tile buffer --
+ * No malloc anywhere. 16x16x2 bytes (RGB565) = 512 B, well under the
+ * ~2 KiB transient-buffer budget (Janus.md) — shrunk from the original
+ * mono runtime's 32x32x1 byte tile (1024 B) when the pixel type widened
+ * to 16 bits, to keep roughly the same footprint; same tiling loop, just
+ * more (smaller) draw_area_sync calls per widget. The blocking traversal
+ * (janus_render_screen) drives draw_area_sync directly; the non-blocking
+ * path (janus_render_screen_async_start / janus_render_poll, further
+ * below) drives draw_area_async/display_busy instead, one call per poll.
+ */
+#define JANUS_TILE_W 16
+#define JANUS_TILE_H 16
+static uint16_t g_tile_buffer[JANUS_TILE_W * JANUS_TILE_H];
+
+/* --------------------------------------------------- non-blocking render --
+ * janus_render_screen_async_start builds this queue by running the exact
+ * same traversal/dispatch as the blocking janus_render_screen (every
+ * draw_<kind> function, unchanged) with g_async_enqueue set — fill_rect
+ * and draw_glyph below, the only two places that ever call the driver,
+ * check the flag and append an op instead of drawing when it's set. That
+ * keeps every per-kind draw function, and the geometry/tile-splitting math
+ * in fill_rect/draw_string, shared between both render paths — nothing
+ * about "how to draw a progress bar" is duplicated for the async case.
+ *
+ * Fixed capacity (256, matching MOCK_DRIVER_LOG_CAPACITY's existing
+ * precedent): a real screen's worth of tile fills + glyphs comfortably
+ * fits; a screen that doesn't is a real v1 limit (silently truncated, one
+ * `janus_async_queue_overflowed()` check away from being observable) —
+ * same "table full, caller falls back" spirit as JANUS_MAX_BOXES.
+ *
+ * This is a queue built once, not a resumable traversal, deliberately:
+ * making fill_rect's tile loop and draw_string's glyph loop themselves
+ * suspendable (so a poll could resume mid-loop without a full queue) would
+ * need real coroutine/continuation machinery this runtime doesn't have.
+ * Building the queue is pure CPU work (no driver calls, so nothing to
+ * block on) — only *draining* it, one driver call per janus_render_poll(),
+ * needs to be incremental, and a flat array drains one index at a time
+ * with no stack or continuation needed. Trade-off: the queue reflects
+ * bound values as of janus_render_screen_async_start, not whatever they
+ * become while draining — same "snapshot, not live" property any queued
+ * frame has.
+ *
+ * Shrunk from Janus's default 256 (confirmed via avr-size: ~4.1 KB of
+ * SRAM, allocated unconditionally regardless of render mode) -- this
+ * project uses JANUS_DISPLAY_RENDER_MODE_BLOCKING exclusively (see
+ * janus_display_config.gen.h), so the async queue is never actually
+ * drained; kept nonzero only so janus_render_screen_async_start/
+ * janus_render_poll still compile and link if ever called. */
+#define JANUS_MAX_ASYNC_OPS 4
+typedef enum { JANUS_ASYNC_OP_FILL, JANUS_ASYNC_OP_GLYPH } janus_async_op_kind_t;
+typedef struct {
+    janus_async_op_kind_t kind;
+    int16_t x, y, w, h;            /* GLYPH: w/h unused, always JANUS_FONT_GLYPH_W/H */
+    uint16_t color;                /* FILL: the fill value. GLYPH: fg */
+    uint16_t bg;                   /* GLYPH only */
+    const uint8_t *glyph;          /* GLYPH only */
+} janus_async_op_t;
+
+static janus_async_op_t g_async_ops[JANUS_MAX_ASYNC_OPS];
+static uint16_t g_async_op_count = 0;
+static uint16_t g_async_cursor = 0;
+static bool g_async_enqueue = false;
+
+static void async_enqueue_fill(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t value) {
+    if (g_async_op_count >= JANUS_MAX_ASYNC_OPS) return;
+    janus_async_op_t *op = &g_async_ops[g_async_op_count++];
+    op->kind = JANUS_ASYNC_OP_FILL;
+    op->x = x; op->y = y; op->w = w; op->h = h;
+    op->color = value;
+}
+
+static void async_enqueue_glyph(int16_t x, int16_t y, const uint8_t *glyph, uint16_t fg, uint16_t bg) {
+    if (g_async_op_count >= JANUS_MAX_ASYNC_OPS) return;
+    janus_async_op_t *op = &g_async_ops[g_async_op_count++];
+    op->kind = JANUS_ASYNC_OP_GLYPH;
+    op->x = x; op->y = y;
+    op->color = fg; op->bg = bg;
+    op->glyph = glyph;
+}
+
+static void fill_rect(janus_rect_t rect, uint16_t value) {
+    if (rect.w <= 0 || rect.h <= 0) return;
+    if (!g_async_enqueue) {
+        for (size_t i = 0; i < JANUS_TILE_W * JANUS_TILE_H; i++) g_tile_buffer[i] = value;
+    }
+
+    for (int16_t ty = 0; ty < rect.h; ty += JANUS_TILE_H) {
+        int16_t th = (int16_t)(rect.h - ty);
+        if (th > JANUS_TILE_H) th = JANUS_TILE_H;
+        for (int16_t tx = 0; tx < rect.w; tx += JANUS_TILE_W) {
+            int16_t tw = (int16_t)(rect.w - tx);
+            if (tw > JANUS_TILE_W) tw = JANUS_TILE_W;
+            if (g_async_enqueue) {
+                async_enqueue_fill((int16_t)(rect.x + tx), (int16_t)(rect.y + ty), tw, th, value);
+            } else {
+                draw_area_sync((uint16_t)(rect.x + tx), (uint16_t)(rect.y + ty),
+                                (uint16_t)tw, (uint16_t)th, g_tile_buffer);
+            }
+        }
+    }
+}
+
+/* Splits `rect` into a filled left portion and an empty right portion by
+ * `fraction` (clamped to [0, 1]) — used by progress/gauge. */
+static void fill_rect_fraction(janus_rect_t rect, double fraction,
+                                uint16_t fill_value, uint16_t empty_value) {
+    if (fraction < 0.0) fraction = 0.0;
+    if (fraction > 1.0) fraction = 1.0;
+    int16_t filled_w = (int16_t)((double)rect.w * fraction);
+
+    janus_rect_t filled = { rect.x, rect.y, filled_w, rect.h };
+    janus_rect_t empty = {
+        (int16_t)(rect.x + filled_w), rect.y, (int16_t)(rect.w - filled_w), rect.h
+    };
+    fill_rect(filled, fill_value);
+    fill_rect(empty, empty_value);
+}
+
+/* -------------------------------------------------------------- glyphs --
+ * Reuses g_tile_buffer for the 5x7 = 35 pixels a glyph needs (well inside
+ * the 256-pixel tile, same "one shared static scratch buffer, no malloc"
+ * discipline as fill_rect above — not a second buffer).
+ */
+/* `glyph` always points into janus_font.c's GLYPHS table, which is
+ * JANUS_PROGMEM regardless of where the *string* that led here lives
+ * (static text in flash, or a live bound string in RAM — see
+ * draw_string/draw_string_P below) — so glyph bytes are always read with
+ * pgm_read_byte, never a plain array index. */
+static void draw_glyph(int16_t x, int16_t y, const uint8_t *glyph, uint16_t fg, uint16_t bg) {
+    if (g_async_enqueue) {
+        async_enqueue_glyph(x, y, glyph, fg, bg);
+        return;
+    }
+    for (int16_t row = 0; row < JANUS_FONT_GLYPH_H; row++) {
+        for (int16_t col = 0; col < JANUS_FONT_GLYPH_W; col++) {
+            g_tile_buffer[row * JANUS_FONT_GLYPH_W + col] =
+                (pgm_read_byte(&glyph[col]) & (1 << row)) ? fg : bg;
+        }
+    }
+    draw_area_sync((uint16_t)x, (uint16_t)y, JANUS_FONT_GLYPH_W, JANUS_FONT_GLYPH_H, g_tile_buffer);
+}
+
+/* Shared by draw_string (RAM source) and draw_string_P (JANUS_PROGMEM
+ * source) below — everything except how one character is fetched from
+ * `text` is identical, so that's the only thing passed in as a
+ * parameter. */
+static void draw_string_generic(janus_rect_t rect, const char *text, uint16_t fg, uint16_t bg, bool text_in_progmem) {
+    if (text == NULL) return;
+
+    int16_t y = (int16_t)(rect.y + (rect.h - JANUS_FONT_GLYPH_H) / 2);
+    if (y < rect.y) y = rect.y;
+    int16_t x = (int16_t)(rect.x + 1);
+    int16_t right = (int16_t)(rect.x + rect.w);
+
+    for (const char *p = text; ; p++) {
+        char c = text_in_progmem ? (char)pgm_read_byte(p) : *p;
+        if (c == '\0') break;
+        if ((int16_t)(x + JANUS_FONT_GLYPH_W) > right) break;
+        const uint8_t *glyph = janus_font_glyph(c);
+        if (glyph != NULL) draw_glyph(x, y, glyph, fg, bg);
+        x = (int16_t)(x + JANUS_FONT_GLYPH_W + 1);
+    }
+}
+
+/* Draws `text` left-aligned, vertically centered in `rect`, in `fg` over a
+ * `bg` that must match whatever solid fill the caller already painted
+ * `rect` with (unlit glyph pixels reuse it, so the glyph blends into that
+ * backdrop instead of punching a mismatched hole in it). No-op if `text`
+ * is NULL (unbound widgets keep rendering as a plain solid fill).
+ * Clips, never wraps or shrinks the font, once a character would run
+ * past `rect`'s right edge — Janus never auto-sizes text at generation
+ * time (Janus.md's deferred auto-sizing note), so overflow here is a
+ * real, expected v1 case, not a bug to fix in this runtime.
+ *
+ * `text` here is always RAM-resident: a live bound string, read straight
+ * out of the (never-PROGMEM) bound_struct instance. Authored static text
+ * is JANUS_PROGMEM (Stage 3b) — that case is draw_string_P below, not
+ * this one; mixing the two up would read flash bytes through an ordinary
+ * load (garbage) or vice versa, not just render wrong but read the wrong
+ * memory space outright. */
+static void draw_string(janus_rect_t rect, const char *text, uint16_t fg, uint16_t bg) {
+    draw_string_generic(rect, text, fg, bg, false);
+}
+
+/* Same as draw_string, but `text` is JANUS_PROGMEM-resident (a widget's
+ * authored `static_text`). */
+static void draw_string_P(janus_rect_t rect, const char *text, uint16_t fg, uint16_t bg) {
+    draw_string_generic(rect, text, fg, bg, true);
+}
+
+/* ---------------------------------------------------------- focus ring --
+ * Stage 6: the visual marker for "this is the currently focused widget"
+ * (encoder/button navigation — touch never sets this). A thin outline
+ * drawn over whatever the widget's own draw_<kind>() already painted,
+ * reusing fill_rect/g_tile_buffer, no new buffer. Fixed runtime color,
+ * deliberately not authorable per-widget — it's a Janus-owned UI
+ * affordance, not widget content.
+ */
+#define JANUS_COLOR_FOCUS_RING ((uint16_t)0x07ff)  /* cyan */
+
+/* Only button and box are ever focusable (Stage 3b's _assign_focus_order
+ * — everything else keeps JANUS_FOCUS_NONE), so this is the one piece of
+ * mutable focus state the whole module needs; draw_button/draw_box_header
+ * below just compare their own pointer against it. */
+static const janus_widget_desc_t *g_focused_widget = NULL;
+
+static void draw_focus_ring(janus_rect_t r) {
+    janus_rect_t top    = { r.x, r.y, r.w, 1 };
+    janus_rect_t bottom = { r.x, (int16_t)(r.y + r.h - 1), r.w, 1 };
+    janus_rect_t left   = { r.x, r.y, 1, r.h };
+    janus_rect_t right  = { (int16_t)(r.x + r.w - 1), r.y, 1, r.h };
+    fill_rect(top, JANUS_COLOR_FOCUS_RING);
+    fill_rect(bottom, JANUS_COLOR_FOCUS_RING);
+    fill_rect(left, JANUS_COLOR_FOCUS_RING);
+    fill_rect(right, JANUS_COLOR_FOCUS_RING);
+}
+
+/* ------------------------------------------------------------ box state --
+ * janus_widget_desc_t instances are static const arrays baked at
+ * generation time — nowhere in them to hold a *mutable* expand/collapse
+ * bit. This small fixed-capacity table holds it instead, keyed by
+ * descriptor pointer identity (stable for the program's lifetime).
+ */
+#define JANUS_MAX_BOXES 16
+typedef struct {
+    const janus_widget_desc_t *box;
+    bool expanded;
+} janus_box_state_t;
+static janus_box_state_t g_box_state[JANUS_MAX_BOXES];
+static uint8_t g_box_state_count = 0;
+
+/* `box` here is always the identity (flash) pointer — box-state lookup is
+ * keyed by pointer value, stable regardless of JANUS_PROGMEM, same as
+ * g_focused_widget below. Only `.initial_expanded` needs an actual
+ * content read, via janus_widget_load, not the pointer itself. */
+static janus_box_state_t *box_state_find_or_register(const janus_widget_desc_t *box) {
+    for (uint8_t i = 0; i < g_box_state_count; i++) {
+        if (g_box_state[i].box == box) return &g_box_state[i];
+    }
+    if (g_box_state_count < JANUS_MAX_BOXES) {
+        janus_widget_desc_t loaded;
+        janus_widget_load(&loaded, box);
+        janus_box_state_t *slot = &g_box_state[g_box_state_count++];
+        slot->box = box;
+        slot->expanded = loaded.initial_expanded;
+        return slot;
+    }
+    return NULL; /* table full: caller falls back to initial_expanded, never toggles */
+}
+
+bool janus_box_is_expanded(const janus_widget_desc_t *box) {
+    janus_box_state_t *slot = box_state_find_or_register(box);
+    if (slot != NULL) return slot->expanded;
+    janus_widget_desc_t loaded;
+    janus_widget_load(&loaded, box);
+    return loaded.initial_expanded;
+}
+
+/* Only one screen's widgets are ever live at once (Janus.md) — this is
+ * how janus_toggle_box, whose spec'd signature takes only the box
+ * pointer, still finds the right bound_struct for re-rendering any
+ * bound children inside it. */
+static const janus_screen_desc_t *g_current_screen = NULL;
+
+/* --------------------------------------------------------- bound reads --
+ */
+static double read_bound_value(const janus_bind_t *bind, const void *bound_struct) {
+    if (bound_struct == NULL || bind->field_type == JANUS_FIELD_NONE) return 0.0;
+    const uint8_t *field = (const uint8_t *)bound_struct + bind->field_offset;
+    switch (bind->field_type) {
+        case JANUS_FIELD_INT: {
+            int v;
+            memcpy(&v, field, sizeof(v));
+            return (double)v;
+        }
+        case JANUS_FIELD_INT64: {
+            int64_t v;
+            memcpy(&v, field, sizeof(v));
+            return (double)v;
+        }
+        case JANUS_FIELD_FLOAT: {
+            float v;
+            memcpy(&v, field, sizeof(v));
+            return (double)v;
+        }
+        default:
+            return 0.0; /* string has no numeric value — see read_bound_string below */
+    }
+}
+
+/* Slice 2: label/header's bound-string case. The struct field is
+ * `const char *` (emit_bindings_struct.py) — a pointer, not inline bytes,
+ * so this reads the pointer itself rather than reinterpreting field bytes
+ * as a number like read_bound_value does. Zero-initialized instances
+ * (Stage 7 — Janus generates shape, not data) hold NULL here until
+ * firmware populates them, and draw_string already no-ops on NULL, so an
+ * unpopulated bound string renders as the plain fill, same as before this
+ * existed. No truncation/copy needed: draw_string blits and clips
+ * character-by-character straight from this pointer, so an arbitrary
+ * runtime-length string never needs its length known upfront. */
+static const char *read_bound_string(const janus_bind_t *bind, const void *bound_struct) {
+    if (bound_struct == NULL || bind->field_type != JANUS_FIELD_STRING) return NULL;
+    const uint8_t *field = (const uint8_t *)bound_struct + bind->field_offset;
+    const char *value;
+    memcpy(&value, field, sizeof(value));
+    return value;
+}
+
+/* ------------------------------------------------- per-kind draw_<kind> --
+ * Every widget's fill/text color comes from its own `.color` (ink /
+ * foreground / on-state) and `.bg_color` (background / off-state) —
+ * authored per-widget in YAML, packed to RGB565 at generation time
+ * (emit_embedded_c.py's _pack_rgb565), defaulted by Stage 3b to
+ * JANUS_COLOR_DEFAULT_FG/_BG when omitted. Never a runtime constant.
+ */
+
+/* Every draw_<kind> below takes the *identity* (flash) pointer and
+ * immediately loads its own RAM-resident copy via janus_widget_load — so
+ * the two-line "load, then read w.field like before" shape repeats in
+ * each one, deliberately: it keeps every field access below unchanged
+ * from before JANUS_PROGMEM existed, and keeps identity comparisons
+ * (`w_pgm == g_focused_widget`) correct against the original flash
+ * address, never the copy's own (meaningless, stack-local) address. */
+
+/* label/header: authored `text:` wins if present (unbound widgets, or a
+ * widget authored with both — Janus.md's catalog documents `bind`/`text`
+ * as one-or-the-other, but nothing at parse time forbids both, so this is
+ * the deterministic tie-break); otherwise fall back to the live bound
+ * string, if any. Authored text is JANUS_PROGMEM (draw_string_P); a live
+ * bound string is always RAM, read straight out of bound_struct
+ * (draw_string). */
+static void draw_label(const janus_widget_desc_t *w_pgm, const void *bound_struct) {
+    janus_widget_desc_t w;
+    janus_widget_load(&w, w_pgm);
+    fill_rect(w.geometry, w.bg_color);
+    if (w.static_text != NULL) {
+        draw_string_P(w.geometry, w.static_text, w.color, w.bg_color);
+    } else {
+        draw_string(w.geometry, read_bound_string(&w.bind, bound_struct), w.color, w.bg_color);
+    }
+}
+static void draw_header(const janus_widget_desc_t *w_pgm, const void *bound_struct) {
+    janus_widget_desc_t w;
+    janus_widget_load(&w, w_pgm);
+    fill_rect(w.geometry, w.bg_color);
+    if (w.static_text != NULL) {
+        draw_string_P(w.geometry, w.static_text, w.color, w.bg_color);
+    } else {
+        draw_string(w.geometry, read_bound_string(&w.bind, bound_struct), w.color, w.bg_color);
+    }
+}
+static void draw_button(const janus_widget_desc_t *w_pgm) {
+    janus_widget_desc_t w;
+    janus_widget_load(&w, w_pgm);
+    fill_rect(w.geometry, w.bg_color);
+    draw_string_P(w.geometry, w.static_text, w.color, w.bg_color);
+    if (w_pgm == g_focused_widget) draw_focus_ring(w.geometry);
+}
+static void draw_image(const janus_widget_desc_t *w_pgm) {
+    janus_widget_desc_t w;
+    janus_widget_load(&w, w_pgm);
+    fill_rect(w.geometry, w.color);
+}
+static void draw_radiobutton(const janus_widget_desc_t *w_pgm) {
+    janus_widget_desc_t w;
+    janus_widget_load(&w, w_pgm);
+    fill_rect(w.geometry, w.color);
+}
+static void draw_divider(const janus_widget_desc_t *w_pgm) {
+    janus_widget_desc_t w;
+    janus_widget_load(&w, w_pgm);
+    fill_rect(w.geometry, w.color);
+}
+
+static void draw_progress_or_gauge(const janus_widget_desc_t *w_pgm, const void *bound_struct) {
+    janus_widget_desc_t w;
+    janus_widget_load(&w, w_pgm);
+    double value = read_bound_value(&w.bind, bound_struct);
+    double span = (double)w.bind.range_max - (double)w.bind.range_min;
+    double fraction = span != 0.0 ? (value - w.bind.range_min) / span : 0.0;
+    fill_rect_fraction(w.geometry, fraction, w.color, w.bg_color);
+}
+
+static void draw_checkbox(const janus_widget_desc_t *w_pgm, const void *bound_struct) {
+    janus_widget_desc_t w;
+    janus_widget_load(&w, w_pgm);
+    double value = read_bound_value(&w.bind, bound_struct);
+    fill_rect(w.geometry, value != 0.0 ? w.color : w.bg_color);
+}
+
+static void draw_led(const janus_widget_desc_t *w_pgm, const void *bound_struct) {
+    janus_widget_desc_t w;
+    janus_widget_load(&w, w_pgm);
+    int state = (int)read_bound_value(&w.bind, bound_struct);
+    uint16_t value = state <= 0 ? w.bg_color : (state == 1 ? w.color : JANUS_COLOR_LED_WARN);
+    fill_rect(w.geometry, value);
+}
+
+/* toggle/badge/slider intentionally reuse checkbox's and progress/gauge's
+ * bind logic exactly (same shape: int on/off, numeric+range) — only the
+ * widget kind (and so its own .color/.bg_color) differs, so each reads as
+ * its own kind in a render. */
+static void draw_toggle(const janus_widget_desc_t *w_pgm, const void *bound_struct) {
+    janus_widget_desc_t w;
+    janus_widget_load(&w, w_pgm);
+    double value = read_bound_value(&w.bind, bound_struct);
+    fill_rect(w.geometry, value != 0.0 ? w.color : w.bg_color);
+}
+
+static void draw_badge(const janus_widget_desc_t *w_pgm, const void *bound_struct) {
+    janus_widget_desc_t w;
+    janus_widget_load(&w, w_pgm);
+    double value = read_bound_value(&w.bind, bound_struct);
+    fill_rect(w.geometry, value != 0.0 ? w.color : w.bg_color);
+}
+
+static void draw_slider(const janus_widget_desc_t *w_pgm, const void *bound_struct) {
+    janus_widget_desc_t w;
+    janus_widget_load(&w, w_pgm);
+    double value = read_bound_value(&w.bind, bound_struct);
+    double span = (double)w.bind.range_max - (double)w.bind.range_min;
+    double fraction = span != 0.0 ? (value - w.bind.range_min) / span : 0.0;
+    fill_rect_fraction(w.geometry, fraction, w.color, w.bg_color);
+}
+
+/* box's own content is just its header strip; children are separate
+ * descriptors, drawn (or not) by the traversal below. Its title text is
+ * `box.static_text` — box has no dedicated title field, it reuses the
+ * generic Widget.text (Janus.md's widget catalog / architecture.md
+ * Stage 2). */
+static void draw_box_header(const janus_widget_desc_t *box_pgm) {
+    janus_widget_desc_t box;
+    janus_widget_load(&box, box_pgm);
+    fill_rect(box.geometry_collapsed, box.bg_color);
+    draw_string_P(box.geometry_collapsed, box.static_text, box.color, box.bg_color);
+    if (box_pgm == g_focused_widget) draw_focus_ring(box.geometry_collapsed);
+}
+
+/* ---------------------------------------------------------- traversal --
+ */
+/* `w_pgm` is the identity/flash pointer — loaded once here (needed for
+ * `.kind`/`.child_count`/`.children` to dispatch and recurse at all); each
+ * draw_<kind> above loads its own copy again rather than being handed
+ * this one, so identity comparisons inside them (draw_button/
+ * draw_box_header's focus-ring check) always compare against `w_pgm`,
+ * never a stack-local copy's address. Recursing into `&w.children[i]`
+ * (the *loaded* copy's `.children` pointer) is safe: it's a value copied
+ * verbatim out of flash, so pointer arithmetic on it still lands in
+ * flash, at the correct sub-array address. */
+static void render_widget(const janus_widget_desc_t *w_pgm, const void *bound_struct) {
+    janus_widget_desc_t w;
+    janus_widget_load(&w, w_pgm);
+
+    switch (w.kind) {
+        case JANUS_WIDGET_LABEL: draw_label(w_pgm, bound_struct); return;
+        case JANUS_WIDGET_HEADER: draw_header(w_pgm, bound_struct); return;
+        case JANUS_WIDGET_BUTTON: draw_button(w_pgm); return;
+        case JANUS_WIDGET_IMAGE: draw_image(w_pgm); return;
+        case JANUS_WIDGET_RADIOBUTTON: draw_radiobutton(w_pgm); return;
+        case JANUS_WIDGET_PROGRESS:
+        case JANUS_WIDGET_GAUGE: draw_progress_or_gauge(w_pgm, bound_struct); return;
+        case JANUS_WIDGET_CHECKBOX: draw_checkbox(w_pgm, bound_struct); return;
+        case JANUS_WIDGET_LED: draw_led(w_pgm, bound_struct); return;
+        case JANUS_WIDGET_DIVIDER: draw_divider(w_pgm); return;
+        case JANUS_WIDGET_TOGGLE: draw_toggle(w_pgm, bound_struct); return;
+        case JANUS_WIDGET_BADGE: draw_badge(w_pgm, bound_struct); return;
+        case JANUS_WIDGET_SLIDER: draw_slider(w_pgm, bound_struct); return;
+
+        case JANUS_WIDGET_BOX:
+            draw_box_header(w_pgm);
+            if (janus_box_is_expanded(w_pgm)) {
+                for (uint16_t i = 0; i < w.child_count; i++) {
+                    render_widget(&w.children[i], bound_struct);
+                }
+            }
+            return;
+
+        /* structural containers — no pixels of their own (Janus.md widget catalog) */
+        case JANUS_WIDGET_COLUMN:
+        case JANUS_WIDGET_ROW:
+        case JANUS_WIDGET_RADIOGROUP:
+            for (uint16_t i = 0; i < w.child_count; i++) {
+                render_widget(&w.children[i], bound_struct);
+            }
+            return;
+    }
+}
+
+void janus_render_screen(const janus_screen_desc_t *screen) {
+    g_current_screen = screen;   /* identity (flash) pointer -- see janus_screen_load's doc comment */
+    janus_screen_desc_t s;
+    janus_screen_load(&s, screen);
+    for (uint16_t i = 0; i < s.widget_count; i++) {
+        render_widget(&s.widgets[i], s.bound_struct);
+    }
+}
+
+/* g_current_screen is the identity (flash) pointer -- reading its
+ * .bound_struct needs a loaded copy, same as everywhere else a
+ * janus_screen_desc_t's fields are read. */
+static const void *current_bound_struct(void) {
+    if (g_current_screen == NULL) return NULL;
+    janus_screen_desc_t s;
+    janus_screen_load(&s, g_current_screen);
+    return s.bound_struct;
+}
+
+const janus_screen_desc_t *janus_app_get_screen(const janus_app_t *app, uint16_t index) {
+    if (index >= app->screen_count) return NULL;
+    return (const janus_screen_desc_t *)pgm_read_ptr(&app->screens[index]);
+}
+
+void janus_switch_screen(janus_app_t *app, uint16_t screen_index) {
+    if (screen_index >= app->screen_count) return;
+    /* Clear focus *before* switching — g_focused_widget would otherwise
+     * point into the outgoing screen's static widget array; if left set,
+     * the next janus_set_focus call would try to redraw that stale
+     * widget on top of the freshly rendered new screen. Callers using
+     * encoder/button navigation re-establish focus on the new screen
+     * with janus_focus_move(new_screen, 0) right after this. */
+    janus_set_focus(NULL);
+    app->active_screen = screen_index;
+    janus_render_screen(janus_app_get_screen(app, screen_index));
+}
+
+void janus_render_screen_async_start(const janus_screen_desc_t *screen) {
+    g_async_op_count = 0;
+    g_async_cursor = 0;
+    g_async_enqueue = true;
+    janus_render_screen(screen);   /* every draw_<kind> call now enqueues, not draws */
+    g_async_enqueue = false;
+}
+
+bool janus_render_poll(void) {
+    if (g_async_cursor >= g_async_op_count) return false;
+    if (display_busy()) return true;   /* still rendering — try again next poll */
+
+    const janus_async_op_t *op = &g_async_ops[g_async_cursor];
+    if (op->kind == JANUS_ASYNC_OP_FILL) {
+        for (size_t i = 0; i < JANUS_TILE_W * JANUS_TILE_H; i++) g_tile_buffer[i] = op->color;
+        draw_area_async((uint16_t)op->x, (uint16_t)op->y, (uint16_t)op->w, (uint16_t)op->h, g_tile_buffer);
+    } else {
+        for (int16_t row = 0; row < JANUS_FONT_GLYPH_H; row++) {
+            for (int16_t col = 0; col < JANUS_FONT_GLYPH_W; col++) {
+                g_tile_buffer[row * JANUS_FONT_GLYPH_W + col] =
+                    (pgm_read_byte(&op->glyph[col]) & (1 << row)) ? op->color : op->bg;
+            }
+        }
+        draw_area_async((uint16_t)op->x, (uint16_t)op->y, JANUS_FONT_GLYPH_W, JANUS_FONT_GLYPH_H, g_tile_buffer);
+    }
+    g_async_cursor++;
+    return g_async_cursor < g_async_op_count;
+}
+
+void janus_switch_screen_async_start(janus_app_t *app, uint16_t screen_index) {
+    if (screen_index >= app->screen_count) return;
+    janus_set_focus(NULL);   /* same reasoning as janus_switch_screen */
+    app->active_screen = screen_index;
+    janus_render_screen_async_start(janus_app_get_screen(app, screen_index));
+}
+
+void janus_set_focus(const janus_widget_desc_t *widget) {
+    const janus_widget_desc_t *previous = g_focused_widget;
+    if (previous == widget) return;
+
+    const void *bound_struct = current_bound_struct();
+    g_focused_widget = widget;
+    if (previous != NULL) render_widget(previous, bound_struct);
+    if (widget != NULL) render_widget(widget, bound_struct);
+}
+
+const janus_widget_desc_t *janus_get_focus(void) {
+    return g_focused_widget;
+}
+
+void janus_toggle_box(const janus_widget_desc_t *box_pgm) {
+    janus_box_state_t *slot = box_state_find_or_register(box_pgm);
+    if (slot != NULL) {
+        slot->expanded = !slot->expanded;
+    }
+
+    const void *bound_struct = current_bound_struct();
+    draw_box_header(box_pgm);
+    if (janus_box_is_expanded(box_pgm)) {
+        janus_widget_desc_t box;
+        janus_widget_load(&box, box_pgm);
+        for (uint16_t i = 0; i < box.child_count; i++) {
+            render_widget(&box.children[i], bound_struct);
+        }
+    }
+}
