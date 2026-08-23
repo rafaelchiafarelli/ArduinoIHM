@@ -245,6 +245,12 @@ int main()
         if(dir[0] == CW || dir[0] == CCW){
             uint16_t count = janus_app.screen_count;
             uint16_t next = (uint16_t)((janus_app.active_screen + (dir[0] == CW ? 1 : (count - 1))) % count);
+            // janus_render_screen only ever fills widgets' own rects, never
+            // clears first -- same stale-pixel bug the deleted GUI::update()
+            // had (CHANGELOG.md 2026-08-18) before its own explicit clear.
+            // The runtime can't own this: it has no notion of "canvas
+            // background color", that's a per-project/hardware choice.
+           // tft.fillScreen(0x0000);
             janus_switch_screen(&janus_app, next); // also re-renders the new screen
             janus_focus_move(janus_app_get_screen(&janus_app, janus_app.active_screen), 0);
         }
@@ -266,6 +272,7 @@ int main()
                     janus_render_screen(screen); // reflect the state the action just changed
                     break;
                 case JANUS_INPUT_NAVIGATE:
+                    tft.fillScreen(0x0000); // see the rot0 branch above for why
                     janus_switch_screen(&janus_app, (uint16_t)hit.navigate_target);
                     janus_focus_move(janus_app_get_screen(&janus_app, janus_app.active_screen), 0);
                     break;

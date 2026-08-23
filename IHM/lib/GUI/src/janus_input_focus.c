@@ -2,40 +2,36 @@
 
 #include <stddef.h>
 
+static bool is_focusable(const janus_widget_desc_t *w) {
+    return janus_widget_load(w).focus_order != JANUS_FOCUS_NONE;
+}
+
 /* Depth-first, left-to-right — same order janus_runtime.c's render_widget
- * traverses in, which is what Stage 3b's _assign_focus_order baked
- * focus_order against. A collapsed box's children are skipped — focus_
- * order values were baked assuming every box is reachable, so this is
- * what keeps a collapsed box's children from being silently focusable
- * while invisible. `visit` returns true to stop the walk early.
- *
- * `w` passed to `visit` is always the identity (flash) pointer —
- * visitors below only ever compare it by pointer value, never dereference
- * it, so they need no JANUS_PROGMEM-awareness of their own (see
- * janus_runtime.h's janus_widget_load doc comment). walk_focusable itself
- * loads a RAM copy once per node, purely to read `.focus_order`/`.kind`/
- * `.child_count`/`.children`. */
+ * and janus_input_touch.c's hit_test_widget already traverse in, which is
+ * what Stage 3b's _assign_focus_order baked focus_order against. A
+ * collapsed box's children are skipped, same rule touch's hit-test uses
+ * (architecture.md Stage 6) — focus_order values were baked assuming
+ * every box is reachable, so this is what keeps a collapsed box's
+ * children from being silently focusable while invisible. `visit`
+ * returns true to stop the walk early. */
 typedef bool (*focus_visitor_t)(const janus_widget_desc_t *w, void *ctx);
 
-static bool walk_focusable(const janus_widget_desc_t *w_pgm, focus_visitor_t visit, void *ctx) {
-    janus_widget_desc_t w;
-    janus_widget_load(&w, w_pgm);
-
-    if (w.focus_order != JANUS_FOCUS_NONE) {
-        if (visit(w_pgm, ctx)) return true;
+static bool walk_focusable(const janus_widget_desc_t *w, focus_visitor_t visit, void *ctx) {
+    janus_widget_desc_t lw = janus_widget_load(w);
+    if (is_focusable(w)) {
+        if (visit(w, ctx)) return true;
     }
-    if (w.kind == JANUS_WIDGET_BOX && !janus_box_is_expanded(w_pgm)) return false;
-    for (uint16_t i = 0; i < w.child_count; i++) {
-        if (walk_focusable(&w.children[i], visit, ctx)) return true;
+    if (lw.kind == JANUS_WIDGET_BOX && !janus_box_is_expanded(w)) return false;
+    for (uint16_t i = 0; i < lw.child_count; i++) {
+        if (walk_focusable(&lw.children[i], visit, ctx)) return true;
     }
     return false;
 }
 
 static bool walk_screen(const janus_screen_desc_t *screen, focus_visitor_t visit, void *ctx) {
-    janus_screen_desc_t s;
-    janus_screen_load(&s, screen);
-    for (uint16_t i = 0; i < s.widget_count; i++) {
-        if (walk_focusable(&s.widgets[i], visit, ctx)) return true;
+    janus_screen_desc_t ls = janus_screen_load(screen);
+    for (uint16_t i = 0; i < ls.widget_count; i++) {
+        if (walk_focusable(&ls.widgets[i], visit, ctx)) return true;
     }
     return false;
 }
@@ -103,32 +99,29 @@ janus_input_result_t janus_focus_activate(const janus_screen_desc_t *screen) {
         .action = JANUS_ACTION_ID_NONE, .navigate_target = -1,
     };
 
-    const janus_widget_desc_t *w_pgm = janus_get_focus();
-    if (w_pgm == NULL || focus_position(screen, w_pgm) < 0) return result;
+    const janus_widget_desc_t *w = janus_get_focus();
+    if (w == NULL || focus_position(screen, w) < 0) return result;
 
-    janus_widget_desc_t w;
-    janus_widget_load(&w, w_pgm);
-
-    /* Box always toggles; otherwise navigate wins over action if somehow
-     * both are set (matches Stage 1's own on_press/navigate handling, not
-     * a new tie-break). result.widget stays the identity pointer (w_pgm)
-     * — callers (janus_toggle_box, box-state/focus lookups) key on it,
-     * not on this function's own stack copy. */
-    if (w.kind == JANUS_WIDGET_BOX) {
+    /* Same resolution rules as janus_input_touch.c's hit_test_widget leaf
+     * case — box always toggles; otherwise navigate wins over action if
+     * somehow both are set (matches Stage 1's own on_press/navigate
+     * handling, not a new tie-break). */
+    janus_widget_desc_t lw = janus_widget_load(w);
+    if (lw.kind == JANUS_WIDGET_BOX) {
         result.kind = JANUS_INPUT_TOGGLE_BOX;
-        result.widget = w_pgm;
+        result.widget = w;
         return result;
     }
-    if (w.navigate_target >= 0) {
+    if (lw.navigate_target >= 0) {
         result.kind = JANUS_INPUT_NAVIGATE;
-        result.widget = w_pgm;
-        result.navigate_target = w.navigate_target;
+        result.widget = w;
+        result.navigate_target = lw.navigate_target;
         return result;
     }
-    if (w.action != JANUS_ACTION_ID_NONE) {
+    if (lw.action != JANUS_ACTION_ID_NONE) {
         result.kind = JANUS_INPUT_ACTION;
-        result.widget = w_pgm;
-        result.action = w.action;
+        result.widget = w;
+        result.action = lw.action;
         return result;
     }
     return result;

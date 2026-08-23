@@ -11,29 +11,7 @@
 #include <stddef.h>   /* offsetof()/NULL — every generated widget initializer needs these */
 #include <stdint.h>
 
-/* JANUS_PROGMEM / pgm_read_* / memcpy_P: on AVR, `const` data is NOT
- * automatically flash-resident (the CPU can only read ordinary memory with
- * `LD`; flash needs the separate `LPM` instruction) -- without this
- * attribute the linker copies every "const" widget-descriptor array and
- * string Stage 3b generates into SRAM at startup, confirmed against the
- * real avr-gcc/avr-size toolchain. Stage 3b's generated arrays are by far
- * the largest const data Janus emits (tens to hundreds of widgets per
- * project), so on this project's ATmega2560 (8 KiB RAM) this is the
- * difference between linking and not. Project-local (this vendored copy),
- * not upstream Janus -- see the ArduinoIHM/janus integration notes for why
- * this should eventually become a Janus-level driver contract instead of
- * an ifdef here. */
-#ifdef __AVR__
-#include <avr/pgmspace.h>
-#define JANUS_PROGMEM PROGMEM
-#else
-#include <string.h>
-#define JANUS_PROGMEM
-#define pgm_read_byte(addr) (*(const uint8_t *)(addr))
-#define pgm_read_word(addr) (*(const uint16_t *)(addr))
-#define pgm_read_ptr(addr) (*(const void *const *)(addr))
-static inline void *memcpy_P(void *dst, const void *src, size_t n) { return memcpy(dst, src, n); }
-#endif
+#include "janus_progmem.h"
 
 typedef enum {
     JANUS_WIDGET_LABEL, JANUS_WIDGET_HEADER, JANUS_WIDGET_BUTTON,
@@ -104,11 +82,22 @@ typedef struct {
 
 typedef struct janus_widget_desc {
     janus_widget_kind_t kind;
-    const char *id;
+    const char *id;                    /* generated, flash-resident (JANUS_PROGMEM) on AVR — the
+                                         * runtime itself never dereferences this (identity/lookup
+                                         * only), but any caller that wants to read/compare it on
+                                         * real AVR hardware needs a pgm-aware read (JANUS_PGM_READ_U8
+                                         * per byte, or strcmp_P), same as any other flash string;
+                                         * plain strcmp/printf("%s", ...) only works on host builds */
     const char *static_text;           /* authored Widget.text, baked in at generation time; NULL
                                          * if this widget has none, or its text comes from a `bind`
                                          * instead (bound strings don't render yet — janus_font.h's
-                                         * v1 slice is static text only, see janus_runtime.c) */
+                                         * v1 slice is static text only, see janus_runtime.c).
+                                         * Flash-resident (JANUS_PROGMEM) on AVR, same as `id` above
+                                         * — draw_string's `from_flash` parameter is what tells it to
+                                         * read this one byte-at-a-time via JANUS_PGM_READ_U8, vs. a
+                                         * live bound string (read_bound_string), which is always
+                                         * plain RAM (the vendor's own mutable struct) and never
+                                         * moves. */
     janus_rect_t geometry;             /* also the "expanded" rect for box */
     janus_rect_t geometry_collapsed;   /* box only, ignored otherwise */
     bool initial_expanded;             /* box only — baked from Widget.default_expanded */
@@ -123,18 +112,44 @@ typedef struct janus_widget_desc {
 } janus_widget_desc_t;
 
 typedef struct {
-    const char *name;
+    const char *name;                  /* flash-resident (JANUS_PROGMEM) on AVR, same caveat as
+                                         * janus_widget_desc_t.id above — runtime never reads it */
     const janus_widget_desc_t *widgets;
     uint16_t widget_count;
     const void *bound_struct;   /* e.g. &device_instance; NULL if the screen binds nothing */
 } janus_screen_desc_t;
 
 typedef struct {
-    const janus_screen_desc_t *const *screens;
+    const janus_screen_desc_t *const *screens;   /* generated as a JANUS_PROGMEM pointer table on
+                                                   * AVR — read via janus_app_get_screen(app, i)
+                                                   * below, never a plain array index */
     const char *const *nav_titles;   /* parallel to screens; NULL if app.nav is unset (no tab bar) */
     uint16_t screen_count;
     uint16_t active_screen;          /* the one piece of app-level runtime state */
 } janus_app_t;
+
+/* ------------------------------------------------------- flash-safe reads --
+ * Widget/screen descriptors are generated `JANUS_PROGMEM` (flash-only on
+ * AVR, no RAM shadow — see janus_progmem.h). Ordinary pointer dereference
+ * can't read flash on classic AVR, so every internal module that used to do
+ * `w->field`/`screen->field` directly (janus_runtime.c, janus_input_touch.c,
+ * janus_input_focus.c) loads a whole local copy first via these — one
+ * JANUS_MEMCPY_P, simpler than a pgm_read_* per field since both structs
+ * are flat POD — and reads off that copy instead. Off-AVR this degrades to
+ * a plain struct copy, so host behavior (and the host test suite) is
+ * unchanged. `static inline` so each translation unit that includes this
+ * header gets its own definition, no separate .c/linkage needed. */
+static inline janus_widget_desc_t janus_widget_load(const janus_widget_desc_t *w) {
+    janus_widget_desc_t out;
+    JANUS_MEMCPY_P(&out, w, sizeof(out));
+    return out;
+}
+
+static inline janus_screen_desc_t janus_screen_load(const janus_screen_desc_t *screen) {
+    janus_screen_desc_t out;
+    JANUS_MEMCPY_P(&out, screen, sizeof(out));
+    return out;
+}
 
 /* driver contract, carried forward from the original prototype's DESIGN.md.
  * Implemented by vendor/host code, never by the fixed library itself.
@@ -150,12 +165,13 @@ void draw_area_sync(uint16_t x, uint16_t y, uint16_t w, uint16_t h, const uint16
 bool draw_area_async(uint16_t x, uint16_t y, uint16_t w, uint16_t h, const uint16_t *pixels);
 bool display_busy(void);
 
-/* janus_app_t.screens is JANUS_PROGMEM (an array of pointers living in
- * flash, not RAM) -- ordinary `app->screens[i]` indexing reads it with a
- * plain load, which on AVR fetches from the data address space, not flash,
- * and returns garbage. This is the only correct way to read one entry out
- * of it; every caller (this library's own janus_switch_screen* below, and
- * any vendor main.cpp) must go through it instead of indexing directly. */
+/* app->screens is a JANUS_PROGMEM pointer table on AVR (see janus_app_t
+ * above) — this is the one safe way to read an entry out of it. Every
+ * scaffolded main.c (janus/templates/main_*.c.tmpl) uses this instead of
+ * `janus_app.screens[i]` directly for that reason; a raw index there
+ * looked fine on host builds (where the PROGMEM macros are plain memory
+ * ops, janus_progmem.h) but fetched a garbage pointer on real AVR
+ * hardware. Returns NULL if `index` is out of range. */
 const janus_screen_desc_t *janus_app_get_screen(const janus_app_t *app, uint16_t index);
 
 /* runtime entry points */
@@ -197,21 +213,5 @@ bool janus_box_is_expanded(const janus_widget_desc_t *box);
  * stale pointer from the old screen's tree is never redrawn. */
 void janus_set_focus(const janus_widget_desc_t *widget);
 const janus_widget_desc_t *janus_get_focus(void);
-
-/* Stage 3b's generated widget-descriptor arrays are JANUS_PROGMEM (flash)
- * -- a `janus_widget_desc_t*` pointing into one cannot be dereferenced
- * with ordinary struct-member access, only copied out with memcpy_P. This
- * is that copy, shared by every module that walks the widget tree
- * (janus_runtime.c, janus_input_focus.c) so the flash-vs-RAM distinction
- * lives in one place. `src` stays the identity to compare against
- * janus_get_focus()/box-state tables (a flash address is stable for the
- * program's lifetime) -- only content reads need the loaded copy. */
-void janus_widget_load(janus_widget_desc_t *dst, const janus_widget_desc_t *src);
-
-/* Same reasoning as janus_widget_load, for janus_screen_desc_t -- every
- * generated `*_screen` instance (pwm_screen, etc.) is also JANUS_PROGMEM,
- * so `.widget_count`/`.widgets`/`.bound_struct`/`.name` must be read out of
- * a copy loaded through this, never via plain `screen->field` access. */
-void janus_screen_load(janus_screen_desc_t *dst, const janus_screen_desc_t *src);
 
 #endif /* JANUS_RUNTIME_H */

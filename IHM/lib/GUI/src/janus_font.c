@@ -1,5 +1,5 @@
 #include "janus_font.h"
-#include "janus_runtime.h" /* JANUS_PROGMEM */
+#include "janus_progmem.h"
 
 #include <stddef.h>
 
@@ -10,12 +10,7 @@
  * commit that widened this table from the original 27-glyph space+A-Z set.
  * Ordered by codepoint; index in this array has no meaning outside
  * glyph_index() below, which is the only thing that maps a character to a
- * row here.
- *
- * JANUS_PROGMEM: 123 * 5 = 615 bytes -- real weight to keep off this
- * project's AVR RAM budget (see janus_runtime.h). janus_font_glyph()
- * returns a pointer into this table as before; callers (janus_runtime.c)
- * already read it with pgm_read_byte, never a plain index. */
+ * row here. */
 static const uint8_t GLYPHS[123][JANUS_FONT_GLYPH_W] JANUS_PROGMEM = {
     { 0x00, 0x00, 0x00, 0x00, 0x00 },  /* [0] space U+0020 */
     { 0x00, 0x00, 0x5f, 0x00, 0x00 },  /* [1] ! U+0021 */
