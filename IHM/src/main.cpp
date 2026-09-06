@@ -82,8 +82,7 @@ bool relayState[NUMBER_OF_RELAYS] = {false, false, false, false, false, false, f
 // drawPixel() call per pixel.
 extern "C" void display_driver_init(void){
     uint16_t id = tft.readID();
-    Serial.print("LCD_ID=0x");
-    Serial.println(id, HEX);
+
     tft.begin(id);
     tft.setRotation(0);
     tft.fillScreen(0x0000); // black
@@ -111,11 +110,11 @@ extern "C" bool display_busy(void){
 void setup()
 {
     Serial.begin(250000);
-    Serial.println("SERIAL_OK");
+    
     //dac0.begin(0x62);
-    Serial.println("DAC0_OK");
+    
     //dac1.begin(0x63);
-    Serial.println("DAC1_OK");
+    
     cli();
 
     // setting system timer
@@ -132,18 +131,18 @@ void setup()
     TIMSK2 |= timer2InterruptMask();
 
     sei();
-    Serial.println("BOOT");
+    
     multiOuput.setup();
-    Serial.println("MULTIOUT_OK");
+    
 
     display_driver_init();
-    Serial.println("DISP_INIT_OK");
+    
     const janus_screen_desc_t *screen = janus_app_get_screen(&janus_app, janus_app.active_screen);
-    Serial.println("SCREEN_PICKED");
+    
     janus_render_screen(screen);
-    Serial.println("RENDER_OK");
+    
     janus_focus_move(screen, 0);   // establish initial focus
-    Serial.println("FOCUS_OK");
+    
 }
 
 ISR(TIMER2_COMPA_vect){ /*~1.008ms system tick*/

@@ -113,8 +113,48 @@ void PWMComplexOutputConfig::decreaseDutyCycle() {
                                       : dutyCyclePercent - DUTY_CYCLE_STEP_PERCENT);
 }
 
-void PWMComplexChannelConfig::toggleMode() {
-    frequency = (frequency == frequency_variable) ? frequency_62_500HZ : frequency_variable;
+// Deliberately identical to PWMChannelConfig's simplex versions above -- the
+// two channel kinds share one Mode contract. Kept as duplicated bodies
+// rather than a shared helper to match how selectNextFrequency /
+// increaseVariableTop / etc. are already duplicated across the two structs
+// in this file.
+PWMChannelMode PWMComplexChannelConfig::mode() const {
+    if (!enabled) {
+        return PWMChannelMode::Off;
+    }
+    return (frequency == frequency_variable) ? PWMChannelMode::Variable : PWMChannelMode::Fixed;
+}
+
+void PWMComplexChannelConfig::cycleModeNext() {
+    switch (mode()) {
+        case PWMChannelMode::Off:
+            enabled = true;
+            if (frequency == frequency_variable) {
+                frequency = frequency_62_500HZ;
+            }
+            break;
+        case PWMChannelMode::Fixed:
+            frequency = frequency_variable;
+            break;
+        case PWMChannelMode::Variable:
+            enabled = false;
+            break;
+    }
+}
+
+void PWMComplexChannelConfig::cycleModePrevious() {
+    switch (mode()) {
+        case PWMChannelMode::Off:
+            enabled = true;
+            frequency = frequency_variable;
+            break;
+        case PWMChannelMode::Variable:
+            frequency = frequency_62_500HZ;
+            break;
+        case PWMChannelMode::Fixed:
+            enabled = false;
+            break;
+    }
 }
 
 void PWMComplexChannelConfig::selectNextFrequency() {
@@ -138,11 +178,15 @@ void PWMComplexChannelConfig::decreaseVariableTop() {
 
 ComplexPWMCallArgs computeComplexCallArgs(const PWMComplexChannelConfig& cfg) {
     uint16_t top = pwmResolutionTop(cfg.frequency, cfg.variableTopValue);
+    // A channel-level Off (cfg.enabled == false) masks every output's own
+    // enable, so no OCnX pin is driven -- the same effect the simplex Off
+    // produces via its single `enabled`. Timing bits (WGM/CS) are still
+    // emitted downstream, so the shared timer keeps counting either way.
     return {
         cfg.frequency,
         cfg.variableTopValue,
-        cfg.outputA.inverting, cfg.outputA.enabled, scaleDutyCycleToRaw(cfg.outputA.dutyCyclePercent, top),
-        cfg.outputB.inverting, cfg.outputB.enabled, scaleDutyCycleToRaw(cfg.outputB.dutyCyclePercent, top),
-        cfg.outputC.inverting, cfg.outputC.enabled, scaleDutyCycleToRaw(cfg.outputC.dutyCyclePercent, top),
+        cfg.outputA.inverting, cfg.enabled && cfg.outputA.enabled, scaleDutyCycleToRaw(cfg.outputA.dutyCyclePercent, top),
+        cfg.outputB.inverting, cfg.enabled && cfg.outputB.enabled, scaleDutyCycleToRaw(cfg.outputB.dutyCyclePercent, top),
+        cfg.outputC.inverting, cfg.enabled && cfg.outputC.enabled, scaleDutyCycleToRaw(cfg.outputC.dutyCyclePercent, top),
     };
 }

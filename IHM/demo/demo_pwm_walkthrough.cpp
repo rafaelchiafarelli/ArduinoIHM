@@ -92,6 +92,7 @@ void runComplexIndependenceProof(int channelIndex) {
     printf("  exactly one output's bits, never losing the previous ones.\n");
 
     PWMComplexChannelConfig cfg;
+    cfg.enabled = true;                   // bring the channel out of Off so per-output toggles show
     cfg.frequency = frequency_31_250HZ;  // 9-bit: the width where COMnX1 used to be dropped
     FakeComplexRegs regs;
 

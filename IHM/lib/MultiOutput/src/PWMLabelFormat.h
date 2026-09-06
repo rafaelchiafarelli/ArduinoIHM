@@ -18,9 +18,9 @@
 
 void formatDutyCycleLabel(char* buf, uint8_t dutyCyclePercent);
 
-// enabled=false always renders "Mode:Desl." regardless of f (used by simplex
-// channels, which have an explicit off state); complex channels have no
-// channel-level enable (only per-output), so they always pass enabled=true.
+// enabled=false always renders "Mode:Desl." regardless of f. Both channel
+// kinds have a channel-level off state now (PWMChannelConfig::enabled and
+// PWMComplexChannelConfig::enabled), so both pass their real `enabled` here.
 void formatModeLabel(char* buf, bool enabled, PWMFrequency f);
 
 void formatFrequencyLabel(char* buf, PWMFrequency f, uint16_t variableTopValue);

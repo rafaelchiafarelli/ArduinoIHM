@@ -18,6 +18,8 @@
 // field for a single-output channel the way PWMComplexOutputConfig has one
 // per output below, so this is the only place "enabled" is reachable from
 // the UI. Always derived from (enabled, frequency); never stored directly.
+// PWMComplexChannelConfig reuses this same enum and the same cycle for its
+// own channel-level Mode field (see below).
 enum class PWMChannelMode : uint8_t { Off, Fixed, Variable };
 
 struct PWMChannelConfig {
@@ -67,17 +69,25 @@ struct PWMComplexOutputConfig {
 };
 
 struct PWMComplexChannelConfig {
+    bool enabled = false;                  // channel-level Off gate -- see mode() below
     PWMFrequency frequency = frequency_62_500HZ;
     uint16_t variableTopValue = 1000;
     PWMComplexOutputConfig outputA;
     PWMComplexOutputConfig outputB;
     PWMComplexOutputConfig outputC;
 
-    // A complex channel has no channel-level enable (each output has its own,
-    // via PWMComplexOutputConfig::toggleEnabled), so its Mode field is only
-    // ever a two-way Fixed/Variable toggle -- unlike PWMChannelConfig's
-    // three-way cycle above.
-    void toggleMode();
+    // Same three-way Mode cycle as PWMChannelConfig above
+    // (Off -> Fixed -> Variable -> Off -> ...), so the simplex and complex
+    // channels behave identically on this field. The per-output ACTIVATE
+    // toggles (PWMComplexOutputConfig::toggleEnabled) are unchanged and stay
+    // independent; `enabled` sits on top of them as a channel-level gate --
+    // when it is false, computeComplexCallArgs forces every output's enable
+    // low regardless of its own toggle, so no OCnX pin is driven. As in the
+    // simplex Off case, the shared timer itself keeps running. Always
+    // derived from (enabled, frequency); never stored directly.
+    PWMChannelMode mode() const;
+    void cycleModeNext();
+    void cycleModePrevious();
 
     void selectNextFrequency();
     void selectPreviousFrequency();

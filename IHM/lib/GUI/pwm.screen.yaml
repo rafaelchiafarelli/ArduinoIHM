@@ -52,6 +52,8 @@ children:
   - kind: row
     id: pwm_ch0_row
     children:
+      - { kind: image, id: pwm_ch0_icon, file: "variable_single.jpg", size: { w: 80, h: 80 } }
+      - { kind: image, id: pwm_ch0_icon, file: "variable_single_disabled.jpg", hidden: true, size: { w: 80, h: 80 } }
       - kind: column
         id: pwm_ch0_left
         children:
@@ -69,12 +71,14 @@ children:
             children:
               - { kind: toggle, id: pwm_ch0_inverting_toggle, bind: { message: pwm, field: ch0_inverting, type: int }, on_press: toggle_pwm_ch0_inverting, size: { w: 28, h: 18 } }
               - { kind: label, id: pwm_ch0_inverting_label, text: "Inverting", font_size: medium, size: { w: 100, h: 18 } }
-      - { kind: image, id: pwm_ch0_icon, file: "variable_single.jpg", size: { w: 80, h: 80 } }
+      
 
   # ---- CH1 -- small row (80px) ----------------------------------------
   - kind: row
     id: pwm_ch1_row
     children:
+      - { kind: image, id: pwm_ch1_icon, file: "variable_single.jpg", size: { w: 80, h: 80 } }
+      - { kind: image, id: pwm_ch1_icon, file: "variable_single_disabled.jpg", hidden: true, size: { w: 80, h: 80 } }
       - kind: column
         id: pwm_ch1_left
         children:
@@ -92,13 +96,15 @@ children:
             children:
               - { kind: toggle, id: pwm_ch1_inverting_toggle, bind: { message: pwm, field: ch1_inverting, type: int }, on_press: toggle_pwm_ch1_inverting, size: { w: 28, h: 18 } }
               - { kind: label, id: pwm_ch1_inverting_label, text: "Inverting", font_size: medium, size: { w: 100, h: 18 } }
-      - { kind: image, id: pwm_ch1_icon, file: "variable_single.jpg", size: { w: 80, h: 80 } }
+      
 
   # ---- CH2 -- big row (fill -> 126px). Icon 126x126 matches row height -
   - kind: row
     id: pwm_ch2_row
     fill: true
     children:
+      - { kind: image, id: pwm_ch2_icon, file: "variable_multiple.jpg", size: { w: 126, h: 126 } }
+      - { kind: image, id: pwm_ch2_icon, file: "variable_multiple_disabled.jpg", hidden: true, size: { w: 126, h: 126 }  }
       - kind: column
         id: pwm_ch2_left
         children:
@@ -121,13 +127,15 @@ children:
               - { kind: toggle, id: pwm_ch2_c_enabled_toggle, bind: { message: pwm, field: ch2_c_enabled, type: int }, on_press: toggle_pwm_ch2_c_enabled, size: { w: 28, h: 18 } }
               - { kind: label, id: pwm_ch2_c_label, text: "C", font_size: medium, size: { w: 18, h: 18 } }
               - { kind: progress, id: pwm_ch2_c_duty, bind: { message: pwm, field: ch2_c_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 90, h: 14 } }
-      - { kind: image, id: pwm_ch2_icon, file: "variable_multiple.jpg", size: { w: 126, h: 126 } }
+      
 
   # ---- CH3 -- big row (fill -> 126px) --------------------------------
   - kind: row
     id: pwm_ch3_row
     fill: true
     children:
+      - { kind: image, id: pwm_ch3_icon, file: "variable_multiple.jpg", size: { w: 126, h: 126 } }
+      - { kind: image, id: pwm_ch2_icon, file: "variable_multiple_disabled.jpg", hidden: true, size: { w: 126, h: 126 }  }
       - kind: column
         id: pwm_ch3_left
         children:
@@ -150,4 +158,4 @@ children:
               - { kind: toggle, id: pwm_ch3_c_enabled_toggle, bind: { message: pwm, field: ch3_c_enabled, type: int }, on_press: toggle_pwm_ch3_c_enabled, size: { w: 28, h: 18 } }
               - { kind: label, id: pwm_ch3_c_label, text: "C", font_size: medium, size: { w: 18, h: 18 } }
               - { kind: progress, id: pwm_ch3_c_duty, bind: { message: pwm, field: ch3_c_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 90, h: 14 } }
-      - { kind: image, id: pwm_ch3_icon, file: "variable_multiple.jpg", size: { w: 126, h: 126 } }
+      

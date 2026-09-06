@@ -192,13 +192,51 @@ TEST(PWMComplexOutputConfig, DutyCycleClampsAtBothEnds) {
 
 // ===== PWMComplexChannelConfig =============================================
 
-TEST(PWMComplexChannelConfig, ToggleModeSwapsBetweenFixedAndVariable) {
+TEST(PWMComplexChannelConfig, ModeDefaultsToOff) {
     PWMComplexChannelConfig cfg;
-    CHECK_TRUE(cfg.frequency != frequency_variable);
-    cfg.toggleMode();
+    CHECK_FALSE(cfg.enabled);
+    CHECK_TRUE(cfg.mode() == PWMChannelMode::Off);
+}
+
+TEST(PWMComplexChannelConfig, CycleModeNextGoesOffThenFixedThenVariableThenWraps) {
+    PWMComplexChannelConfig cfg;
+    cfg.frequency = frequency_31_250HZ;  // arbitrary non-default fixed frequency
+
+    cfg.cycleModeNext();  // Off -> Fixed
+    CHECK_TRUE(cfg.mode() == PWMChannelMode::Fixed);
+    CHECK_TRUE(cfg.enabled);
+    CHECK_EQ(cfg.frequency, frequency_31_250HZ);  // preserved, not reset
+
+    cfg.cycleModeNext();  // Fixed -> Variable
+    CHECK_TRUE(cfg.mode() == PWMChannelMode::Variable);
     CHECK_EQ(cfg.frequency, frequency_variable);
-    cfg.toggleMode();
+
+    cfg.cycleModeNext();  // Variable -> Off
+    CHECK_TRUE(cfg.mode() == PWMChannelMode::Off);
+    CHECK_FALSE(cfg.enabled);
+}
+
+TEST(PWMComplexChannelConfig, CycleModeNextFromOffWithVariableFrequencyPickedResetsToAFixedFrequency) {
+    PWMComplexChannelConfig cfg;
+    cfg.enabled = false;
+    cfg.frequency = frequency_variable;
+    cfg.cycleModeNext();
+    CHECK_TRUE(cfg.mode() == PWMChannelMode::Fixed);
+    CHECK_TRUE(cfg.frequency != frequency_variable);
+}
+
+TEST(PWMComplexChannelConfig, CycleModePreviousGoesOffThenVariableThenFixedThenWraps) {
+    PWMComplexChannelConfig cfg;
+
+    cfg.cycleModePrevious();  // Off -> Variable
+    CHECK_TRUE(cfg.mode() == PWMChannelMode::Variable);
+
+    cfg.cycleModePrevious();  // Variable -> Fixed
+    CHECK_TRUE(cfg.mode() == PWMChannelMode::Fixed);
     CHECK_EQ(cfg.frequency, frequency_62_500HZ);
+
+    cfg.cycleModePrevious();  // Fixed -> Off
+    CHECK_TRUE(cfg.mode() == PWMChannelMode::Off);
 }
 
 TEST(PWMComplexChannelConfig, FrequencySelectionCyclesAndWraps) {
@@ -234,6 +272,7 @@ TEST(PWMComplexChannelConfig, OutputsStartIndependentAndStayIndependent) {
 
 TEST(ComputeComplexCallArgs, EachOutputMapsToItsOwnArgsIndependently) {
     PWMComplexChannelConfig cfg;
+    cfg.enabled = true;                   // channel not Off -- per-output enables apply
     cfg.frequency = frequency_7812_5HZ;  // 8-bit, TOP=255
     cfg.outputA.enabled = true;
     cfg.outputA.inverting = false;
@@ -266,4 +305,34 @@ TEST(ComputeComplexCallArgs, VariableFrequencyCarriesRawFrequencyThrough) {
     cfg.variableTopValue = 20000;
     ComplexPWMCallArgs args = computeComplexCallArgs(cfg);
     CHECK_EQ(args.rawFrequency, (uint16_t)20000);
+}
+
+TEST(ComputeComplexCallArgs, ChannelOffForcesEveryOutputEnableLow) {
+    PWMComplexChannelConfig cfg;
+    cfg.enabled = false;                 // channel-level Off (mode() == Off)
+    cfg.outputA.enabled = true;          // per-output toggles still set...
+    cfg.outputB.enabled = true;
+    cfg.outputC.enabled = true;
+    cfg.outputA.dutyCyclePercent = 40;
+
+    ComplexPWMCallArgs args = computeComplexCallArgs(cfg);
+
+    CHECK_FALSE(args.enabledA);          // ...but masked away while the channel is Off
+    CHECK_FALSE(args.enabledB);
+    CHECK_FALSE(args.enabledC);
+    // Duty/frequency still computed -- Off only gates the pin, like simplex.
+    CHECK_EQ(args.rawDutyCycleA, (uint16_t)102);  // 40% of 255 (frequency_62_500HZ default)
+}
+
+TEST(ComputeComplexCallArgs, TurningTheChannelBackOnRestoresPerOutputEnables) {
+    PWMComplexChannelConfig cfg;
+    cfg.outputA.enabled = true;
+    cfg.outputC.enabled = true;
+
+    cfg.cycleModeNext();  // Off -> Fixed: channel now enabled
+
+    ComplexPWMCallArgs args = computeComplexCallArgs(cfg);
+    CHECK_TRUE(args.enabledA);
+    CHECK_FALSE(args.enabledB);          // was never toggled on
+    CHECK_TRUE(args.enabledC);
 }
