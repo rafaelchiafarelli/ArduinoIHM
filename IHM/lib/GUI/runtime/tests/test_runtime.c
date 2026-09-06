@@ -6,7 +6,13 @@
  * Tile size is JANUS_TILE_W x JANUS_TILE_H = 16x16 (janus_runtime.c) —
  * fixtures that assert an exact mock_driver_log_count keep their
  * rectangles under 16px on the axis that matters so a fill doesn't
- * silently split across tiles and change the expected count.
+ * silently split across tiles and change the expected count. The
+ * text-drawing fixtures are the exception: every widget desc below is
+ * zero-initialized for `.font_size`/`.font_scale`, which default to
+ * `large` at scale 1 (janus_font.h) — JANUS_FONT_LARGE_GLYPH_W (20) alone
+ * forces any rect wide enough to hold more than one glyph past 16px, so
+ * those fixtures' expected counts account for the resulting tile split
+ * instead of avoiding it.
  */
 #include <stddef.h>
 #include <stdio.h>
@@ -373,9 +379,17 @@ static void test_slider_fill_tracks_live_value(void) {
 static int count_glyph_sized_calls(void) {
     int n = 0;
     for (uint16_t i = 0; i < mock_driver_log_count; i++) {
-        if (mock_driver_log[i].w == JANUS_FONT_GLYPH_W && mock_driver_log[i].h == JANUS_FONT_GLYPH_H) {
+        if (mock_driver_log[i].w == JANUS_FONT_LARGE_GLYPH_W && mock_driver_log[i].h == JANUS_FONT_LARGE_GLYPH_H) {
             n++;
         }
+    }
+    return n;
+}
+
+static int count_calls_of_size(uint16_t w, uint16_t h) {
+    int n = 0;
+    for (uint16_t i = 0; i < mock_driver_log_count; i++) {
+        if (mock_driver_log[i].w == w && mock_driver_log[i].h == h) n++;
     }
     return n;
 }
@@ -395,11 +409,12 @@ static void test_label_without_text_draws_only_the_background_fill(void) {
 }
 
 static void test_label_with_text_draws_one_glyph_call_per_character(void) {
-    /* w=14 (< JANUS_TILE_W) so the background is exactly one fill call —
-     * see test_divider_always_draws_unconditionally for why a wider rect
-     * would split across tiles and change this count. */
+    /* w=42 is the minimum that fits both 20px-wide glyphs (1px left pad +
+     * 20 + 1px gap + 20 = 42) — wider than JANUS_TILE_W (16), so the
+     * background itself now splits across 3 horizontal tiles (16+16+10);
+     * see test_divider_always_draws_unconditionally for that tiling math. */
     static const janus_widget_desc_t label = {
-        .kind = JANUS_WIDGET_LABEL, .id = "l", .static_text = "AB", .geometry = { 0, 0, 14, 10 },
+        .kind = JANUS_WIDGET_LABEL, .id = "l", .static_text = "AB", .geometry = { 0, 0, 42, 10 },
     };
     static const janus_screen_desc_t screen = {
         .name = "Text", .widgets = &label, .widget_count = 1, .bound_struct = NULL,
@@ -407,15 +422,16 @@ static void test_label_with_text_draws_one_glyph_call_per_character(void) {
 
     mock_driver_reset();
     janus_render_screen(&screen);
-    CHECK(mock_driver_log_count == 3);      /* 1 background fill + 2 glyphs */
+    CHECK(mock_driver_log_count == 5);      /* 3 background tile fills + 2 glyphs */
     CHECK(count_glyph_sized_calls() == 2);
 }
 
 static void test_text_wider_than_widget_clips_without_wrapping(void) {
-    /* Rect only fits one glyph column (w=6): 'A' draws, 'B' would start
-     * past the right edge and must be dropped, not wrapped or squeezed. */
+    /* Rect only fits one glyph column (w=21 = 1px left pad + 20): 'A'
+     * draws, 'B' would start past the right edge and must be dropped, not
+     * wrapped or squeezed. */
     static const janus_widget_desc_t label = {
-        .kind = JANUS_WIDGET_LABEL, .id = "l", .static_text = "AB", .geometry = { 0, 0, 6, 10 },
+        .kind = JANUS_WIDGET_LABEL, .id = "l", .static_text = "AB", .geometry = { 0, 0, 21, 10 },
     };
     static const janus_screen_desc_t screen = {
         .name = "Clipped", .widgets = &label, .widget_count = 1, .bound_struct = NULL,
@@ -426,16 +442,70 @@ static void test_text_wider_than_widget_clips_without_wrapping(void) {
     CHECK(count_glyph_sized_calls() == 1);
 }
 
+/* ---- fixture 6b: font_size/font_scale (2026-09-05: medium/large tables +
+ * scale, see janus_font.h) --- */
+
+static void test_medium_font_size_draws_medium_sized_glyph(void) {
+    static const janus_widget_desc_t label = {
+        .kind = JANUS_WIDGET_LABEL, .id = "l", .static_text = "A", .geometry = { 0, 0, 14, 16 },
+        .font_size = JANUS_FONT_SIZE_MEDIUM,
+    };
+    static const janus_screen_desc_t screen = {
+        .name = "Medium", .widgets = &label, .widget_count = 1, .bound_struct = NULL,
+    };
+
+    mock_driver_reset();
+    janus_render_screen(&screen);
+    CHECK(count_calls_of_size(JANUS_FONT_MEDIUM_GLYPH_W, JANUS_FONT_MEDIUM_GLYPH_H) == 1);
+    CHECK(count_glyph_sized_calls() == 0);   /* not drawn at the large size */
+}
+
+static void test_font_scale_multiplies_medium_up_to_large_footprint(void) {
+    /* 2x medium (10x14) == large's own native size (20x28) — the exact
+     * relationship janus_font.h documents. */
+    static const janus_widget_desc_t label = {
+        .kind = JANUS_WIDGET_LABEL, .id = "l", .static_text = "A", .geometry = { 0, 0, 24, 30 },
+        .font_size = JANUS_FONT_SIZE_MEDIUM, .font_scale = 2,
+    };
+    static const janus_screen_desc_t screen = {
+        .name = "MediumScaled", .widgets = &label, .widget_count = 1, .bound_struct = NULL,
+    };
+
+    mock_driver_reset();
+    janus_render_screen(&screen);
+    CHECK(count_glyph_sized_calls() == 1);   /* JANUS_FONT_LARGE_GLYPH_W/H, i.e. 20x28 */
+}
+
+static void test_font_scale_beyond_the_cap_is_clamped_not_overflowed(void) {
+    /* .font_scale = 5 on `large` would need a 100x140 glyph (14000 px) --
+     * draw_string must clamp this back to whatever fits g_tile_buffer
+     * (JANUS_TILE_BUFFER_PIXELS, sized for large's own 20x28) instead of
+     * overrunning it. Geometry is generous (200 wide) so clipping isn't
+     * what limits the drawn size here -- only the clamp is. */
+    static const janus_widget_desc_t label = {
+        .kind = JANUS_WIDGET_LABEL, .id = "l", .static_text = "A", .geometry = { 0, 0, 200, 150 },
+        .font_size = JANUS_FONT_SIZE_LARGE, .font_scale = 5,
+    };
+    static const janus_screen_desc_t screen = {
+        .name = "OverScaled", .widgets = &label, .widget_count = 1, .bound_struct = NULL,
+    };
+
+    mock_driver_reset();
+    janus_render_screen(&screen);
+    CHECK(count_calls_of_size(100, 140) == 0);   /* the naive, unclamped 5x size */
+    CHECK(count_glyph_sized_calls() == 1);       /* clamped back to large's native 20x28 */
+}
+
 /* ---- fixture 7: slice 2 — bound string fields (see architecture.md) --- */
 typedef struct { const char *name; } demo_str_t;
 static demo_str_t g_demo_str = { .name = NULL };
 
 static void test_bound_string_with_value_draws_glyphs(void) {
-    /* w=14 (< JANUS_TILE_W) so the background is exactly one fill call —
-     * see test_divider_always_draws_unconditionally for why a wider rect
-     * would split across tiles and change this count. */
+    /* w=42 is the minimum that fits both 20px-wide glyphs — see
+     * test_label_with_text_draws_one_glyph_call_per_character above for
+     * the exact tiling math this implies for the background fill. */
     static const janus_widget_desc_t label = {
-        .kind = JANUS_WIDGET_LABEL, .id = "l", .static_text = NULL, .geometry = { 0, 0, 14, 10 },
+        .kind = JANUS_WIDGET_LABEL, .id = "l", .static_text = NULL, .geometry = { 0, 0, 42, 10 },
         .bind = { .field_offset = offsetof(demo_str_t, name), .field_type = JANUS_FIELD_STRING },
     };
     static const janus_screen_desc_t screen = {
@@ -445,7 +515,7 @@ static void test_bound_string_with_value_draws_glyphs(void) {
     g_demo_str.name = "AB";
     mock_driver_reset();
     janus_render_screen(&screen);
-    CHECK(mock_driver_log_count == 3);      /* 1 background fill + 2 glyphs */
+    CHECK(mock_driver_log_count == 5);      /* 3 background tile fills + 2 glyphs */
     CHECK(count_glyph_sized_calls() == 2);
 }
 
@@ -486,9 +556,12 @@ static void test_static_text_wins_over_bound_string(void) {
 }
 
 static void test_box_header_draws_its_title_text(void) {
+    /* geometry_collapsed's width is what draw_box_header uses for the
+     * title (janus_runtime.c) — 42 is the minimum that fits both
+     * 20px-wide glyphs, same math as the label fixtures above. */
     static const janus_widget_desc_t box_widget = {
         .kind = JANUS_WIDGET_BOX, .id = "box1", .static_text = "AB",
-        .geometry = { 0, 0, 30, 26 }, .geometry_collapsed = { 0, 0, 30, 16 },
+        .geometry = { 0, 0, 42, 26 }, .geometry_collapsed = { 0, 0, 42, 16 },
         .initial_expanded = false,
     };
     static const janus_screen_desc_t screen = {
@@ -535,6 +608,86 @@ static void test_widget_default_colors_are_the_runtime_constants(void) {
     CHECK(mock_driver_log[0].sample_pixel == JANUS_COLOR_DEFAULT_BG);
 }
 
+/* ---- fixture 9: image widget blits its baked RGB565 pixels ----
+ * The pixel data + the per-screen far-address table + resolver mirror
+ * what emit_screen generates: the descriptor carries a 1-based slot, the
+ * runtime calls resolve_images() on screen-enter to fill the table, blit
+ * reads through JANUS_MEMCPY_PF. */
+static const uint16_t g_img_pixels[16] = {
+    0x1234, 1, 2, 3,
+    4, 5, 6, 7,
+    8, 9, 10, 11,
+    12, 13, 14, 15,
+};
+static janus_farptr_t g_img_far[1];
+static void resolve_img(void) { g_img_far[0] = JANUS_FAR_ADDR(g_img_pixels); }
+
+static void test_image_widget_blits_its_pixels(void) {
+    /* 4x4, top-left pixel a known value — geometry matches the image, so
+     * one draw call, and its sample_pixel is that top-left. */
+    static const janus_widget_desc_t image = {
+        .kind = JANUS_WIDGET_IMAGE, .id = "img", .geometry = { 0, 0, 4, 4 },
+        .color = 0xf800, /* would show if the stub fill path ran instead */
+        .image_slot = 1, .image_w = 4, .image_h = 4,
+    };
+    static const janus_screen_desc_t screen = {
+        .name = "Img", .widgets = &image, .widget_count = 1, .bound_struct = NULL,
+        .resolve_images = resolve_img, .image_far = g_img_far,
+    };
+
+    mock_driver_reset();
+    janus_render_screen(&screen);
+    CHECK(mock_driver_log_count == 1);
+    CHECK(mock_driver_log[0].w == 4 && mock_driver_log[0].h == 4);
+    CHECK(mock_driver_log[0].sample_pixel == 0x1234);
+}
+
+/* ---- fixture 9b: a `file:` that wouldn't decode -> magenta placeholder ---- */
+static void test_image_error_paints_magenta(void) {
+    static const janus_widget_desc_t image = {
+        .kind = JANUS_WIDGET_IMAGE, .id = "bad", .geometry = { 0, 0, 10, 10 },
+        .color = 0x07e0, /* green — must NOT be what draws */
+        .image_error = true,
+    };
+    static const janus_screen_desc_t screen = {
+        .name = "Bad", .widgets = &image, .widget_count = 1, .bound_struct = NULL,
+    };
+
+    mock_driver_reset();
+    janus_render_screen(&screen);
+    CHECK(mock_driver_log_count == 1);
+    CHECK(mock_driver_log[0].sample_pixel == 0xf81f);   /* JANUS_COLOR_IMAGE_MISSING */
+}
+
+/* ---- fixture 9c: an image bigger than one tile splits, per-tile source
+ * offset stays correct (pixel value == column index here) ---- */
+static uint16_t g_big_pixels[20 * 18];
+static janus_farptr_t g_big_far[1];
+static void resolve_big(void) { g_big_far[0] = JANUS_FAR_ADDR(g_big_pixels); }
+static void test_image_larger_than_tile_splits_with_correct_offsets(void) {
+    for (int y = 0; y < 18; y++)
+        for (int x = 0; x < 20; x++)
+            g_big_pixels[y * 20 + x] = (uint16_t)x;
+
+    static const janus_widget_desc_t image = {
+        .kind = JANUS_WIDGET_IMAGE, .id = "big", .geometry = { 0, 0, 20, 18 },
+        .image_slot = 1, .image_w = 20, .image_h = 18,
+    };
+    static const janus_screen_desc_t screen = {
+        .name = "Big", .widgets = &image, .widget_count = 1, .bound_struct = NULL,
+        .resolve_images = resolve_big, .image_far = g_big_far,
+    };
+
+    mock_driver_reset();
+    janus_render_screen(&screen);
+    /* 20x18 over 16x16 tiles -> 2 cols x 2 rows = 4 calls, row-major */
+    CHECK(mock_driver_log_count == 4);
+    CHECK(mock_driver_log[0].sample_pixel == 0);    /* tile (0,0)  -> col 0  */
+    CHECK(mock_driver_log[1].sample_pixel == 16);   /* tile (16,0) -> col 16 */
+    CHECK(mock_driver_log[2].sample_pixel == 0);    /* tile (0,16) -> col 0  */
+    CHECK(mock_driver_log[3].sample_pixel == 16);   /* tile (16,16)-> col 16 */
+}
+
 int main(void) {
     test_traversal_reaches_every_widget();
     test_progress_fill_tracks_live_value();
@@ -553,12 +706,18 @@ int main(void) {
     test_label_without_text_draws_only_the_background_fill();
     test_label_with_text_draws_one_glyph_call_per_character();
     test_text_wider_than_widget_clips_without_wrapping();
+    test_medium_font_size_draws_medium_sized_glyph();
+    test_font_scale_multiplies_medium_up_to_large_footprint();
+    test_font_scale_beyond_the_cap_is_clamped_not_overflowed();
     test_bound_string_with_value_draws_glyphs();
     test_bound_string_null_renders_fill_only();
     test_static_text_wins_over_bound_string();
     test_box_header_draws_its_title_text();
     test_widget_authored_color_is_what_gets_drawn();
     test_widget_default_colors_are_the_runtime_constants();
+    test_image_widget_blits_its_pixels();
+    test_image_error_paints_magenta();
+    test_image_larger_than_tile_splits_with_correct_offsets();
 
     if (g_failures == 0) {
         printf("all tests passed\n");

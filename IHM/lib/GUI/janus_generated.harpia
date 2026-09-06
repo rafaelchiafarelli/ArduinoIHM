@@ -1,30 +1,26 @@
 message pwm{
     int ch0_enabled;
-    int ch0_inverting;
-    string ch0_mode_icon;
     string ch0_state_label;
     int ch0_duty_percent;
+    int ch0_inverting;
     int ch1_enabled;
-    int ch1_inverting;
-    string ch1_mode_icon;
     string ch1_state_label;
     int ch1_duty_percent;
+    int ch1_inverting;
+    string ch2_state_label;
     int ch2_a_enabled;
     int ch2_a_duty_percent;
     int ch2_b_enabled;
     int ch2_b_duty_percent;
     int ch2_c_enabled;
     int ch2_c_duty_percent;
-    string ch2_mode_icon;
-    string ch2_state_label;
+    string ch3_state_label;
     int ch3_a_enabled;
     int ch3_a_duty_percent;
     int ch3_b_enabled;
     int ch3_b_duty_percent;
     int ch3_c_enabled;
     int ch3_c_duty_percent;
-    string ch3_mode_icon;
-    string ch3_state_label;
 };
 
 message bus_status{
