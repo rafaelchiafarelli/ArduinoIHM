@@ -1,134 +1,153 @@
 # PWM tab -- 2 simplex channels (CH0/Timer3/OC3A, CH1/Timer5/OC5A) and
 # 2 complex channels (CH2/Timer1/OC1A,B,C, CH3/Timer4/OC4A,B,C).
-# Redesigned 2026-09-05 for the real 320x480 panel (was hand-tuned for a
-# placeholder 320x240 -- see architecture.md/Janus.md's 2026-09-05 status
-# notes for the whole story) around box.summary "drawers": each channel is
-# a collapsible box whose header always shows an at-a-glance summary (mode
-# icon, active LED, auto/saved state, frequency, duty), and whose expanded
-# body holds the actually-editable options (enabled/inverting toggles).
-# `top` (the timer's variable-TOP register) is dropped from this pass --
-# not part of the "icon/LED/state/frequency/duty" summary the user asked
-# for, and there's no v1 widget for editing a raw numeric value anyway.
-# status_bar/tab_bar are the first instance of the new persistent-chrome
-# pattern (repeated per screen, brighter bg on the tab that matches this
-# screen) -- see the same block once it lands on bus_status/relay too.
+#
+# Row layout (redesigned 2026-09-06): each channel is a plain `row` in the
+# screen's ROOT column -- the collapsible box/summary drawer is gone. A row
+# holds a left `column` (LED / state / frequency / duty / enable+invert
+# controls, stacked) and, to its right, a single `image` icon sized to the
+# row's full height.
+#   * CH0 / CH1 -- the two "small" rows. The left column's content is ~62px
+#     and the icon is 80x80, so each row is 80px tall (row height = tallest
+#     child) and equal to the other.
+#   * CH2 / CH3 -- the two "big" rows. `fill: true`, so after status_bar,
+#     tab_bar and the two small rows take their heights, the ~252px left
+#     over on the 320x480 panel is split evenly -> 126px each. The icon is
+#     126x126 to match that exact row height (retune if the panel size or
+#     the fixed rows above change).
+#
+# Icons: `file:` icons sit next to this .yaml in lib/GUI and are baked to
+# RGB565 PROGMEM at generation time (rescaled to the widget size, no aspect
+# lock -- square source art renders truer). Static pick for now:
+# `variable_single` for the simplex channels, `variable_multiple` for the
+# complex ones. The `*_disabled.jpg` art is already in lib/GUI for a future
+# Janus `hidden`/state flag to select enabled vs disabled from the bound
+# enable bit.
+#
+# `top` (the timer's variable-TOP register) stays dropped -- no v1 widget
+# edits a raw numeric value. `frequency` is a static placeholder label
+# (Janus live-text only renders string-bound fields -- see Janus.md's Open
+# Questions).
+#
+# font_size: status_bar and every in-row label render at `medium` (10x14);
+# tab_bar stays `large` (20x28) so the tab labels read at a glance.
 screen: PWM
 layout: column
 children:
   - kind: row
     id: status_bar
     children:
-      - { kind: label, id: status_placeholder, text: "Status: TBD", size: { w: 300, h: 18 } }
+      - { kind: label, id: status_placeholder, text: "Status: TBD", font_size: medium, size: { w: 140, h: 20 } }
 
   - kind: row
     id: tab_bar
     children:
-      - { kind: button, id: tab_pwm, text: "PWM", navigate: PWM,
-          size: { w: 100, h: 28 }, bg: "#FFFFFF", color: "#000000" }
-      - { kind: button, id: tab_serial, text: "SERIAL", navigate: BusStatus,
-          size: { w: 100, h: 28 }, bg: "#333333", color: "#AAAAAA" }
-      - { kind: button, id: tab_output, text: "Output", navigate: Relay,
-          size: { w: 100, h: 28 }, bg: "#333333", color: "#AAAAAA" }
+      - { kind: button, id: tab_pwm, text: "PWM", navigate: PWM, font_size: large,
+          size: { w: 104, h: 28 }, bg: "#FFFFFF", color: "#000000" }
+      - { kind: button, id: tab_serial, text: "SERIAL", navigate: BusStatus, font_size: large,
+          size: { w: 104, h: 28 }, bg: "#333333", color: "#AAAAAA" }
+      - { kind: button, id: tab_output, text: "Output", navigate: Relay, font_size: large,
+          size: { w: 104, h: 28 }, bg: "#333333", color: "#AAAAAA" }
 
-  - kind: navlist
-    id: pwm_channel_list
-    layout: column
+  # ---- CH0 -- small row (80px). Controls left, full-height icon right ---
+  - kind: row
+    id: pwm_ch0_row
     children:
-      - kind: box
-        id: pwm_ch0_box
-        layout: column
-        collapsible: true
-        default_expanded: false
-        summary:
-          - { kind: image, id: pwm_ch0_icon, bind: { message: pwm, field: ch0_mode_icon, type: string }, size: { w: 24, h: 24 } }
-          - { kind: led, id: pwm_ch0_led, bind: { message: pwm, field: ch0_enabled, type: int }, states: [off, on], size: { w: 16, h: 16 } }
-          - { kind: label, id: pwm_ch0_state, bind: { message: pwm, field: ch0_state_label, type: string }, size: { w: 50, h: 16 } }
-          # placeholder (2026-09-05): label can't show a live int value yet
-          # (Janus's live-text rendering only reads string-bound fields,
-          # see Janus.md's Open Questions) -- static text until either
-          # firmware formats this into a string field, or Janus grows
-          # int->text formatting.
-          - { kind: label, id: pwm_ch0_freq, text: "1200Hz", size: { w: 40, h: 16 } }
-          - { kind: progress, id: pwm_ch0_duty, bind: { message: pwm, field: ch0_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 40, h: 16 } }
+      - kind: column
+        id: pwm_ch0_left
         children:
           - kind: row
             children:
-              - { kind: toggle, id: pwm_ch0_enabled_toggle, bind: { message: pwm, field: ch0_enabled, type: int }, on_press: toggle_pwm_ch0_enabled, size: { w: 28, h: 16 } }
-              - { kind: label, id: pwm_ch0_enabled_label, text: "Enabled", size: { w: 70, h: 16 } }
+              - { kind: led, id: pwm_ch0_led, bind: { message: pwm, field: ch0_enabled, type: int }, states: [off, on], size: { w: 16, h: 16 } }
+              - { kind: label, id: pwm_ch0_state, bind: { message: pwm, field: ch0_state_label, type: string }, font_size: medium, size: { w: 90, h: 18 } }
+              - { kind: label, id: pwm_ch0_freq, text: "1200Hz", font_size: medium, size: { w: 70, h: 18 } }  # placeholder, see header comment
+              - { kind: progress, id: pwm_ch0_duty, bind: { message: pwm, field: ch0_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 40, h: 16 } }
           - kind: row
             children:
-              - { kind: toggle, id: pwm_ch0_inverting_toggle, bind: { message: pwm, field: ch0_inverting, type: int }, on_press: toggle_pwm_ch0_inverting, size: { w: 28, h: 16 } }
-              - { kind: label, id: pwm_ch0_inverting_label, text: "Inverting", size: { w: 70, h: 16 } }
+              - { kind: toggle, id: pwm_ch0_enabled_toggle, bind: { message: pwm, field: ch0_enabled, type: int }, on_press: toggle_pwm_ch0_enabled, size: { w: 28, h: 18 } }
+              - { kind: label, id: pwm_ch0_enabled_label, text: "Enabled", font_size: medium, size: { w: 90, h: 18 } }
+          - kind: row
+            children:
+              - { kind: toggle, id: pwm_ch0_inverting_toggle, bind: { message: pwm, field: ch0_inverting, type: int }, on_press: toggle_pwm_ch0_inverting, size: { w: 28, h: 18 } }
+              - { kind: label, id: pwm_ch0_inverting_label, text: "Inverting", font_size: medium, size: { w: 100, h: 18 } }
+      - { kind: image, id: pwm_ch0_icon, file: "variable_single.jpg", size: { w: 80, h: 80 } }
 
-      - kind: box
-        id: pwm_ch1_box
-        layout: column
-        collapsible: true
-        default_expanded: false
-        summary:
-          - { kind: image, id: pwm_ch1_icon, bind: { message: pwm, field: ch1_mode_icon, type: string }, size: { w: 24, h: 24 } }
-          - { kind: led, id: pwm_ch1_led, bind: { message: pwm, field: ch1_enabled, type: int }, states: [off, on], size: { w: 16, h: 16 } }
-          - { kind: label, id: pwm_ch1_state, bind: { message: pwm, field: ch1_state_label, type: string }, size: { w: 50, h: 16 } }
-          - { kind: label, id: pwm_ch1_freq, text: "2400Hz", size: { w: 40, h: 16 } }  # placeholder, see ch0_freq's comment
-          - { kind: progress, id: pwm_ch1_duty, bind: { message: pwm, field: ch1_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 40, h: 16 } }
+  # ---- CH1 -- small row (80px) ----------------------------------------
+  - kind: row
+    id: pwm_ch1_row
+    children:
+      - kind: column
+        id: pwm_ch1_left
         children:
           - kind: row
             children:
-              - { kind: toggle, id: pwm_ch1_enabled_toggle, bind: { message: pwm, field: ch1_enabled, type: int }, on_press: toggle_pwm_ch1_enabled, size: { w: 28, h: 16 } }
-              - { kind: label, id: pwm_ch1_enabled_label, text: "Enabled", size: { w: 70, h: 16 } }
+              - { kind: led, id: pwm_ch1_led, bind: { message: pwm, field: ch1_enabled, type: int }, states: [off, on], size: { w: 16, h: 16 } }
+              - { kind: label, id: pwm_ch1_state, bind: { message: pwm, field: ch1_state_label, type: string }, font_size: medium, size: { w: 90, h: 18 } }
+              - { kind: label, id: pwm_ch1_freq, text: "2400Hz", font_size: medium, size: { w: 70, h: 18 } }  # placeholder, see header comment
+              - { kind: progress, id: pwm_ch1_duty, bind: { message: pwm, field: ch1_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 40, h: 16 } }
           - kind: row
             children:
-              - { kind: toggle, id: pwm_ch1_inverting_toggle, bind: { message: pwm, field: ch1_inverting, type: int }, on_press: toggle_pwm_ch1_inverting, size: { w: 28, h: 16 } }
-              - { kind: label, id: pwm_ch1_inverting_label, text: "Inverting", size: { w: 70, h: 16 } }
+              - { kind: toggle, id: pwm_ch1_enabled_toggle, bind: { message: pwm, field: ch1_enabled, type: int }, on_press: toggle_pwm_ch1_enabled, size: { w: 28, h: 18 } }
+              - { kind: label, id: pwm_ch1_enabled_label, text: "Enabled", font_size: medium, size: { w: 90, h: 18 } }
+          - kind: row
+            children:
+              - { kind: toggle, id: pwm_ch1_inverting_toggle, bind: { message: pwm, field: ch1_inverting, type: int }, on_press: toggle_pwm_ch1_inverting, size: { w: 28, h: 18 } }
+              - { kind: label, id: pwm_ch1_inverting_label, text: "Inverting", font_size: medium, size: { w: 100, h: 18 } }
+      - { kind: image, id: pwm_ch1_icon, file: "variable_single.jpg", size: { w: 80, h: 80 } }
 
-      - kind: box
-        id: pwm_ch2_box
-        layout: column
-        collapsible: true
-        default_expanded: false
-        summary:
-          - { kind: image, id: pwm_ch2_icon, bind: { message: pwm, field: ch2_mode_icon, type: string }, size: { w: 24, h: 24 } }
-          - { kind: label, id: pwm_ch2_state, bind: { message: pwm, field: ch2_state_label, type: string }, size: { w: 50, h: 16 } }
-          - { kind: label, id: pwm_ch2_freq, text: "500Hz", size: { w: 40, h: 16 } }  # placeholder, see ch0_freq's comment
+  # ---- CH2 -- big row (fill -> 126px). Icon 126x126 matches row height -
+  - kind: row
+    id: pwm_ch2_row
+    fill: true
+    children:
+      - kind: column
+        id: pwm_ch2_left
         children:
           - kind: row
             children:
-              - { kind: toggle, id: pwm_ch2_a_enabled_toggle, bind: { message: pwm, field: ch2_a_enabled, type: int }, on_press: toggle_pwm_ch2_a_enabled, size: { w: 28, h: 16 } }
-              - { kind: label, id: pwm_ch2_a_label, text: "A", size: { w: 20, h: 16 } }
-              - { kind: progress, id: pwm_ch2_a_duty, bind: { message: pwm, field: ch2_a_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 60, h: 14 } }
+              - { kind: label, id: pwm_ch2_state, bind: { message: pwm, field: ch2_state_label, type: string }, font_size: medium, size: { w: 90, h: 18 } }
+              - { kind: label, id: pwm_ch2_freq, text: "500Hz", font_size: medium, size: { w: 70, h: 18 } }  # placeholder, see header comment
           - kind: row
             children:
-              - { kind: toggle, id: pwm_ch2_b_enabled_toggle, bind: { message: pwm, field: ch2_b_enabled, type: int }, on_press: toggle_pwm_ch2_b_enabled, size: { w: 28, h: 16 } }
-              - { kind: label, id: pwm_ch2_b_label, text: "B", size: { w: 20, h: 16 } }
-              - { kind: progress, id: pwm_ch2_b_duty, bind: { message: pwm, field: ch2_b_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 60, h: 14 } }
+              - { kind: toggle, id: pwm_ch2_a_enabled_toggle, bind: { message: pwm, field: ch2_a_enabled, type: int }, on_press: toggle_pwm_ch2_a_enabled, size: { w: 28, h: 18 } }
+              - { kind: label, id: pwm_ch2_a_label, text: "A", font_size: medium, size: { w: 18, h: 18 } }
+              - { kind: progress, id: pwm_ch2_a_duty, bind: { message: pwm, field: ch2_a_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 90, h: 14 } }
           - kind: row
             children:
-              - { kind: toggle, id: pwm_ch2_c_enabled_toggle, bind: { message: pwm, field: ch2_c_enabled, type: int }, on_press: toggle_pwm_ch2_c_enabled, size: { w: 28, h: 16 } }
-              - { kind: label, id: pwm_ch2_c_label, text: "C", size: { w: 20, h: 16 } }
-              - { kind: progress, id: pwm_ch2_c_duty, bind: { message: pwm, field: ch2_c_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 60, h: 14 } }
+              - { kind: toggle, id: pwm_ch2_b_enabled_toggle, bind: { message: pwm, field: ch2_b_enabled, type: int }, on_press: toggle_pwm_ch2_b_enabled, size: { w: 28, h: 18 } }
+              - { kind: label, id: pwm_ch2_b_label, text: "B", font_size: medium, size: { w: 18, h: 18 } }
+              - { kind: progress, id: pwm_ch2_b_duty, bind: { message: pwm, field: ch2_b_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 90, h: 14 } }
+          - kind: row
+            children:
+              - { kind: toggle, id: pwm_ch2_c_enabled_toggle, bind: { message: pwm, field: ch2_c_enabled, type: int }, on_press: toggle_pwm_ch2_c_enabled, size: { w: 28, h: 18 } }
+              - { kind: label, id: pwm_ch2_c_label, text: "C", font_size: medium, size: { w: 18, h: 18 } }
+              - { kind: progress, id: pwm_ch2_c_duty, bind: { message: pwm, field: ch2_c_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 90, h: 14 } }
+      - { kind: image, id: pwm_ch2_icon, file: "variable_multiple.jpg", size: { w: 126, h: 126 } }
 
-      - kind: box
-        id: pwm_ch3_box
-        layout: column
-        collapsible: true
-        default_expanded: false
-        summary:
-          - { kind: image, id: pwm_ch3_icon, bind: { message: pwm, field: ch3_mode_icon, type: string }, size: { w: 24, h: 24 } }
-          - { kind: label, id: pwm_ch3_state, bind: { message: pwm, field: ch3_state_label, type: string }, size: { w: 50, h: 16 } }
-          - { kind: label, id: pwm_ch3_freq, text: "8000Hz", size: { w: 40, h: 16 } }  # placeholder, see ch0_freq's comment
+  # ---- CH3 -- big row (fill -> 126px) --------------------------------
+  - kind: row
+    id: pwm_ch3_row
+    fill: true
+    children:
+      - kind: column
+        id: pwm_ch3_left
         children:
           - kind: row
             children:
-              - { kind: toggle, id: pwm_ch3_a_enabled_toggle, bind: { message: pwm, field: ch3_a_enabled, type: int }, on_press: toggle_pwm_ch3_a_enabled, size: { w: 28, h: 16 } }
-              - { kind: label, id: pwm_ch3_a_label, text: "A", size: { w: 20, h: 16 } }
-              - { kind: progress, id: pwm_ch3_a_duty, bind: { message: pwm, field: ch3_a_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 60, h: 14 } }
+              - { kind: label, id: pwm_ch3_state, bind: { message: pwm, field: ch3_state_label, type: string }, font_size: medium, size: { w: 90, h: 18 } }
+              - { kind: label, id: pwm_ch3_freq, text: "8000Hz", font_size: medium, size: { w: 70, h: 18 } }  # placeholder, see header comment
           - kind: row
             children:
-              - { kind: toggle, id: pwm_ch3_b_enabled_toggle, bind: { message: pwm, field: ch3_b_enabled, type: int }, on_press: toggle_pwm_ch3_b_enabled, size: { w: 28, h: 16 } }
-              - { kind: label, id: pwm_ch3_b_label, text: "B", size: { w: 20, h: 16 } }
-              - { kind: progress, id: pwm_ch3_b_duty, bind: { message: pwm, field: ch3_b_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 60, h: 14 } }
+              - { kind: toggle, id: pwm_ch3_a_enabled_toggle, bind: { message: pwm, field: ch3_a_enabled, type: int }, on_press: toggle_pwm_ch3_a_enabled, size: { w: 28, h: 18 } }
+              - { kind: label, id: pwm_ch3_a_label, text: "A", font_size: medium, size: { w: 18, h: 18 } }
+              - { kind: progress, id: pwm_ch3_a_duty, bind: { message: pwm, field: ch3_a_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 90, h: 14 } }
           - kind: row
             children:
-              - { kind: toggle, id: pwm_ch3_c_enabled_toggle, bind: { message: pwm, field: ch3_c_enabled, type: int }, on_press: toggle_pwm_ch3_c_enabled, size: { w: 28, h: 16 } }
-              - { kind: label, id: pwm_ch3_c_label, text: "C", size: { w: 20, h: 16 } }
-              - { kind: progress, id: pwm_ch3_c_duty, bind: { message: pwm, field: ch3_c_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 60, h: 14 } }
+              - { kind: toggle, id: pwm_ch3_b_enabled_toggle, bind: { message: pwm, field: ch3_b_enabled, type: int }, on_press: toggle_pwm_ch3_b_enabled, size: { w: 28, h: 18 } }
+              - { kind: label, id: pwm_ch3_b_label, text: "B", font_size: medium, size: { w: 18, h: 18 } }
+              - { kind: progress, id: pwm_ch3_b_duty, bind: { message: pwm, field: ch3_b_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 90, h: 14 } }
+          - kind: row
+            children:
+              - { kind: toggle, id: pwm_ch3_c_enabled_toggle, bind: { message: pwm, field: ch3_c_enabled, type: int }, on_press: toggle_pwm_ch3_c_enabled, size: { w: 28, h: 18 } }
+              - { kind: label, id: pwm_ch3_c_label, text: "C", font_size: medium, size: { w: 18, h: 18 } }
+              - { kind: progress, id: pwm_ch3_c_duty, bind: { message: pwm, field: ch3_c_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 90, h: 14 } }
+      - { kind: image, id: pwm_ch3_icon, file: "variable_multiple.jpg", size: { w: 126, h: 126 } }

@@ -11,6 +11,7 @@
 #include <stddef.h>   /* offsetof()/NULL — every generated widget initializer needs these */
 #include <stdint.h>
 
+#include "janus_font.h"
 #include "janus_progmem.h"
 
 typedef enum {
@@ -109,6 +110,12 @@ typedef struct janus_widget_desc {
     uint8_t focus_order;               /* encoder/button traversal order, or JANUS_FOCUS_NONE; touch ignores this */
     uint16_t color;                    /* RGB565 ink/foreground/on-state fill — see JANUS_COLOR_DEFAULT_FG */
     uint16_t bg_color;                 /* RGB565 background/off-state fill — see JANUS_COLOR_DEFAULT_BG */
+    janus_font_size_t font_size;       /* which janus_font.h table draw_string reads this widget's
+                                         * text from; meaningless on a widget that never draws text */
+    uint8_t font_scale;                /* integer pixel-replication multiplier on top of font_size's
+                                         * native glyph size (1 == that table's native size, no
+                                         * scaling) — draw_glyph's job, see janus_runtime.c. Always
+                                         * >=1; emit_embedded_c.py never bakes 0. */
     const struct janus_widget_desc *children;
     uint16_t child_count;
     const struct janus_widget_desc *summary_children;  /* box only: always rendered in the
@@ -119,6 +126,19 @@ typedef struct janus_widget_desc {
                                                           * every non-box widget and any box with
                                                           * no `summary:` authored. */
     uint16_t summary_child_count;
+    /* JANUS_WIDGET_IMAGE only (added 2026-09-05). `image_pixels` points at
+     * a JANUS_PROGMEM RGB565 buffer of exactly image_w * image_h pixels,
+     * row-major, row 0 first — the widget's `file:` image, decoded and
+     * rescaled to its geometry at generation time (emit_embedded_c.py /
+     * image_asset.py), so the device never decodes or resamples anything.
+     * NULL for a non-image widget, and for an `image` with no `file:`
+     * authored (that still renders the pre-image v1 stub — a `color`
+     * fill). `image_error` is baked true instead when a `file:` *was*
+     * authored but couldn't be found or decoded: draw_image then paints a
+     * magenta placeholder so the missing asset is obvious on-screen. */
+    const uint16_t *image_pixels;
+    uint16_t image_w, image_h;
+    bool image_error;
 } janus_widget_desc_t;
 
 typedef struct {

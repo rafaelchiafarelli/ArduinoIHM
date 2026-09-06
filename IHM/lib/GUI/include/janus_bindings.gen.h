@@ -5,62 +5,54 @@
 
 typedef struct {
     int ch0_enabled;
-    int ch0_inverting;
-    const char * ch0_mode_icon;
     const char * ch0_state_label;
     int ch0_duty_percent;
+    int ch0_inverting;
     int ch1_enabled;
-    int ch1_inverting;
-    const char * ch1_mode_icon;
     const char * ch1_state_label;
     int ch1_duty_percent;
+    int ch1_inverting;
+    const char * ch2_state_label;
     int ch2_a_enabled;
     int ch2_a_duty_percent;
     int ch2_b_enabled;
     int ch2_b_duty_percent;
     int ch2_c_enabled;
     int ch2_c_duty_percent;
-    const char * ch2_mode_icon;
-    const char * ch2_state_label;
+    const char * ch3_state_label;
     int ch3_a_enabled;
     int ch3_a_duty_percent;
     int ch3_b_enabled;
     int ch3_b_duty_percent;
     int ch3_c_enabled;
     int ch3_c_duty_percent;
-    const char * ch3_mode_icon;
-    const char * ch3_state_label;
 } pwm_t;
 
 extern pwm_t pwm_instance;
 
 typedef struct {
     bool ch0_enabled;
-    bool ch0_inverting;
-    bool ch0_mode_icon;
     bool ch0_state_label;
     bool ch0_duty_percent;
+    bool ch0_inverting;
     bool ch1_enabled;
-    bool ch1_inverting;
-    bool ch1_mode_icon;
     bool ch1_state_label;
     bool ch1_duty_percent;
+    bool ch1_inverting;
+    bool ch2_state_label;
     bool ch2_a_enabled;
     bool ch2_a_duty_percent;
     bool ch2_b_enabled;
     bool ch2_b_duty_percent;
     bool ch2_c_enabled;
     bool ch2_c_duty_percent;
-    bool ch2_mode_icon;
-    bool ch2_state_label;
+    bool ch3_state_label;
     bool ch3_a_enabled;
     bool ch3_a_duty_percent;
     bool ch3_b_enabled;
     bool ch3_b_duty_percent;
     bool ch3_c_enabled;
     bool ch3_c_duty_percent;
-    bool ch3_mode_icon;
-    bool ch3_state_label;
 } pwm_dirty_t;
 
 extern pwm_dirty_t pwm_dirty;
