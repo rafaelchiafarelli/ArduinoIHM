@@ -1,21 +1,19 @@
 # ArduinoIHM Architecture
 
-A top-down map of the project, for finding where to make a change. Each
-module also has its own `README.md` (linked below) with more detail; this
-document is about how they fit together. See `docs/architecture.drawio`
-for a diagram of the same information.
+A top-down map of the project, for finding where to make a change. Most
+modules also have their own `README.md` (linked below) with more detail;
+this document is about how they fit together. See
+`docs/architecture.drawio` for a diagram of the module map and
+`docs/gui-render-pipeline.drawio` for the on-screen UI's render path.
 
 Target: PlatformIO `megaatmega2560` (ATmega2560). See `IHM/README.md` for
 the one-paragraph pitch (PWM function generator + relay/motor I/O behind
 a parallel-TFT touch-free UI) and `IHM/NEXT-SESSION.md` /
 `IHM/CHANGELOG.md` for the current work log.
 
-**Servo control is not part of the IHM solution** (removed 2026-08-16,
-see `CHANGELOG.md`) -- a dedicated servo controller is planned as
-separate future work, not a revival of the driver that used to live
-here. `docs/architecture.drawio` still shows the old `ServoMotor` nodes
-from before that removal and hasn't been regenerated -- treat any servo
-mentions in that diagram as stale.
+The on-screen TFT UI is generated code (Janus) -- read
+[The UI is generated (`lib/GUI`)](#the-ui-is-generated-libgui) before
+touching anything under `lib/GUI/`.
 
 ## The two strategies referenced everywhere
 
@@ -49,11 +47,10 @@ usual strategy," this is what they mean.
 
 The one place these two rules don't apply is the vendored
 [`lib/Display`](lib/Display/README.md) parallel-TFT driver, and even
-there: it turns out to already follow rule 1 (its `PIN_LOW`/`PIN_HIGH`
-macros compile to direct `PORTx` bit ops on this target), and its rule-2
-exceptions (`delay()` in the reset/init sequence) are confined to
-one-time startup before the scheduler is even running -- see that
-module's README for the full investigation (2026-08-12).
+there: it already follows rule 1 (its `PIN_LOW`/`PIN_HIGH` macros compile
+to direct `PORTx` bit ops on this target), and its rule-2 exceptions
+(`delay()` in the reset/init sequence) are confined to one-time startup
+before the scheduler is running -- see that module's README.
 
 ## Module map
 
@@ -76,10 +73,14 @@ module's README for the full investigation (2026-08-12).
    | main() while(1) superloop -- no fixed cadence                  |
    |   buildButtonMap(bMap) -> btnMap                                |
    |   RotaryEncoder.getDirection() x3 -> dir[]                      |
-   |   GUI.update(dir, btnMap)  ---> Elements (PWMScreen/RelayScreen)|
-   |                                    -> MultiOutput (PWM, Relay)  |
-   |   MCP4725 dac0/dac1.setVoltage(voltage0/1)  (fed by Comms, once |
-   |                                              the gap is fixed)  |
+   |   rot0  -> janus_switch_screen   (PWM / SERIAL / Output tabs)   |
+   |   rot1  -> janus_focus_move ;  rot1 click -> janus_focus_activate|
+   |             -> janus_handle_action() [src/janus_actions.cpp]    |
+   |                  -> MultiOutput (Relay)                         |
+   |   ~100ms: refreshBusStatusInstance() <- MavlinkComms            |
+   |   janus_render_screen / _widget -> draw_area_sync -> Display    |
+   |   MCP4725 dac0/dac1.setVoltage(voltage0/1)  (fed by Comms /     |
+   |                                    MAVLink, once the gap is fixed)|
    +------------------------------------------------------------------+
 ```
 
@@ -88,202 +89,184 @@ module's README for the full investigation (2026-08-12).
 | Composition root | `main.cpp`, `Timer2Config` | [src/README.md](src/README.md) |
 | Inputs | `BinaryInput`, `RotaryEncoder`, `ButtonMap`, `AnalogInput` | [lib/BinaryInput](lib/BinaryInput/README.md), [lib/RotaryEncoder](lib/RotaryEncoder/README.md) |
 | Outputs | `BinaryOutputs`, `Relay`, `MotorDC`, `PWM` + config/timing/label-format types | [lib/BinaryOutputs](lib/BinaryOutputs/README.md), [lib/MultiOutput](lib/MultiOutput/README.md) |
-| UI | `GUI`, `Elements` (widgets, PWMScreen, RelayScreen), `PWMStateMachine` | [lib/GUI](lib/GUI/README.md), [lib/Elements](lib/Elements/README.md), [lib/StateMachine](lib/StateMachine/README.md) |
-| Comms/peripherals | `SerialCommunication`, `MCP4725` | [lib/Comms](lib/Comms/README.md), [lib/MCP4725](lib/MCP4725/README.md) |
+| UI | `lib/GUI` -- Janus-generated screens + vendored `lib/GUI/runtime`; `src/janus_actions.cpp` + the Janus block of `main.cpp` are the glue | [The UI is generated (`lib/GUI`)](#the-ui-is-generated-libgui) |
+| Comms/peripherals | `SerialCommunication`, `MavlinkComms`, `MCP4725` | [lib/Comms](lib/Comms/README.md), [lib/MCP4725](lib/MCP4725/README.md) |
 | HAL / shared low-level | `Ports`, `HAL/RegisterIO`, `BusIO` (vendored) | [lib/Ports](lib/Ports/README.md), [lib/HAL](lib/HAL/README.md), [lib/BusIO](lib/BusIO/README.md) |
-| Vendored, mostly untouched | `Display` (parallel-TFT, in active use), `ArduinoLib`, `SD`, `TouchScreen` (not instantiated anywhere) | [lib/Display](lib/Display/README.md) |
+| Vendored, mostly untouched | `Display` (parallel-TFT, in active use), `lib/GUI/runtime` (Janus fixed runtime), `ArduinoLib`, `SD`, `TouchScreen` (not instantiated anywhere) | [lib/Display](lib/Display/README.md) |
+
+`lib/StateMachine/src/PWMStateMachine.h` is not used by the firmware --
+only `test_native/test_pwm_state_machine.cpp` includes it.
+
+## The UI is generated (`lib/GUI`)
+
+The on-screen TFT UI is produced by **Janus**, a code generator in a
+sibling repo (`../../janus`), from declarative input files. `main.cpp`
+supplies the hardware glue.
+
+### Three kinds of file under `lib/GUI/`, three owners
+
+| Kind | Files | Who edits it |
+|---|---|---|
+| **Authoring input** | `app.yaml`, `*.screen.yaml`, `janus_generated.harpia` (message shapes) | Hand-edited here. This is the contract handed to a Janus re-run. |
+| **Generated** | `include/*_screen.gen.h`, `src/*_screen.gen.c`, `src/janus_app.gen.c`, `src/janus_bindings.gen.c`, `include/janus_bindings.gen.h`, `include/janus_actions.gen.h`, `include/janus_display_config.gen.h` | Overwritten wholesale by a Janus re-run -- **never hand-edit**. |
+| **Vendored runtime** (`lib/GUI/runtime/`) | `janus_runtime.c`/`.h`, `janus_font.c`/`.h`, `janus_input_focus.c`, `janus_input_{touch,encoder,buttons}.h`, `janus_progmem.h`, ... | Hand-written once, shipped identical with every Janus project. Fix bugs **upstream in Janus** and re-vendor -- `../handle-to-janus.md` (repo root) is the running list of fixes to port back. Its own `lib_deps` entry in `platformio.ini` because it's nested where PlatformIO's LDF won't find it. |
+| **Generated scaffold, NOT compiled** | `lib/GUI/janus_actions.c`, `lib/GUI/main.c` | All-TODO stubs Janus emits for a standalone build. Outside `lib/GUI/src/`, so the LDF skips them. The real versions are the glue below. |
+
+### The glue (this repo's code, not Janus's)
+
+- **`src/janus_actions.cpp`** -- the real `janus_handle_action()`. Maps
+  each generated action id to a hardware effect. Today: only
+  `JANUS_ACTION_TOGGLE_RELAY_0..7` -> `multiOuput.getRelays()->setRelay()`,
+  with on/off state mirrored in `main.cpp`'s `relayState[]` (the `Relay`
+  class has no getter). The PWM tab's toggles have generated action ids
+  but no hardware effect wired yet.
+- **The Janus block in `src/main.cpp`** -- four jobs:
+  1. **Driver contract** (`display_driver_init`, `draw_area_sync` /
+     `draw_area_async`, `display_busy`): bridges Janus's RGB565 tile
+     writes onto the `Display` parallel-TFT driver's `setAddrWindow` +
+     `pushColors`. No DMA, so `draw_area_async` writes synchronously and
+     returns true, and `display_busy()` is always false.
+  2. **Input wiring**: reads the 3 rotary encoders + button map once per
+     superloop pass, then routes -- **rot0** = `janus_switch_screen`
+     (cycle PWM / SERIAL / Output); **rot1** = `janus_focus_move(screen, ±1)`;
+     **rot1 click** = `janus_focus_activate`, whose result is dispatched
+     to `janus_handle_action` / `janus_switch_screen` / `janus_toggle_box`.
+     Janus's `nav: tabs` in `app.yaml` is metadata only (tab-bar
+     titles), *not* a wired input path -- the encoder-drives-tabs
+     behavior is authored directly in `main.cpp`.
+  3. **Feeding the bound structs**: the generated `*_instance` structs
+     (`pwm_instance`, `bus_status_instance`, `relay_instance`) are what
+     widgets read. Firmware writes real values in --
+     `refreshBusStatusInstance()` copies MAVLink-received CAN/RS-485
+     config into `bus_status_instance` every ~100ms -- and sets the
+     matching `*_dirty` flag so the dirty-aware render path repaints only
+     what changed.
+  4. **Redraw cadence**: `janus_render_screen` on entry / tab-switch and
+     right after an action fires; `janus_render_widget` on the ~100ms
+     telemetry tick to refresh just the status bar (widget 0, by
+     convention on every screen). The full-screen background clear on
+     tab-switch (`tft.fillScreen(0)`) is firmware's job -- the runtime
+     only ever fills widget rects, never clears first, and has no notion
+     of a canvas background color.
+
+### Render pipeline
+
+`docs/gui-render-pipeline.drawio` diagrams the path (input ->
+focus/action resolution -> `janus_render_*` -> `draw_area_sync` ->
+`Display`). Rendering is **blocking** (`display.render_mode` defaults to
+blocking; a full `pwm` screen render measures ~41-42ms, inside the
+~100ms loop cadence). The runtime's non-blocking polled path is compiled
+out -- its 6912-byte `g_async_ops` buffer would overflow the
+ATmega2560's 8 KiB SRAM.
+
+### Where a UI bug lives
+
+| Symptom | Owner |
+|---|---|
+| Stale pixels after a tab switch | Firmware (`tft.fillScreen` clear) |
+| Widget at wrong geometry / runaway `fill_rect` / garbage after screen load | Janus (bad baked rect, or a PROGMEM-read bug) |
+| Toggle flips on screen but hardware doesn't react | Firmware (`janus_handle_action`) |
+| Hardware reacts but UI doesn't update | Firmware (missing render call / unset dirty bit) or Janus (dirty traversal) |
+| Focus skips a widget / wrong traversal order | Janus (`focus_order` baking) |
+| Encoder or button does nothing at all | Firmware input wiring in `main.cpp` |
+| Layout / widget-tree / new data binding change | Edit `*.screen.yaml` + `.harpia`, hand off for a Janus re-run |
+| Swap enabled/disabled icon from a bound bit | Janus feature gap -- needs a `hidden`/state flag in the generator (`pwm.screen.yaml`'s header notes this); firmware only sets the bit |
+
+### Known follow-ups specific to the UI
+
+- `bus_status_instance`'s CAN/RS-485 fields only repaint on tab-switch or
+  box-toggle; the ~100ms tick redraws only the status bar. Live passive
+  refresh there needs its own trigger -- e.g. an action fired from the
+  MAVLink receive path. See the comment in `main.cpp`'s ~100ms block.
+- The PWM tab's `*_disabled.jpg` icon art sits in `lib/GUI` unused,
+  waiting on the Janus `hidden`/state-flag feature above.
 
 ## Shared hardware resource allocation
 
-**Corrected 2026-08-12, superseding an earlier version of this section**
-that assumed `Relay`/`ServoMotor`/`MotorDC` each drive independent GPIO
-pins through `BinaryOutputs`. Checked against the user's `IOs IHM.xlsx`
-(`v0` sheet) and confirmed directly with the user: that's not how the
-real board works. (`ServoMotor` itself was removed 2026-08-16 -- see
-below -- but the bus/latch hardware facts here still describe the real
-board, including the third, now-undriven latch.)
+### The multiplexed output bus (`Relay` / `MotorDC`)
 
-### The multiplexed output bus (`Relay`/`MotorDC`, firmware-driven; a third latch for Servo exists but is unused)
-
-`Relay`, `MotorDC`, and (physically) a servo device share one 8-bit data
-bus feeding three separate `74LS373` transparent latches, one per
-device, each captured by its own strobe line. Only the `Relay` and
-`MotorDC` latches are driven by any firmware in this repo -- servo
-control is not part of the IHM solution (removed 2026-08-16, see
-`CHANGELOG.md`); a dedicated servo controller is planned as separate,
-future work.
+`Relay` and `MotorDC` share one 8-bit data bus feeding separate `74LS373`
+transparent latches, one per device, each captured by its own strobe
+line. Each device keeps its own current 8-bit state in RAM and rewrites
+the whole byte on every change (the bus is shared and byte-wide, not
+individually addressable per bit).
 
 | Signal | AVR pin | Role |
 |---|---|---|
 | Data bus (8 bits) | `PC2,PC1,PC0,PD7,PG2,PG1,PG0,PL7` | Shared -- holds the byte about to be latched |
-| `dig_0` | `PH6` | Strobe -- Servo's latch (physically wired, not driven by any firmware here) |
-| `dig_1` | `PG5` | Strobe -- Relay's latch |
-| `dig_2` | `PF4` | Strobe -- Motor's latch |
+| `dig_0` | `PH6` | Strobe -- a third latch, physically present on the board, driven by no firmware |
+| `dig_1` | `PG5` | Strobe -- `Relay`'s latch |
+| `dig_2` | `PF4` | Strobe -- `MotorDC`'s latch |
 | `OUTPUT_EN` | `PB4` | Shared tri-state control, not part of the write sequence |
 
 A `74LS373` is *transparent*, not edge-triggered: its outputs follow the
-inputs continuously while its enable line is high, and hold whatever
-value was present the instant that line falls. So a correct write is:
-**settle the data bus -> raise the target device's strobe -> drop it
-again** -- the *falling* edge of the strobe is what actually captures the
-byte into that device's latch, leaving the other two devices' latches
-untouched. Each device needs to keep its own current 8-bit state in RAM
-and rewrite the whole byte on every change (the bus is shared and
-byte-wide, not individually addressable per bit).
+inputs while its enable line is high, and hold whatever value was present
+the instant that line falls. So a correct write is: **settle the data
+bus -> raise the target device's strobe -> drop it again** -- the
+*falling* edge of the strobe captures the byte into that device's latch,
+leaving the other latches untouched.
 
-**`BinaryOutputs::SetOutput()` does not implement this protocol on its
-own** -- it does immediate, independent per-pin GPIO writes with no
-bus/strobe sequence. **Fixed 2026-08-13:** `MultiplexedBus`
-(`lib/MultiOutput/src/MultiplexedBus.h`) is now the real driver, built on
-top of `SetOutput()` -- `write(strobeIndex, byte)` settles all 8 data-bus
-bits, raises the target device's strobe, then drops it, all inside
-`ATOMIC_BLOCK(ATOMIC_RESTORESTATE)` (resolves the atomicity question
-below). `enableOutputs()` drives `OUTPUT_EN` **low** once at setup --
-confirmed against the KiCad schematic that `74LS373`'s `OE` pin is the
-part's only electrically-inverted pin on the symbol, i.e. active-low.
-`Relay` now uses it (assembles all 8 relays' state into one byte via a
-`refreshBus()` helper and calls `bus.write(MUX_RELAY_STROBE, value)`)
-instead of one independent `SetOutput()` per relay -- net RAM effect was
-a *decrease* (81.3% -> 79.4%), not the increase a naive new class might
-suggest. **`MotorDC` was moved onto `MultiplexedBus` 2026-08-16** (see
-"Known gaps" item 2 below). `ServoMotor` -- the third device that would
-have used this driver -- was deleted the same day; servo control is not
-part of the IHM solution.
+`MultiplexedBus` (`lib/MultiOutput/src/MultiplexedBus.h`) is the driver,
+built on top of `BinaryOutputs::SetOutput()`. `write(strobeIndex, byte)`
+settles all 8 data-bus bits, raises the target strobe, then drops it, all
+inside `ATOMIC_BLOCK(ATOMIC_RESTORESTATE)` -- so a `Relay` foreground
+write and a `MotorDC` ISR-context write (every ~1ms tick) can't
+interleave and tear a byte. `enableOutputs()` drives `OUTPUT_EN` low once
+at setup (`74LS373`'s `OE` is active-low, per the KiCad schematic).
+`Relay` assembles all 8 relays into one byte via `refreshBus()` and calls
+`bus.write(MUX_RELAY_STROBE, value)`; `MotorDC` uses `MUX_MOTOR_STROBE`
+the same way, with coarse software-PWM speed control on the ~1.008ms tick
+(~99Hz carrier, 10% duty steps) -- no dedicated fast hardware timer is
+free (Timer1/3/4/5 are all committed to `PWM`).
 
-**Open question for whoever confirms `MotorDC`'s bit layout:**
-`MotorDC`'s bit positions within its one byte are currently a
-**placeholder** (`enA`=bit0, `dirA`=bit1, `enB`=bit2, `dirB`=bit3), not
-yet confirmed against `IOs IHM.xlsx`/the KiCad schematic. The atomicity
-concern from the earlier version of this section is resolved --
-`MultiplexedBus::write()` brackets its whole settle-strobe-drop sequence
-in `ATOMIC_BLOCK`, so a `Relay` foreground write and a `MotorDC`
-ISR-context write (called every ~1ms tick) can't interleave and tear a
-byte mid-sequence.
+**Open:** `MotorDC`'s bit positions within its one byte (`enA`=bit0,
+`dirA`=bit1, `enB`=bit2, `dirB`=bit3) are a placeholder, unconfirmed
+against `IOs IHM.xlsx` / the KiCad schematic. `MotorDC` also has no
+on-screen UI tab yet.
 
-### Hardware timers (PWM only -- fully decoupled from the bus above)
+### Hardware timers (PWM only -- decoupled from the bus above)
 
-| Timer | Owner | Status |
-|---|---|---|
-| Timer2 | System tick (`ISR(TIMER2_COMPA_vect)`) | active |
-| Timer1 | PWM channel 2 (`OC1A/B/C`, complex) | active (PWM tab, channel index 2) |
-| Timer3 | PWM channel 0 (`OC3A`, simplex) | active (PWM tab, channel index 0) |
-| Timer4 | PWM channel 3 (`OC4A/B/C`, complex) | active (PWM tab, channel index 3) |
-| Timer5 | PWM channel 1 (`OC5A`, simplex) | active (PWM tab, channel index 1) |
+| Timer | Owner |
+|---|---|
+| Timer2 | System tick (`ISR(TIMER2_COMPA_vect)`) |
+| Timer1 | PWM channel 2 (`OC1A/B/C`, complex) |
+| Timer3 | PWM channel 0 (`OC3A`, simplex) |
+| Timer4 | PWM channel 3 (`OC4A/B/C`, complex) |
+| Timer5 | PWM channel 1 (`OC5A`, simplex) |
 
-All 8 of these timer-compare pins (`OC1A/B/C`, `OC3A`, `OC4A/B/C`,
-`OC5A`) are confirmed direct-to-output, no buffer, and are entirely
-separate from `Relay`/`MotorDC`'s bus above. (An earlier version of this
-section described a Timer4 conflict between the since-removed
-`ServoMotor` and PWM channel 3, based on a wrong assumption about how
-`ServoMotor` would use `OCR4A`; moot now that it's gone.)
+All 8 timer-compare pins (`OC1A/B/C`, `OC3A`, `OC4A/B/C`, `OC5A`) are
+direct-to-output, no buffer, entirely separate from the `Relay` /
+`MotorDC` bus.
 
-## Known gaps (as of 2026-08-16)
+## Known gaps
 
-These aren't bugs introduced by any recent change -- they're pre-existing
-gaps this documentation pass surfaced while mapping the codebase. Listed
-here so they're visible, not implying any of them need fixing today.
+Pre-existing gaps, listed so they stay visible -- not implying any need
+fixing today.
 
-1. ~~**`ServoMotor::timer_handler()` is never called**~~ -- **not a gap
-   anymore: `ServoMotor` was deleted 2026-08-16.** Servo control is not
-   part of the IHM solution -- a dedicated servo controller is planned as
-   separate future work. See "The multiplexed output bus" above and
-   `CHANGELOG.md`'s 2026-08-16 entry.
-2. ~~**`MotorDC::fast_handler()` is never called**~~ -- **fixed
-   2026-08-16.** `MotorDC` now goes through `MultiplexedBus`
-   (`MUX_MOTOR_STROBE`), same pattern as `Relay`; `MultiOutput::
-   fast_handler() -> MotorDC::fast_handler()` is wired into
-   `TIMER2_COMPA_vect`'s every-tick branch. DC speed control is coarse
-   software PWM on that ~1.008ms tick (~99Hz carrier, 10% duty steps) --
-   no dedicated fast hardware timer is free (Timer1/3/4/5 are fully
-   committed to `PWM`'s 4-channel generator), and borrowing a spare
-   compare unit on Timer3/5 would couple motor carrier frequency to that
-   PWM channel's user-editable frequency, so this was rejected. The old
-   `PWMA_INDEX`/`DIRA_INDEX`/etc. raw `BinaryOutputs` indices (which
-   collided with `PWM`'s pins and the bus's own strobe/`OUTPUT_EN` lines)
-   and the dead `TCCR1A`/`TCCR1B` writes in `setup()` (Timer1 is
-   exclusively `PWM` channel 2's) are both deleted. **Still open:** the
-   bit layout within `MotorDC`'s one latched byte (`enA`=bit0,
-   `dirA`=bit1, `enB`=bit2, `dirB`=bit3) is a placeholder, unconfirmed
-   against `IOs IHM.xlsx`/the KiCad schematic. UI wiring (on-screen TFT
-   tab) is unstarted, out of scope for this driver work.
-3. ~~**`BinaryOutputs::SetOutput()` doesn't implement the multiplexed-bus
-   protocol** `Relay`/`ServoMotor`/`MotorDC` actually need~~ -- **fixed**,
-   see "The multiplexed output bus" above: `MultiplexedBus` is the real
-   driver, and both `Relay` (2026-08-13) and `MotorDC` (2026-08-16) use
-   it. `ServoMotor`, the third device this originally applied to, was
-   deleted 2026-08-16 (servo control isn't part of the IHM solution).
-4. **`SerialCommunication::receive()` is never called.** Nothing forwards
+1. **`SerialCommunication::receive()` is never called.** Nothing forwards
    incoming UART0 bytes to it (the real RX ISR only fills the standard
-   `Serial` ring buffer) -- so the framing/checksum parser it feeds can
-   never produce a complete frame, `voltage0`/`voltage1` never update
-   from real serial input, and the two `MCP4725` DACs are currently
-   driven by whatever they were last set to (always 0 today). See
-   [lib/Comms/README.md](lib/Comms/README.md) for what wiring this up
-   would need.
-5. ~~**`lib/StateMachine/StateMachine.hpp`/`.cpp` is dead code that
-   doesn't compile**~~ -- **deleted 2026-08-13.** Referenced an undefined
-   type, nothing included it; `PWMStateMachine.h` (same folder) is what's
-   actually used and is untouched.
-6. ~~**`BinaryInput`'s `MCUCR |= ~(1<<PUD)`** doesn't do what its comment
-   says -- sets unrelated `MCUCR` bits instead of clearing `PUD`.~~ --
-   **fixed 2026-08-12**, changed to `MCUCR &= ~(1<<PUD)`.
-7. **`MCP4725` dac0/dac1 vs. voltage0/voltage1 naming is crossed** in
+   `Serial` ring buffer), so the framing/checksum parser it feeds never
+   produces a complete frame and `voltage0`/`voltage1` never update from
+   real serial input. Needs either a `USART0_RX_vect` override calling
+   `comms.receive()`, or main-loop polling of `Serial.available()` /
+   `Serial.read()` feeding it. See [lib/Comms/README.md](lib/Comms/README.md).
+2. **`MCP4725` dac0/dac1 vs. voltage0/voltage1 naming is crossed** in
    `main.cpp` (`dac1.setVoltage(voltage0,...)`, `dac0.setVoltage(voltage1,...)`)
-   -- may be intentional (matching board wiring) but worth a deliberate
-   check. See [lib/MCP4725/README.md](lib/MCP4725/README.md).
-8. ~~**`lib/Display/SPITFT.cpp`/`GrayOLED.cpp`** are vendored but entirely
-   unreferenced~~ -- **deleted 2026-08-13** (`SPITFT.cpp`/`.h`,
-   `SPITFT_Macros.h`, `GrayOLED.cpp`/`.h`), confirmed nothing else
-   included them. The active display path (`Display`/`GFX`/
-   `mcufriend_shield.h`) is untouched.
-9. ~~**`AnalogInputs::read()` blocks on a polling loop**~~ -- **fixed
-   2026-08-16.** `AnalogInputs` now runs a continuous interrupt-driven
-   round-robin scan: `setup()` enables `ADIE` and starts the first
-   conversion, and `ISR(ADC_vect)` (in `main.cpp`, calling
-   `AnalogInputs::isr_handler()`) caches each completed conversion and
-   immediately starts the next channel's, forever. `read(index)` just
-   returns the cached value -- non-blocking, and freshness improved as a
-   side effect (bounded by one ~1ms scan cycle instead of the caller's
-   own ~100ms read cadence). See
-   [lib/AnalogInput/src/AnalogInput.h](lib/AnalogInput/src/AnalogInput.h).
-10. **`MavlinkComms::poll()` drains the whole RX ring buffer in one
-    `while (serial->available())` loop** (`lib/MavlinkComms/src/MavlinkComms.h:72`)
-    -- not bounded by a fixed iteration count, so a burst of buffered
-    bytes could hold up the rest of the superloop for however long it
-    takes to parse all of them. Same class of problem as item 9. Flagged
-    2026-08-13, not fixed -- pinned for a future session.
-11. ~~**Dead `millis()`-based blocking-wait code in two vendored
-    libraries**~~ -- **`Stream` side fixed 2026-08-13:** `timedRead()`/
-    `timedPeek()` and everything that only existed to support them
-    (`readBytes`/`readBytesUntil`/`readString`/`readStringUntil`/
-    `parseInt`/`parseFloat`/`find`/`findUntil`/`findMulti`/`peekNextDigit`,
-    plus `setTimeout`/`getTimeout` and the now-pointless `_timeout`/
-    `_startMillis` members) are deleted from `Stream.h`; `Stream.cpp` is
-    gone entirely (nothing was left to implement). Confirmed nothing else
-    calls any of those methods or subclasses `Stream` expecting them --
-    `HardwareSerial`/`Client`/`Udp`/`USBAPI`/`Wire`/`SD` all just inherit
-    the trimmed `available()`/`read()`/`peek()` interface, unaffected.
-    **`SD` side partially addressed:** the dead `#include "SD.h"` in
-    `main.cpp` is removed, but `lib/SD` itself (including
-    `Sd2Card.cpp`'s own `millis()` wait loops) is kept vendored, not
-    deleted -- `mavlink/README.md` already reserves payload headroom for
-    a future "SD-card-status" message, so unlike `SPITFT`/`GrayOLED` this
-    looked like it might actually get used, and deleting a whole vendored
-    library on that judgment call felt like the wrong kind of "small
-    potato" to decide alone. Revisit if that SD-card message never
-    materializes.
+   -- may be intentional (matching board wiring), worth a deliberate
+   check. The `dac*.begin()` / `setVoltage()` calls are commented out for
+   now (a missing DAC hangs `twi.c`'s unbounded wait loop). See
+   [lib/MCP4725/README.md](lib/MCP4725/README.md).
+3. **`MavlinkComms::poll()` drains the whole RX ring buffer in one
+   `while (serial->available())` loop** (`lib/MavlinkComms/src/MavlinkComms.h`)
+   -- not bounded by a fixed iteration count, so a burst of buffered
+   bytes can hold up the rest of the superloop until they're all parsed.
 
 ## What's already solid
 
-Worth naming so it isn't lost among the gaps above: `Relay` is fully
-wired UI-to-`MultiplexedBus`-to-hardware and was the template for how the
-output-wiring pattern should look at the UI/module level -- "wired" still
-means software-verified only (no physical hardware was available this
-session to confirm an actual relay click), but the write sequence itself
-now implements the real settle-strobe-drop protocol end to end. `PWM`'s
-register math is natively unit-tested and was hardened for a real
-register-clobbering bug (see `CHANGELOG.md`, 2026-08-10) -- and per the
-bus finding, `PWM`'s timers are confirmed unaffected by any of this,
-direct-to-output as designed. `BinaryInputs`/`Ports`/`RegisterIO` give
-the whole project a consistent, tested register-access foundation that
-every other module builds on without reinventing it.
+`Relay` is fully wired UI-to-`MultiplexedBus`-to-hardware and is the
+template for the output-wiring pattern -- software-verified only (no
+physical relay click confirmed). `PWM`'s register math is natively
+unit-tested and hardened against a real register-clobbering bug; its
+timers are direct-to-output, unaffected by the bus work.
+`BinaryInputs` / `Ports` / `RegisterIO` give the project a consistent,
+tested register-access foundation every other module builds on.

@@ -24,20 +24,23 @@ sub-interrupt is enabled -- only Compare-A, deliberately). Inside it:
   (see [lib/RotaryEncoder](../lib/RotaryEncoder/README.md) -- same
   naming caveat).
 
-`ISR(ADC_vect)` (added 2026-08-16) fires on every completed ADC
-conversion (~104-200us apart, independent of the Timer2 tick) and calls
+`ISR(ADC_vect)` fires on every completed ADC conversion (~104-200us
+apart, independent of the Timer2 tick) and calls
 `analogInputs.isr_handler()`, which caches the result and immediately
 starts the next channel's conversion -- a continuous, self-sustaining
-round-robin scan across all 5 channels. See
+round-robin scan across all 5 channels. `AnalogInputs::read()` just
+returns the cached value, non-blocking. See
 [lib/AnalogInput/src/AnalogInput.h](../lib/AnalogInput/src/AnalogInput.h).
-This replaced a blocking polling loop in `AnalogInputs::read()`; `read()`
-now just returns the cached value, non-blocking.
 
-Everything else (`GUI::update()`, the two `MCP4725::setVoltage()` calls,
-`buildButtonMap()`, `rotaryEncoders.getDirection()`) runs directly in
-`main()`'s `while(1)` superloop, once per pass, with no fixed cadence --
-this is the "foreground" work, gated only by how long the loop body
-itself takes.
+Everything else runs directly in `main()`'s `while(1)` superloop, once
+per pass, with no fixed cadence -- this is the "foreground" work, gated
+only by how long the loop body itself takes: `buildButtonMap()` /
+`rotaryEncoders.getDirection()`, the Janus UI (encoder-driven
+screen-switch and focus/activate, `janus_handle_action()`,
+`janus_render_*` -> `Display`; see `ARCHITECTURE.md`'s "The UI is
+generated" section), `mavlinkComms.poll()`, a ~100ms telemetry/bus-status
+block, and the two `MCP4725::setVoltage()` calls (currently commented out
+-- see `NEXT-SESSION.md`).
 
 ## Timer2Config.h/.cpp
 
@@ -46,8 +49,8 @@ just the `OCIE2A` bit as a plain `uint8_t`, so `main.cpp`'s `setup()` can
 write `TIMSK2 |= timer2InterruptMask()` without hardcoding the bit
 itself. The header's bit-position constants are plain ints, not
 `avr/io.h` macros, specifically so this logic can be tested off-device.
-Replaces an earlier design that had empty ISRs for Compare-B/Overflow
-just to avoid an uninitialized-vector reset.
+Only Compare-A is enabled -- Compare-B and Overflow are left masked, no
+handlers.
 
 ## Global state
 
