@@ -12,7 +12,10 @@
 screen: BusStatus
 layout: column
 children:
-  - { kind: header, id: bus_status_header, text: "SERIAL", font_size: medium, size: { w: 70, h: 20 } }
+  - kind: row
+    id: status_bar
+    children:
+      - { kind: label, id: status_placeholder, text: "Status: TBD", font_size: medium, size: { w: 140, h: 20 } }
 
   - kind: box
     id: can0_box

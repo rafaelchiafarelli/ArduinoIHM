@@ -4,7 +4,11 @@
 screen: Relay
 layout: column
 children:
-  - { kind: header, id: relay_header, text: "Output", font_size: medium, size: { w: 80, h: 20 } }
+  - kind: row
+    id: status_bar
+    children:
+      - { kind: label, id: status_placeholder, text: "Status: TBD", font_size: medium, size: { w: 140, h: 20 } }
+
   - kind: navlist
     id: relay_list
     layout: column
