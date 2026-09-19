@@ -1,6 +1,6 @@
 # Task 1: relay-state-message
 
-**Status:** not started
+**Status:** done
 **Branch:** `1-relay-state-message` (from `tasks`)
 **Depends on:** nothing
 
