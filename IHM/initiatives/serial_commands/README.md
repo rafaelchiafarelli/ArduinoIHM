@@ -1,8 +1,8 @@
 # Initiative: serial_commands
 
-PC-driven serial control of the board's hardware outputs, for bench
-testing against real hardware without going through the on-screen
-touch-free UI.
+PC-driven serial control of the board's hardware outputs, and PC-driven
+simulation of its hardware inputs, for bench testing against real
+hardware without going through the on-screen touch-free UI.
 
 ## Transport
 
@@ -36,11 +36,18 @@ same split as `sendBoardState()` (the class packs the message,
 | Epic | Status | Scope |
 |---|---|---|
 | `pwm_control` | planned | PC configures the 4 PWM channels (2 simplex, 2 complex) over MAVLink. |
+| `relay_control` | telemetry done | Board -> PC read-only relay-state bitmask (`IHM_RELAY_STATE`), on the `relay_control` branch. PC -> board relay *control* is still not scoped -- see below. |
+| `input_simulation` | encoder sim done | PC injects simulated encoder CW/CCW (`IHM_SIMULATE_ENCODER`), on the `input_simulation` branch, applied only when the real encoder is idle. Simulated button presses not yet scoped -- see below. |
 
-### Not yet scoped (future epics under this initiative)
+### Not yet scoped (future epics/tasks under this initiative)
 
-- **`relay_control`** -- relay on/off over MAVLink. The `Relay` driver is
-  confirmed-working; lowest-risk of the remaining outputs.
+- **`relay_control` (PC -> board control)** -- actual relay on/off
+  commands from the PC, now that the reverse (telemetry) direction
+  exists. The `Relay` driver is confirmed-working.
+- **`input_simulation` (simulated button presses)** -- same wire pattern
+  as `IHM_SIMULATE_ENCODER`, extended to the 7 buttons (4 standalone + 3
+  encoder push-buttons); needed to simulate activating/confirming a
+  focused item, not just moving focus.
 - **`motor_control`** -- `MotorDC` drive/stop over MAVLink. Blocked on
   confirming `MotorDC`'s bit layout against `IOs IHM.xlsx` / the KiCad
   schematic first (see `IHM/NEXT-SESSION.md`); exercising it over serial
@@ -52,5 +59,10 @@ same split as `sendBoardState()` (the class packs the message,
 ## Branch chain
 
 ```
-dev -> features -> serial_commands -> epics -> pwm_control -> tasks -> <task>
+dev -> features -> serial_commands -> epics -> <epic> -> tasks -> <task>
 ```
+
+`pwm_control`, `relay_control`, and `input_simulation` are sibling epic
+branches off the shared `epics` container -- each gets merged into
+`epics` independently once its own tasks are done; `epics` only
+promotes up to `serial_commands` once every epic here has landed in it.
