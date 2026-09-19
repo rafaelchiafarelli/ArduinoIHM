@@ -98,6 +98,18 @@ public:
         serial->write(buf, len);
     }
 
+    // Packs and transmits one IHM_RELAY_STATE message. bitmask's bit i is
+    // relay i (0-7); caller (main.cpp) builds it from relayState[], this
+    // class only packs/sends it -- same split as sendBoardState().
+    void sendRelayState(uint8_t relayBitmask)
+    {
+        mavlink_message_t msg;
+        mavlink_msg_ihm_relay_state_pack(1, 1, &msg, relayBitmask);
+        uint8_t buf[MAVLINK_MAX_PACKET_LEN];
+        uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+        serial->write(buf, len);
+    }
+
     // Returns nullptr if no config has been received yet for that bus.
     const mavlink_can_signal_config_t *getCanSignalConfig(uint8_t bus) const
     {

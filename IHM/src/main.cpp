@@ -314,6 +314,14 @@ int main()
                                          rotation, charging, battVoltage,
                                          analogIn, stats, count);
 
+            uint8_t relayMask = 0;
+            for (uint8_t i = 0; i < NUMBER_OF_RELAYS; i++)
+            {
+                if (relayState[i])
+                    relayMask |= (uint8_t)(1u << i);
+            }
+            mavlinkComms.sendRelayState(relayMask);
+
             refreshBusStatusInstance();
 
             // This tick used to also do a full janus_render_screen here,
