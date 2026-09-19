@@ -233,6 +233,15 @@ int main()
         DIRECTION_TYPE dir[MAX_NUMBER_EMCODERS];
         for(int i = 0; i < MAX_NUMBER_EMCODERS; i++){
             dir[i] = rotaryEncoders.getDirection(i);
+            // A simulated turn (IHM_SIMULATE_ENCODER, PC -> board) only
+            // takes effect when the real hardware read was idle this
+            // pass -- real input always wins, and this is consumed
+            // exactly once either way.
+            if(dir[i] == not_supported){
+                uint8_t simulated = mavlinkComms.consumeSimulatedEncoderDirection(i);
+                if(simulated == CCW || simulated == CW)
+                    dir[i] = (DIRECTION_TYPE)simulated;
+            }
         }
         uint8_t btnMap = buildButtonMap(bMap);
 

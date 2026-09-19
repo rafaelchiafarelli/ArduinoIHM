@@ -10,7 +10,7 @@
     #error Wrong include order: MAVLINK_IHM_DIALECT.H MUST NOT BE DIRECTLY USED. Include mavlink.h from the same directory instead or set ALL AND EVERY defines from MAVLINK.H manually accordingly, including the #define MAVLINK_H call.
 #endif
 
-#define MAVLINK_IHM_DIALECT_XML_HASH 6834888027999944670
+#define MAVLINK_IHM_DIALECT_XML_HASH -4705655718200132493
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,7 +23,7 @@ extern "C" {
 #endif
 
 #ifndef MAVLINK_MESSAGE_CRCS
-#define MAVLINK_MESSAGE_CRCS {{300, 157, 19, 19, 0, 0, 0}, {301, 176, 20, 20, 0, 0, 0}, {302, 161, 38, 38, 0, 0, 0}, {304, 163, 1, 1, 0, 0, 0}}
+#define MAVLINK_MESSAGE_CRCS {{300, 157, 19, 19, 0, 0, 0}, {301, 176, 20, 20, 0, 0, 0}, {302, 161, 38, 38, 0, 0, 0}, {304, 163, 1, 1, 0, 0, 0}, {305, 19, 2, 2, 0, 0, 0}}
 #endif
 
 #include "../protocol.h"
@@ -69,14 +69,15 @@ typedef enum IHM_ENCODER_DIRECTION
 #include "./mavlink_msg_can_signal_config.h"
 #include "./mavlink_msg_rs485_signal_config.h"
 #include "./mavlink_msg_ihm_relay_state.h"
+#include "./mavlink_msg_ihm_simulate_encoder.h"
 
 // base include
 
 
 
 #if MAVLINK_IHM_DIALECT_XML_HASH == MAVLINK_PRIMARY_XML_HASH
-# define MAVLINK_MESSAGE_INFO {MAVLINK_MESSAGE_INFO_IHM_BOARD_STATE, MAVLINK_MESSAGE_INFO_CAN_SIGNAL_CONFIG, MAVLINK_MESSAGE_INFO_RS485_SIGNAL_CONFIG, MAVLINK_MESSAGE_INFO_IHM_RELAY_STATE}
-# define MAVLINK_MESSAGE_NAMES {{ "CAN_SIGNAL_CONFIG", 301 }, { "IHM_BOARD_STATE", 300 }, { "IHM_RELAY_STATE", 304 }, { "RS485_SIGNAL_CONFIG", 302 }}
+# define MAVLINK_MESSAGE_INFO {MAVLINK_MESSAGE_INFO_IHM_BOARD_STATE, MAVLINK_MESSAGE_INFO_CAN_SIGNAL_CONFIG, MAVLINK_MESSAGE_INFO_RS485_SIGNAL_CONFIG, MAVLINK_MESSAGE_INFO_IHM_RELAY_STATE, MAVLINK_MESSAGE_INFO_IHM_SIMULATE_ENCODER}
+# define MAVLINK_MESSAGE_NAMES {{ "CAN_SIGNAL_CONFIG", 301 }, { "IHM_BOARD_STATE", 300 }, { "IHM_RELAY_STATE", 304 }, { "IHM_SIMULATE_ENCODER", 305 }, { "RS485_SIGNAL_CONFIG", 302 }}
 # if MAVLINK_COMMAND_24BIT
 #  include "../mavlink_get_info.h"
 # endif
