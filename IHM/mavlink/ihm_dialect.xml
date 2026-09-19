@@ -114,5 +114,18 @@
       </description>
       <field type="uint8_t" name="relays">Bitmask, bit i = relay i (0-7), 1 = on.</field>
     </message>
+
+    <message id="305" name="IHM_SIMULATE_ENCODER">
+      <description>
+        PC injects one simulated rotation step on the given encoder. The
+        board applies it only if that encoder's real hardware read was
+        idle (not_supported) on the same superloop pass -- real input
+        always wins, no fight between the two sources. Consumed exactly
+        once, mirroring the real encoder's own edge-triggered/consumed-
+        on-read semantics (RotaryEncoder.h). No ack. PC -> board, command.
+      </description>
+      <field type="uint8_t" name="encoder">Target encoder, 0-2. Out-of-range is dropped by the board.</field>
+      <field type="uint8_t" name="direction" enum="IHM_ENCODER_DIRECTION">CW or CCW; NOT_SUPPORTED is a no-op.</field>
+    </message>
   </messages>
 </mavlink>
