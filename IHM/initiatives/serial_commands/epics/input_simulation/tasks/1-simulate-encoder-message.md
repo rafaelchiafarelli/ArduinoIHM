@@ -1,6 +1,6 @@
 # Task 1: simulate-encoder-message
 
-**Status:** not started
+**Status:** done
 **Branch:** `1-simulate-encoder-message` (from `tasks`)
 **Depends on:** nothing
 
