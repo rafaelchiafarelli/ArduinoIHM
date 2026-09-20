@@ -20,6 +20,7 @@
 #include "AnalogInput.h"
 #include "MavlinkComms.h"
 #include "PWMWireConfig.h"
+#include "PWMLabelFormat.h"
 
 // Janus-generated UI (lib/GUI) -- plain C, so every header/declaration that
 // crosses into this .cpp translation unit needs extern "C" linkage to match
@@ -146,6 +147,55 @@ void setup()
 
     janus_focus_move(&janus_app, 0);   // establish initial focus
 
+}
+
+// RAM-resident text for pwm_instance.chN_state_label (the runtime reads
+// bound strings through a plain RAM pointer -- a PROGMEM literal would be
+// read as garbage on AVR, same bug class as the janus_handoff notes).
+static char pwmStateLabel[4][PWM_LABEL_BUFFER_SIZE];
+
+// Mirrors one PC-applied PWM channel into the Janus-bound pwm_instance and
+// marks the touched fields dirty, so the PWM tab shows what the PC set.
+// pwm_instance has no per-channel inverting for complex channels and no
+// frequency field -- only what exists is mirrored (the frequency goes into
+// the state label). Display-only: the hardware was already configured.
+static void mirrorPwmToUi(uint8_t ch, const PWMChannelConfig* simplex, const PWMComplexChannelConfig* complex)
+{
+    PWMFrequency f = simplex ? simplex->frequency : complex->frequency;
+    uint16_t top = simplex ? simplex->variableTopValue : complex->variableTopValue;
+    formatFrequencyLabel(pwmStateLabel[ch], f, top);
+    switch (ch) {
+        case 0:
+            pwm_instance.ch0_enabled = simplex->enabled;
+            pwm_instance.ch0_duty_percent = simplex->dutyCyclePercent;
+            pwm_instance.ch0_inverting = simplex->inverting;
+            pwm_instance.ch0_state_label = pwmStateLabel[0];
+            pwm_dirty.ch0_enabled = pwm_dirty.ch0_duty_percent = pwm_dirty.ch0_inverting = pwm_dirty.ch0_state_label = true;
+            break;
+        case 1:
+            pwm_instance.ch1_enabled = simplex->enabled;
+            pwm_instance.ch1_duty_percent = simplex->dutyCyclePercent;
+            pwm_instance.ch1_inverting = simplex->inverting;
+            pwm_instance.ch1_state_label = pwmStateLabel[1];
+            pwm_dirty.ch1_enabled = pwm_dirty.ch1_duty_percent = pwm_dirty.ch1_inverting = pwm_dirty.ch1_state_label = true;
+            break;
+        case 2:
+            pwm_instance.ch2_a_enabled = complex->outputA.enabled; pwm_instance.ch2_a_duty_percent = complex->outputA.dutyCyclePercent;
+            pwm_instance.ch2_b_enabled = complex->outputB.enabled; pwm_instance.ch2_b_duty_percent = complex->outputB.dutyCyclePercent;
+            pwm_instance.ch2_c_enabled = complex->outputC.enabled; pwm_instance.ch2_c_duty_percent = complex->outputC.dutyCyclePercent;
+            pwm_instance.ch2_state_label = pwmStateLabel[2];
+            pwm_dirty.ch2_a_enabled = pwm_dirty.ch2_a_duty_percent = pwm_dirty.ch2_b_enabled = pwm_dirty.ch2_b_duty_percent = true;
+            pwm_dirty.ch2_c_enabled = pwm_dirty.ch2_c_duty_percent = pwm_dirty.ch2_state_label = true;
+            break;
+        case 3:
+            pwm_instance.ch3_a_enabled = complex->outputA.enabled; pwm_instance.ch3_a_duty_percent = complex->outputA.dutyCyclePercent;
+            pwm_instance.ch3_b_enabled = complex->outputB.enabled; pwm_instance.ch3_b_duty_percent = complex->outputB.dutyCyclePercent;
+            pwm_instance.ch3_c_enabled = complex->outputC.enabled; pwm_instance.ch3_c_duty_percent = complex->outputC.dutyCyclePercent;
+            pwm_instance.ch3_state_label = pwmStateLabel[3];
+            pwm_dirty.ch3_a_enabled = pwm_dirty.ch3_a_duty_percent = pwm_dirty.ch3_b_enabled = pwm_dirty.ch3_b_duty_percent = true;
+            pwm_dirty.ch3_c_enabled = pwm_dirty.ch3_c_duty_percent = pwm_dirty.ch3_state_label = true;
+            break;
+    }
 }
 
 ISR(TIMER2_COMPA_vect){ /*~1.008ms system tick*/
@@ -315,6 +365,7 @@ int main()
         // silently (no ack in the protocol). Duty goes through
         // compute*CallArgs because setupPWMChannelN takes RAW OCR counts,
         // not percent.
+        bool pwmUiChanged = false;
         for (uint8_t ch = 0; ch < 4; ch++) {
             mavlink_pwm_channel_config_t m;
             if (!mavlinkComms.takePwmChannelConfig(ch, &m)) continue;
@@ -326,18 +377,30 @@ int main()
             };
             if (!pwmWireConfigValid(w)) continue;
             if (ch < 2) {
-                SimplexPWMCallArgs a = computeSimplexCallArgs(pwmWireToSimplex(w));
+                PWMChannelConfig sc = pwmWireToSimplex(w);
+                SimplexPWMCallArgs a = computeSimplexCallArgs(sc);
                 if (ch == 0) pwm.setupPWMChannel0(a.frequency, a.inverting, a.enabled, a.rawFrequency, a.rawDutyCycle);
                 else         pwm.setupPWMChannel1(a.frequency, a.inverting, a.enabled, a.rawFrequency, a.rawDutyCycle);
+                mirrorPwmToUi(ch, &sc, NULL);
             } else {
-                ComplexPWMCallArgs a = computeComplexCallArgs(pwmWireToComplex(w));
+                PWMComplexChannelConfig cc = pwmWireToComplex(w);
+                ComplexPWMCallArgs a = computeComplexCallArgs(cc);
                 if (ch == 2) pwm.setupPWMChannel2(a.frequency, a.rawFrequency,
                                  a.invertingA, a.enabledA, a.invertingB, a.enabledB, a.invertingC, a.enabledC,
                                  a.rawDutyCycleA, a.rawDutyCycleB, a.rawDutyCycleC);
                 else         pwm.setupPWMChannel3(a.frequency, a.rawFrequency,
                                  a.invertingA, a.enabledA, a.invertingB, a.enabledB, a.invertingC, a.enabledC,
                                  a.rawDutyCycleA, a.rawDutyCycleB, a.rawDutyCycleC);
+                mirrorPwmToUi(ch, NULL, &cc);
             }
+            pwmUiChanged = true;
+        }
+        // Repaint only when the PWM tab is the one showing, and only the
+        // dirty widgets -- not a full-screen redraw (see the ~100 ms block's
+        // note about that regression). Off-screen the values simply wait in
+        // pwm_instance for the next full render of the tab.
+        if (pwmUiChanged && janus_app_get_screen(&janus_app, janus_app.active_screen) == &pwm_screen) {
+            janus_render_screen_if_dirty(&pwm_screen);
         }
 
         if(newDataAvailable){
