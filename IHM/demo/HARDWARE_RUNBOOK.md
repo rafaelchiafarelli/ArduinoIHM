@@ -24,6 +24,38 @@ or edge polarity.
 Check your board variant's pinout diagram (`ELEC-MEGA2560-PINOUT.webp` in
 the repo root) for which physical header pin each OCnX maps to.
 
+## Driving PWM over MAVLink
+
+The board accepts `PWM_CHANNEL_CONFIG` (id 303) on its debug serial port
+(250000 baud, the same port as the telemetry). Two ways to send it:
+
+- **Companion app** (`IHMPCController`, PWM panel) -- see its `HOW_TO_USE.md`.
+- **Script**: `python mavlink/scripts/pwm_config.py` (needs `pip install pymavlink`).
+
+Prerequisites: board flashed with this firmware, connected on its COM port,
+nothing else holding the port (close the companion before using the script).
+
+Duty is given in **percent** on the wire; the board scales it to the timer's
+resolution. Frames with a bad channel (>3) or frequency selector are
+silently dropped -- there is no ack, so probe the pin to confirm.
+
+**Example A -- simplex channel 0 (OC3A), 62.5 kHz, 25 % duty**
+
+    python mavlink/scripts/pwm_config.py --port COM7 --channel 0 --freq 62500_HZ --a on --a-duty 25
+
+Probe OC3A: 62.5 kHz square wave, 25 % high.
+
+**Example B -- complex channel 2 (OC1A/OC1B), two outputs, different duties**
+
+    python mavlink/scripts/pwm_config.py --port COM7 --channel 2 --freq 3906_HZ --a on --a-duty 20 --b on --b-invert --b-duty 60
+
+Probe OC1A (20 % high) and OC1B (inverting: 60 % duty means 40 % high) on a
+shared 3.9 kHz timebase; OC1C stays disconnected.
+
+See "Pin reference" above for the pins. This drives the same registers as
+the on-screen PWM tab, so the two fight over a channel -- last writer wins,
+and until `pwm_control` task 5 the TFT does not reflect PC-driven changes.
+
 ## UI navigation (see PWMScreen.h / GUI.cpp)
 
 1. Power on. Rotate rot0 (encoder 0) until the PWM tab is highlighted.

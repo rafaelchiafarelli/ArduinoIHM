@@ -19,6 +19,7 @@
 #include "Timer2Config.h"
 #include "AnalogInput.h"
 #include "MavlinkComms.h"
+#include "PWMWireConfig.h"
 
 // Janus-generated UI (lib/GUI) -- plain C, so every header/declaration that
 // crosses into this .cpp translation unit needs extern "C" linkage to match
@@ -308,6 +309,36 @@ int main()
         prevBtnMap = btnMap;
         // MAVLink RX is drained from the Timer2 tick (mavlinkComms.tick());
         // this loop only consumes what it stored, via the take*() accessors.
+
+        // PC-driven PWM (PWM_CHANNEL_CONFIG). Same registers as the
+        // on-screen PWM tab -- last writer wins. Invalid frames are dropped
+        // silently (no ack in the protocol). Duty goes through
+        // compute*CallArgs because setupPWMChannelN takes RAW OCR counts,
+        // not percent.
+        for (uint8_t ch = 0; ch < 4; ch++) {
+            mavlink_pwm_channel_config_t m;
+            if (!mavlinkComms.takePwmChannelConfig(ch, &m)) continue;
+            PwmWireConfig w = {
+                m.channel, m.f_selector, m.frequency,
+                { { m.out1_enabled, m.out1_inverting, m.out1_duty_percent },
+                  { m.out2_enabled, m.out2_inverting, m.out2_duty_percent },
+                  { m.out3_enabled, m.out3_inverting, m.out3_duty_percent } }
+            };
+            if (!pwmWireConfigValid(w)) continue;
+            if (ch < 2) {
+                SimplexPWMCallArgs a = computeSimplexCallArgs(pwmWireToSimplex(w));
+                if (ch == 0) pwm.setupPWMChannel0(a.frequency, a.inverting, a.enabled, a.rawFrequency, a.rawDutyCycle);
+                else         pwm.setupPWMChannel1(a.frequency, a.inverting, a.enabled, a.rawFrequency, a.rawDutyCycle);
+            } else {
+                ComplexPWMCallArgs a = computeComplexCallArgs(pwmWireToComplex(w));
+                if (ch == 2) pwm.setupPWMChannel2(a.frequency, a.rawFrequency,
+                                 a.invertingA, a.enabledA, a.invertingB, a.enabledB, a.invertingC, a.enabledC,
+                                 a.rawDutyCycleA, a.rawDutyCycleB, a.rawDutyCycleC);
+                else         pwm.setupPWMChannel3(a.frequency, a.rawFrequency,
+                                 a.invertingA, a.enabledA, a.invertingB, a.enabledB, a.invertingC, a.enabledC,
+                                 a.rawDutyCycleA, a.rawDutyCycleB, a.rawDutyCycleC);
+            }
+        }
 
         if(newDataAvailable){
             voltage0 = receivedRawData[0];

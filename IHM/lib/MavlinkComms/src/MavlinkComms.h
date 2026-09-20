@@ -41,6 +41,13 @@ private:
     uint8_t simulatedEncoderDirection[3];
     bool simulatedEncoderPending[3];
 
+    // Latest PWM_CHANNEL_CONFIG per channel, plus a pending flag set by
+    // dispatch() (ISR context) and cleared by takePwmChannelConfig()
+    // (superloop). Last writer wins: a newer frame for a channel replaces an
+    // un-taken older one. Storage only -- this class never touches PWM.
+    mavlink_pwm_channel_config_t pwmConfig[4];
+    bool pwmConfigDirty[4];
+
     // Telemetry frames dropped because the TX ring couldn't hold them
     // (saturating). See sendFrame().
     uint8_t txDropped;
@@ -91,6 +98,17 @@ private:
             }
             break;
         }
+        case MAVLINK_MSG_ID_PWM_CHANNEL_CONFIG:
+        {
+            mavlink_pwm_channel_config_t cfg;
+            mavlink_msg_pwm_channel_config_decode(&rxMsg, &cfg);
+            if (cfg.channel < 4)
+            {
+                pwmConfig[cfg.channel] = cfg;
+                pwmConfigDirty[cfg.channel] = true;
+            }
+            break;
+        }
         default:
             break;
         }
@@ -99,7 +117,7 @@ private:
 public:
     explicit MavlinkComms(HardwareSerial *serialPort)
         : serial(serialPort), canConfigValid{false, false}, rs485ConfigValid(false),
-          simulatedEncoderPending{false, false, false}, txDropped(0)
+          simulatedEncoderPending{false, false, false}, pwmConfigDirty{false, false, false, false}, txDropped(0)
     {
     }
 
@@ -163,6 +181,29 @@ public:
         uint8_t buf[MAVLINK_MAX_PACKET_LEN];
         uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
         sendFrame(buf, len);
+    }
+
+    // Superloop-side hand-off of the latest PWM_CHANNEL_CONFIG for channel
+    // `ch` that tick() stored. Returns false if ch >= 4 or nothing new has
+    // arrived for it; otherwise copies it to *out, clears the pending flag
+    // and returns true. Copy+clear is atomic against tick(). No validation
+    // beyond the channel bound here -- main.cpp validates with
+    // pwmWireConfigValid() before touching hardware.
+    bool takePwmChannelConfig(uint8_t ch, mavlink_pwm_channel_config_t *out)
+    {
+        if (ch >= 4)
+            return false;
+        bool taken = false;
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+        {
+            if (pwmConfigDirty[ch])
+            {
+                pwmConfigDirty[ch] = false;
+                *out = pwmConfig[ch];
+                taken = true;
+            }
+        }
+        return taken;
     }
 
     // Number of telemetry frames dropped so far (saturates at 255).
