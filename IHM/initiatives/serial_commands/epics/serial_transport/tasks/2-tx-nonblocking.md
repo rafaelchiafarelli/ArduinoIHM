@@ -1,6 +1,6 @@
 # Task 2: tx-nonblocking
 
-**Status:** not started
+**Status:** done
 **Branch:** `2-tx-nonblocking` (from `tasks`)
 **Depends on:** nothing
 
