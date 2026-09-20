@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-09-20 -- Timer2-tick MAVLink receive; PWM-over-MAVLink message; plan corrections
+
+- `MavlinkComms::poll()` (unbounded superloop drain) replaced by
+  `MavlinkComms::tick()`, run from the Timer2 ISR and bounded by
+  `MAVLINK_RX_BYTES_PER_TICK` (16). The superloop consumes results through
+  atomic `take*()` accessors (`consumeSimulatedEncoderDirection` ->
+  `takeSimulatedEncoderDirection`). Build: RAM unchanged at 4214 B (51.4%),
+  Flash +194 B. **Not bench-verified** (ISR budget; see
+  `initiatives/serial_commands/epics/serial_transport/README.md`).
+- `PWM_CHANNEL_CONFIG` (id 303) + `PWM_FREQUENCY` enum added to the dialect;
+  `epics` (input_simulation, relay_control: ids 304/305) merged in, so the
+  dialect is now 300-305 and CRC-identical to the PC companion's copy.
+- `.gitattributes` added (LF in repo) -- ~80 files were CRLF-only noise.
+- Planning fix: `PWM::setupPWMChannelN`'s duty argument is a **raw OCR
+  count**, not a percent; `pwm_control` tasks 2/3 now reuse
+  `computeSimplex/ComplexCallArgs` instead of scaling twice.
+
 ## 2026-08-23 -- Bring up the Janus-generated UI on real hardware; fix two AVR PROGMEM bugs
 
 The on-board TFT UI (`lib/Elements`, the old `lib/GUI/GUI.cpp`/`.h`) is
