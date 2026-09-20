@@ -15,6 +15,12 @@ that class is unrelated and untouched by this).
   `generated/` is committed (AVR builds shouldn't depend on Python/pymavlink
   being installed), so a stale `generated/` after an XML edit is a real bug,
   not just an inconvenience.
+- `generated_py/ihm_dialect.py` -- mavgen Python binding of the same dialect, for
+  bench tooling (`scripts/`). Committed like `generated/`; `generate.py` now emits
+  both trees.
+- `scripts/pwm_config.py` -- CLI that sends one `PWM_CHANNEL_CONFIG` (see
+  `--help`; worked examples in `demo/HARDWARE_RUNBOOK.md`). Needs
+  `pip install pymavlink pyserial`.
 - `generated/` -- mavgen output, C only. This is a *complete*, self-contained
   MAVLink v2 C implementation (mavgen vendors `mavlink_helpers.h`,
   `mavlink_types.h`, `protocol.h`, `checksum.h` alongside the dialect-specific
@@ -91,5 +97,9 @@ default (255) since RAM isn't a constraint there.
 
 ```sh
 pip install pymavlink   # once
-python mavlink/generate.py
+python mavlink/generate.py   # writes generated/ (C) and generated_py/ (Python)
 ```
+
+Regenerating rewrites version/date stamps in `generated/ihm_dialect/ihm_dialect.h`
+and `mavlink.h` even when nothing else changed -- revert those two if the XML
+didn't.

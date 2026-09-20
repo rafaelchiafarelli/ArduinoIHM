@@ -1,6 +1,6 @@
 # Task 4: pwm-send-script
 
-**Status:** not started
+**Status:** done
 **Branch:** `4-pwm-send-script` (from `tasks`)
 **Depends on:** task 1 (dialect defines the message). Independent of tasks 2, 3, 5.
 
