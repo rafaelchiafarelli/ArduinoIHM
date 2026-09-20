@@ -76,9 +76,23 @@ write sequence. Ask the user before testing against whatever is connected.
   walkthrough; `IHM/demo/HARDWARE_RUNBOOK.md` has the equivalent checks
   for real hardware.
 
+## Bench steps owed (nothing below was verifiable without hardware)
+
+1. `serial_transport`: Timer2-tick drain under sustained companion traffic.
+2. `pwm_control`: `PWM_CHANNEL_CONFIG` from the companion's PWM panel or
+   `pwm_config.py` changes the probed OC3A / OC1A-B pins as the runbook
+   examples say; the PWM tab mirrors it. (Epic gate; the `pwm_control`,
+   `serial_transport` and `pc_companion` epic branches are deliberately NOT
+   merged upward past `tasks` until this passes.)
+3. `pc_companion`: companion window looks right (layout was compile-checked
+   only, never viewed).
+
 ## Related repo
 
-`workspace/IHM-PCApp` -- the PC-side counterpart. Win32/DirectX11/ImGui
+Two PC apps exist. **`C:\Users\rafae\source\repos\IHMPCController`**
+(Win32, no third-party libs; `HOW_TO_USE.md`) is the current companion the
+`serial_commands` initiative targets. The older `workspace/IHM-PCApp` -- the
+PC-side counterpart. Win32/DirectX11/ImGui
 app that speaks this board's MAVLink dialect over the debug/programming
 COM port: shows `IHM_BOARD_STATE` telemetry, sends `CAN_SIGNAL_CONFIG` /
 `RS485_SIGNAL_CONFIG` (which the SERIAL tab displays). Separate repo, its

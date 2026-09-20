@@ -44,6 +44,19 @@ Largest message is 38 bytes, hence the 64-byte cap (some margin for the
 still-undesigned SD-card-status and UI-state messages -- see
 `IHM/NEXT-SESSION.md`).
 
+## Sending commands (PC side)
+
+| Command | Message | Tool |
+|---|---|---|
+| Configure a PWM channel | `PWM_CHANNEL_CONFIG` (303) | companion app "PWM command" panel, or `scripts/pwm_config.py` |
+| Simulate an encoder step | `IHM_SIMULATE_ENCODER` (305) | companion app CCW/CW buttons |
+
+None has an ack; the board's periodic `IHM_BOARD_STATE` is the only proof of
+life. Invalid frames are dropped silently. The companion app
+(`C:\Users\rafae\source\repos\IHMPCController`, see its `HOW_TO_USE.md`)
+keeps its own copy of `generated/ihm_dialect/`: after regenerating here, copy
+it over (CRC extras were verified identical for ids 300-305 on 2026-09-20).
+
 ## Receive path (who does what)
 
 1. The Arduino core's USART0 RX ISR puts every byte in its 64 B ring.
