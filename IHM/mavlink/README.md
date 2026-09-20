@@ -51,7 +51,8 @@ still-undesigned SD-card-status and UI-state messages -- see
    `pwm_control`), which are safe against `tick()` landing mid-read.
 
 Transmit is best-effort: telemetry frames are dropped, never waited on,
-when the TX ring cannot hold them (`serial_transport` task 2).
+when the TX ring cannot hold them (`MavlinkComms::sendFrame()`, counted by
+`txDroppedCount()`); the next periodic frame replaces the dropped one.
 
 ## Parsing: use `mavlink_frame_char_buffer()`, not `mavlink_parse_char()`
 

@@ -41,6 +41,26 @@ private:
     uint8_t simulatedEncoderDirection[3];
     bool simulatedEncoderPending[3];
 
+    // Telemetry frames dropped because the TX ring couldn't hold them
+    // (saturating). See sendFrame().
+    uint8_t txDropped;
+
+    // Non-blocking transmit: HardwareSerial::write() spins when the TX ring
+    // is full, which would stall the superloop behind a slow/absent PC.
+    // Telemetry is periodic, so dropping a frame is harmless -- the next
+    // tick's frame replaces it.
+    bool sendFrame(const uint8_t *buf, uint16_t len)
+    {
+        if (serial->availableForWrite() < (int)len)
+        {
+            if (txDropped < 255)
+                txDropped++;
+            return false;
+        }
+        serial->write(buf, len);
+        return true;
+    }
+
     void dispatch()
     {
         switch (rxMsg.msgid)
@@ -79,7 +99,7 @@ private:
 public:
     explicit MavlinkComms(HardwareSerial *serialPort)
         : serial(serialPort), canConfigValid{false, false}, rs485ConfigValid(false),
-          simulatedEncoderPending{false, false, false}
+          simulatedEncoderPending{false, false, false}, txDropped(0)
     {
     }
 
@@ -130,7 +150,7 @@ public:
                                           timeStatistics, timeCounter);
         uint8_t buf[MAVLINK_MAX_PACKET_LEN];
         uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-        serial->write(buf, len);
+        sendFrame(buf, len);
     }
 
     // Packs and transmits one IHM_RELAY_STATE message. bitmask's bit i is
@@ -142,8 +162,11 @@ public:
         mavlink_msg_ihm_relay_state_pack(1, 1, &msg, relayBitmask);
         uint8_t buf[MAVLINK_MAX_PACKET_LEN];
         uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-        serial->write(buf, len);
+        sendFrame(buf, len);
     }
+
+    // Number of telemetry frames dropped so far (saturates at 255).
+    uint8_t txDroppedCount() const { return txDropped; }
 
     // Superloop-side hand-off of one simulated encoder turn that tick()
     // (ISR context) stored. Returns false if encoderIndex is out of range
