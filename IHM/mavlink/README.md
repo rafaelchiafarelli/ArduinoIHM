@@ -30,6 +30,9 @@ that class is unrelated and untouched by this).
 | `IHM_BOARD_STATE` | board -> PC | 19 | Buttons, 3x encoder direction, house-keeping, 4x analog input, loop-timing debug (`time_statistics`/`time_counter`, mirrors `main.cpp`'s variables of the same name) |
 | `CAN_SIGNAL_CONFIG` | PC -> board | 20 | Configure/start/stop a generated signal on one of the 2 CAN buses (`bus_id` selects which) -- one active signal per bus, arbitrary bytes, no on-board waveform math |
 | `RS485_SIGNAL_CONFIG` | PC -> board | 38 | Same idea for the single RS-485 connection -- no bus_id needed |
+| `PWM_CHANNEL_CONFIG` | PC -> board | 13 | Configure one of the 4 PWM channels (0/1 simplex: output A only; 2/3 complex: outputs A/B/C) -- frequency selector, raw ICRn TOP for the variable mode, per-output enable/invert/duty. No ack; last writer wins |
+| `IHM_RELAY_STATE` | board -> PC | 1 | Bitmask of all 8 relay outputs, read-only telemetry -- mirrors `main.cpp`'s `relayState[]`; no PC -> board relay command exists yet |
+| `IHM_SIMULATE_ENCODER` | PC -> board | 2 | Inject one simulated CW/CCW rotation step on the given encoder; only applied when that encoder's real hardware read was idle the same pass -- real input always wins |
 
 Largest message is 38 bytes, hence the 64-byte cap (some margin for the
 still-undesigned SD-card-status and UI-state messages -- see

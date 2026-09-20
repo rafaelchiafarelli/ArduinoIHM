@@ -36,10 +36,10 @@ message already models all 4 channels in one flat shape.
 | `out2_enabled`, `out2_inverting`, `out2_duty_percent` | `uint8_t` x3 | output B -- ignored for channels 0/1 |
 | `out3_enabled`, `out3_inverting`, `out3_duty_percent` | `uint8_t` x3 | output C -- ignored for channels 0/1 |
 
-13-byte payload. (Alternative considered and rejected during planning:
-two messages `PWM_SIMPLEX_CONFIG` / `PWM_COMPLEX_CONFIG` matching the C
-API 1:1 -- more decode paths, no meaningful RAM/wire saving under the
-64-byte cap.)
+13-byte payload (`1 + 1 + 2 + 9`). (Alternative considered and rejected
+during planning: two messages `PWM_SIMPLEX_CONFIG` / `PWM_COMPLEX_CONFIG`
+matching the C API 1:1 -- more decode paths, no meaningful RAM/wire
+saving under the 64-byte cap.)
 
 ## Tasks
 

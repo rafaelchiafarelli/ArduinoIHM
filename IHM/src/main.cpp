@@ -138,18 +138,21 @@ void setup()
     display_driver_init();
     
     const janus_screen_desc_t *screen = janus_app_get_screen(&janus_app, janus_app.active_screen);
-    
+
     janus_render_screen(screen);
-    
-    janus_focus_move(screen, 0);   // establish initial focus
-    
+    janus_render_status_bar(&janus_app);   // app-level status band -- no-op if app.yaml had no `status:`
+    janus_render_nav_bar(&janus_app);   // app-level PWM/SERIAL/Output tab strip -- no-op if app.yaml had no `nav:`
+
+    janus_focus_move(&janus_app, 0);   // establish initial focus
+
 }
 
 ISR(TIMER2_COMPA_vect){ /*~1.008ms system tick*/
-    //should we stop the timer interrupt?
+    
     multiOuput.fast_handler();
     bMap = userInputs.fast_handler();
-
+    //put the serial protocol in the timer handler here. this is not a blocking function and will process all the inputs present in the buffer.
+    //the main loop will check if new data is available and will process it. the serial protocol must be non-blocking and must not depend on the presence of data in the buffer. it must be a few instructions only.
     counterT0++;
     if (counterT0 >= TEN_MS_T0_TICKS) { //~10ms elapsed
         counterT0 = 0;
@@ -233,14 +236,26 @@ int main()
         DIRECTION_TYPE dir[MAX_NUMBER_EMCODERS];
         for(int i = 0; i < MAX_NUMBER_EMCODERS; i++){
             dir[i] = rotaryEncoders.getDirection(i);
+            // A simulated turn (IHM_SIMULATE_ENCODER, PC -> board) only
+            // takes effect when the real hardware read was idle this
+            // pass -- real input always wins, and this is consumed
+            // exactly once either way.
+            if(dir[i] == not_supported){
+                uint8_t simulated = mavlinkComms.consumeSimulatedEncoderDirection(i);
+                if(simulated == CCW || simulated == CW)
+                    dir[i] = (DIRECTION_TYPE)simulated;
+            }
         }
         uint8_t btnMap = buildButtonMap(bMap);
 
         // rot0: switch the active screen (PWM / SERIAL / Output) -- mirrors
-        // the deleted TabSelector's rot0-drives-tabs behavior. Janus's own
-        // `nav: tabs` block in app.yaml is metadata only (nav_titles for a
-        // tab bar), not a wired input path, so this is authored directly
-        // here rather than through janus_focus_move/activate.
+        // the deleted TabSelector's rot0-drives-tabs behavior. Authored
+        // directly here (not through janus_focus_move/activate) because
+        // this board has a *dedicated* control for it, unlike Janus's
+        // stock single-control encoder scaffold, whose nav_tabs task 4
+        // reaches the tab strip by walking off the end of the focus order
+        // -- not needed here, but harmless: rot1 below can still reach the
+        // strip that way too, since app.yaml declares `nav: tabs`.
         if(dir[0] == CW || dir[0] == CCW){
             uint16_t count = janus_app.screen_count;
             uint16_t next = (uint16_t)((janus_app.active_screen + (dir[0] == CW ? 1 : (count - 1))) % count);
@@ -250,21 +265,25 @@ int main()
             // The runtime can't own this: it has no notion of "canvas
             // background color", that's a per-project/hardware choice.
            // tft.fillScreen(0x0000);
-            janus_switch_screen(&janus_app, next); // also re-renders the new screen
-            janus_focus_move(janus_app_get_screen(&janus_app, janus_app.active_screen), 0);
+            janus_switch_screen(&janus_app, next); // also re-renders the new screen + repaints the tab strip
+            janus_focus_move(&janus_app, 0);
         }
 
         // rot1 + its button: focus move / activate within the current
         // screen -- mirrors the deleted GUI::update()'s tab-local
-        // navigation (BTN_MASK_ROT1).
+        // navigation (BTN_MASK_ROT1). janus_focus_move/activate now take
+        // the whole janus_app_t (nav_tabs epic task 4), not just the
+        // active screen -- walking rot1 past the last/first focusable
+        // widget lands on the tab strip itself, previewed there, and a
+        // click commits the switch, same as rot0 above.
         const janus_screen_desc_t *screen = janus_app_get_screen(&janus_app, janus_app.active_screen);
         if(dir[1] == CW || dir[1] == CCW){
-            janus_focus_move(screen, dir[1] == CW ? 1 : -1);
+            janus_focus_move(&janus_app, dir[1] == CW ? 1 : -1);
         }
         bool rot1Pressed = (btnMap & BTN_MASK_ROT1) == 0x00;
         bool rot1WasPressed = (prevBtnMap & BTN_MASK_ROT1) == 0x00;
         if(rot1Pressed && !rot1WasPressed){
-            janus_input_result_t hit = janus_focus_activate(screen);
+            janus_input_result_t hit = janus_focus_activate(&janus_app);
             switch (hit.kind) {
                 case JANUS_INPUT_ACTION:
                     janus_handle_action((janus_action_t)hit.action);
@@ -273,7 +292,7 @@ int main()
                 case JANUS_INPUT_NAVIGATE:
                     tft.fillScreen(0x0000); // see the rot0 branch above for why
                     janus_switch_screen(&janus_app, (uint16_t)hit.navigate_target);
-                    janus_focus_move(janus_app_get_screen(&janus_app, janus_app.active_screen), 0);
+                    janus_focus_move(&janus_app, 0);
                     break;
                 case JANUS_INPUT_TOGGLE_BOX:
                     janus_toggle_box(hit.widget);
@@ -283,7 +302,10 @@ int main()
             }
         }
         prevBtnMap = btnMap;
-
+        //this is bullshit. 
+        //serial protocol mus not be blocking of dependent on the presence of the data in the buffer.
+        //change this to a non-blocking protocol. the interruption should be a few instructions only. and a handler function must be installed in the timer handler.
+        //change the hardware serial to make this happen.
         mavlinkComms.poll();
 
         if(newDataAvailable){
@@ -314,34 +336,32 @@ int main()
                                          rotation, charging, battVoltage,
                                          analogIn, stats, count);
 
+            uint8_t relayMask = 0;
+            for (uint8_t i = 0; i < NUMBER_OF_RELAYS; i++)
+            {
+                if (relayState[i])
+                    relayMask |= (uint8_t)(1u << i);
+            }
+            mavlinkComms.sendRelayState(relayMask);
+
             refreshBusStatusInstance();
 
-            // This tick used to also do a full janus_render_screen here,
-            // to pick up BusStatus's passive (non-action) MAVLink updates.
-            // Since the 2026-09-05 status-bar/tab-bar redesign, that
-            // repainted the *entire* active screen every ~100ms regardless
-            // of what actually changed -- including screens with nothing
-            // passively updating at all -- which is what "the telemetry
-            // refresh cadence is for the header, not for every part of the
-            // screen" was calling out. Redraw only the status bar now
-            // (janus_render_widget, new 2026-09-05 -- see janus_runtime.h)
-            // -- status_bar is always the first top-level widget on every
-            // screen, by convention (every *.screen.yaml authors it that
-            // way), not something Janus enforces, so this breaks silently
-            // if that convention is ever violated.
+            // This tick used to also force-redraw the active screen's first
+            // top-level widget every ~100ms, back when that widget was
+            // always a per-screen status_bar row needing a periodic refresh.
+            // Since Janus's status_bar epic (2026-09-15), the status text is
+            // app-level chrome (app.yaml's `status:`, static, painted once
+            // by janus_render_status_bar) -- it's no longer a screen widget
+            // at all, so there's nothing left for this tick to periodically
+            // refresh. Removed rather than repointed at whatever now
+            // happens to be widgets[0] on each screen, which would silently
+            // redraw unrelated content for no reason.
             //
-            // Known regression from this change, not fixed here:
-            // BusStatus's own CAN/RS485 fields no longer refresh on this
-            // timer -- only on tab-switch or a box being toggled. Needs
-            // its own mechanism (e.g. an action fired from the MAVLink
-            // receive path) if live passive refresh there still matters;
-            // deliberately left as a follow-up rather than smuggled back
-            // in as a second full-screen call here.
-            const janus_screen_desc_t *active_screen = janus_app_get_screen(&janus_app, janus_app.active_screen);
-            janus_screen_desc_t ls = janus_screen_load(active_screen);
-            if (ls.widget_count > 0) {
-                janus_render_widget(&ls.widgets[0], ls.bound_struct);
-            }
+            // Known regression, still not fixed here: BusStatus's own
+            // CAN/RS485 fields only refresh on tab-switch or a box being
+            // toggled, not passively on this timer. Needs its own mechanism
+            // (e.g. an action fired from the MAVLink receive path) if live
+            // passive refresh there still matters.
         }
 
     }

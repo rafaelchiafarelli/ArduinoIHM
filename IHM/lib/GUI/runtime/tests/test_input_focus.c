@@ -56,12 +56,34 @@ static const janus_widget_desc_t widgets[] = {
         .children = &box_child, .child_count = 1,
         .navigate_target = -1, .focus_order = 2,
     },
+    {
+        /* Headerless box (geometry_collapsed.h == 0, no title/summary, no
+         * children) -- draw_box_header's `has_strip` branch never runs for
+         * it, so nothing in its normal redraw path repaints its footprint.
+         * Exercises janus_set_focus's explicit erase for exactly this case
+         * (see test_unfocusing_headerless_box_clears_its_full_body_ring). */
+        .kind = JANUS_WIDGET_BOX, .id = "box2",
+        .geometry = { 60, 90, 40, 30 }, .geometry_collapsed = { 60, 90, 40, 0 },
+        .initial_expanded = false,
+        .children = NULL, .child_count = 0,
+        .navigate_target = -1, .focus_order = 4,
+    },
 };
 #define BUTTON_A (&widgets[0])
 #define BUTTON_B (&widgets[2])
 #define BOX_WIDGET (&widgets[3])
+#define BOX2_WIDGET (&widgets[4])
 static const janus_screen_desc_t screen = {
-    .name = "Focus", .widgets = widgets, .widget_count = 4, .bound_struct = NULL,
+    .name = "Focus", .widgets = widgets, .widget_count = 5, .bound_struct = NULL,
+};
+/* No `nav:` in this fixture (nav_tabs = NULL) — janus_focus_move/activate
+ * take the whole app as of task 4, but with no nav strip every call
+ * below degrades to the plain per-screen wrap these tests exercise;
+ * test_nav_focus.c covers the nav-folded-into-focus behavior itself. */
+static const janus_screen_desc_t *const screens[] = { &screen };
+static janus_app_t app = {
+    .screens = screens, .screen_count = 1, .active_screen = 0,
+    .nav_tabs = NULL, .nav_tab_count = 0, .nav_titles = NULL,
 };
 
 static void reset(void) {
@@ -73,64 +95,76 @@ static void reset(void) {
 
 static void test_delta_zero_establishes_initial_focus_at_first_focusable(void) {
     reset();
-    janus_focus_move(&screen, 0);
+    janus_focus_move(&app, 0);
     CHECK(log_has_draw_at(BUTTON_A->geometry.x, BUTTON_A->geometry.y));
 
-    janus_input_result_t hit = janus_focus_activate(&screen);
+    janus_input_result_t hit = janus_focus_activate(&app);
     CHECK(hit.kind == JANUS_INPUT_ACTION);
     CHECK(hit.action == 42);
 }
 
 static void test_moving_forward_redraws_old_and_new_focused_widget(void) {
     reset();
-    janus_focus_move(&screen, 0); /* -> button_a */
+    janus_focus_move(&app, 0); /* -> button_a */
     mock_driver_reset();
 
-    janus_focus_move(&screen, 1); /* -> button_b */
+    janus_focus_move(&app, 1); /* -> button_b */
     CHECK(log_has_draw_at(BUTTON_A->geometry.x, BUTTON_A->geometry.y)); /* old, now unfocused */
     CHECK(log_has_draw_at(BUTTON_B->geometry.x, BUTTON_B->geometry.y)); /* new focus */
 
-    janus_input_result_t hit = janus_focus_activate(&screen);
+    janus_input_result_t hit = janus_focus_activate(&app);
     CHECK(hit.kind == JANUS_INPUT_NAVIGATE);
     CHECK(hit.navigate_target == 5);
 }
 
 static void test_moving_forward_wraps_past_the_last_focusable_widget(void) {
     /* box starts collapsed, so box_child isn't reachable yet — the
-     * walkable set is exactly {button_a, button_b, box}. */
+     * walkable set is exactly {button_a, button_b, box, box2}. */
     reset();
-    janus_focus_move(&screen, 0); /* -> button_a (index 0) */
-    janus_focus_move(&screen, 2); /* -> box (index 2) */
+    janus_focus_move(&app, 0); /* -> button_a (index 0) */
+    janus_focus_move(&app, 3); /* -> box2 (index 3, last) */
 
-    janus_input_result_t hit = janus_focus_activate(&screen);
+    janus_input_result_t hit = janus_focus_activate(&app);
     CHECK(hit.kind == JANUS_INPUT_TOGGLE_BOX);
-    CHECK(hit.widget == BOX_WIDGET);
+    CHECK(hit.widget == BOX2_WIDGET);
 
-    janus_focus_move(&screen, 1); /* wraps back to index 0 */
-    hit = janus_focus_activate(&screen);
+    janus_focus_move(&app, 1); /* wraps back to index 0 */
+    hit = janus_focus_activate(&app);
     CHECK(hit.kind == JANUS_INPUT_ACTION);
     CHECK(hit.action == 42);
 }
 
 static void test_moving_backward_from_first_wraps_to_last(void) {
     reset();
-    janus_focus_move(&screen, 0); /* -> button_a (index 0) */
-    janus_focus_move(&screen, -1); /* wraps to index 2: box */
+    janus_focus_move(&app, 0); /* -> button_a (index 0) */
+    janus_focus_move(&app, -1); /* wraps to index 3: box2 */
 
-    janus_input_result_t hit = janus_focus_activate(&screen);
+    janus_input_result_t hit = janus_focus_activate(&app);
     CHECK(hit.kind == JANUS_INPUT_TOGGLE_BOX);
+    CHECK(hit.widget == BOX2_WIDGET);
 }
 
 static void test_expanding_box_makes_its_child_reachable(void) {
     reset();
-    janus_focus_move(&screen, 0); /* -> button_a */
-    janus_focus_move(&screen, 2); /* -> box */
+    janus_focus_move(&app, 0); /* -> button_a */
+    janus_focus_move(&app, 2); /* -> box */
     janus_toggle_box(BOX_WIDGET); /* now expanded: box_child becomes reachable */
 
-    janus_focus_move(&screen, 1); /* -> box_child, not wrapping to button_a anymore */
-    janus_input_result_t hit = janus_focus_activate(&screen);
+    janus_focus_move(&app, 1); /* -> box_child, not wrapping to button_a anymore */
+    janus_input_result_t hit = janus_focus_activate(&app);
     CHECK(hit.kind == JANUS_INPUT_ACTION);
     CHECK(hit.action == 7);
+}
+
+static void test_unfocusing_headerless_box_clears_its_full_body_ring(void) {
+    reset();
+    janus_focus_move(&app, 0);  /* -> button_a */
+    janus_focus_move(&app, 3);  /* -> button_b -> box -> box2 */
+    CHECK(janus_get_focus() == BOX2_WIDGET);
+    mock_driver_reset();
+
+    janus_focus_move(&app, -1); /* -> box; box2 must be unfocus-redrawn to erase its ring */
+    CHECK(log_has_draw_at(BOX2_WIDGET->geometry.x, BOX2_WIDGET->geometry.y));
 }
 
 static void test_no_focusable_widgets_is_a_defined_no_op(void) {
@@ -141,12 +175,17 @@ static void test_no_focusable_widgets_is_a_defined_no_op(void) {
     static const janus_screen_desc_t empty_screen = {
         .name = "Empty", .widgets = &label_only, .widget_count = 1, .bound_struct = NULL,
     };
+    static const janus_screen_desc_t *const empty_screens[] = { &empty_screen };
+    static janus_app_t empty_app = {
+        .screens = empty_screens, .screen_count = 1, .active_screen = 0,
+        .nav_tabs = NULL, .nav_tab_count = 0, .nav_titles = NULL,
+    };
     mock_driver_reset();
     janus_render_screen(&empty_screen);
     mock_driver_reset();
 
-    janus_focus_move(&empty_screen, 1);
-    janus_input_result_t hit = janus_focus_activate(&empty_screen);
+    janus_focus_move(&empty_app, 1);
+    janus_input_result_t hit = janus_focus_activate(&empty_app);
     CHECK(hit.kind == JANUS_INPUT_NONE);
 }
 
@@ -155,6 +194,11 @@ int main(void) {
     test_moving_forward_redraws_old_and_new_focused_widget();
     test_moving_forward_wraps_past_the_last_focusable_widget();
     test_moving_backward_from_first_wraps_to_last();
+    /* box2's reachable position assumes `box` (widgets[3]) is still
+     * collapsed (box_child not yet focusable) -- must run before
+     * test_expanding_box_makes_its_child_reachable, which permanently
+     * expands it (box state persists across reset()/janus_render_screen). */
+    test_unfocusing_headerless_box_clears_its_full_body_ring();
     test_expanding_box_makes_its_child_reachable(); /* must run after collapsed-state tests */
     test_no_focusable_widgets_is_a_defined_no_op();
 
