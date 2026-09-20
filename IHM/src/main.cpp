@@ -151,8 +151,6 @@ ISR(TIMER2_COMPA_vect){ /*~1.008ms system tick*/
     
     multiOuput.fast_handler();
     bMap = userInputs.fast_handler();
-    //put the serial protocol in the timer handler here. this is not a blocking function and will process all the inputs present in the buffer.
-    //the main loop will check if new data is available and will process it. the serial protocol must be non-blocking and must not depend on the presence of data in the buffer. it must be a few instructions only.
     counterT0++;
     if (counterT0 >= TEN_MS_T0_TICKS) { //~10ms elapsed
         counterT0 = 0;
@@ -174,6 +172,12 @@ ISR(TIMER2_COMPA_vect){ /*~1.008ms system tick*/
         newDataAvailable = comms.fast_handler(receivedRawData,10);
         rotaryEncoders.ms_handler(bMap);
     }
+    // Serial RX: bounded drain of the USART0 ring into the MAVLink parser.
+    // Last on purpose (AVR ISRs don't nest, so the USART0 RX ISR waits for
+    // everything above) and before the timeStatistics sample so the loop-
+    // time debug field reflects its cost. Never blocks, never drives
+    // hardware -- see MavlinkComms::tick().
+    mavlinkComms.tick();
     timeStatistics += TCNT2;
     timeCounter+=1;
     //TCNT2 = 0; //reset the T0 timer to the next interrupt point taking into account the drift;
@@ -241,8 +245,8 @@ int main()
             // pass -- real input always wins, and this is consumed
             // exactly once either way.
             if(dir[i] == not_supported){
-                uint8_t simulated = mavlinkComms.consumeSimulatedEncoderDirection(i);
-                if(simulated == CCW || simulated == CW)
+                uint8_t simulated = 0;
+                if(mavlinkComms.takeSimulatedEncoderDirection(i, &simulated) && (simulated == CCW || simulated == CW))
                     dir[i] = (DIRECTION_TYPE)simulated;
             }
         }
@@ -302,11 +306,8 @@ int main()
             }
         }
         prevBtnMap = btnMap;
-        //this is bullshit. 
-        //serial protocol mus not be blocking of dependent on the presence of the data in the buffer.
-        //change this to a non-blocking protocol. the interruption should be a few instructions only. and a handler function must be installed in the timer handler.
-        //change the hardware serial to make this happen.
-        mavlinkComms.poll();
+        // MAVLink RX is drained from the Timer2 tick (mavlinkComms.tick());
+        // this loop only consumes what it stored, via the take*() accessors.
 
         if(newDataAvailable){
             voltage0 = receivedRawData[0];

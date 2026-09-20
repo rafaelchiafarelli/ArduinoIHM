@@ -31,9 +31,10 @@ build and full functionality -- the display works, DAC output doesn't.
   `main.cpp` (`dac1.setVoltage(voltage0,...)`, `dac0.setVoltage(voltage1,...)`).
   May match board wiring -- check deliberately before assuming
   "channel 0 = voltage0".
-- **`MavlinkComms::poll()` drains its whole RX ring buffer in one
-  unbounded `while (serial->available())` loop.** A burst of buffered
-  bytes can hold up the rest of the superloop until they're all parsed.
+- **Bench-verify the Timer2-tick serial drain** (`MavlinkComms::tick()`,
+  `serial_transport` epic). It replaced the unbounded `poll()` loop and
+  is unmeasured on hardware: stream commands from the companion and
+  confirm no framing/CRC errors. Fallback knobs are in that epic's README.
 - **BusStatus tab passive refresh.** `bus_status_instance`'s CAN/RS-485
   fields only repaint on tab-switch or box-toggle -- the ~100ms tick
   redraws only the status bar. Live refresh there needs its own trigger

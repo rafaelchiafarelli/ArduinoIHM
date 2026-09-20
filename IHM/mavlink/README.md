@@ -38,9 +38,24 @@ Largest message is 38 bytes, hence the 64-byte cap (some margin for the
 still-undesigned SD-card-status and UI-state messages -- see
 `IHM/NEXT-SESSION.md`).
 
+## Receive path (who does what)
+
+1. The Arduino core's USART0 RX ISR puts every byte in its 64 B ring.
+2. `MavlinkComms::tick()` runs from the ~1 ms Timer2 ISR (`main.cpp`,
+   last statement before the loop-time sample). It moves at most
+   `MAVLINK_RX_BYTES_PER_TICK` (default 16) bytes into the parser and, on a
+   complete frame, decodes it into a storage slot and sets a pending flag.
+   It never blocks, never waits for data and never touches hardware.
+3. The superloop acts on results through atomic `take*()` copy-outs
+   (`takeSimulatedEncoderDirection`, and `takePwmChannelConfig` in
+   `pwm_control`), which are safe against `tick()` landing mid-read.
+
+Transmit is best-effort: telemetry frames are dropped, never waited on,
+when the TX ring cannot hold them (`serial_transport` task 2).
+
 ## Parsing: use `mavlink_frame_char_buffer()`, not `mavlink_parse_char()`
 
-`MavlinkComms::poll()` feeds incoming bytes to `mavlink_frame_char_buffer()`,
+`MavlinkComms::tick()` feeds incoming bytes to `mavlink_frame_char_buffer()`,
 not the more commonly-shown `mavlink_parse_char()`. Measured, not
 theoretical: switching from the latter to the former dropped this project's
 build from 7059 to 6663 bytes of RAM (86.2% -> 81.3%) with zero functional
