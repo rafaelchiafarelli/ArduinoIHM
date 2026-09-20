@@ -96,6 +96,7 @@ $prodSourceAllowlist = @(
     "lib/MultiOutput/src/PWMTiming.cpp",
     "lib/MultiOutput/src/PWMConfig.cpp",
     "lib/MultiOutput/src/PWMChannelConfig.cpp",
+    "lib/MultiOutput/src/PWMWireConfig.cpp",
     "lib/MultiOutput/src/PWMLabelFormat.cpp",
     "lib/RotaryEncoder/ButtonMap.cpp",
     "src/Timer2Config.cpp"
