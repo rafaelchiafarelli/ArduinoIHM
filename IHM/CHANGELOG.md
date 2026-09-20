@@ -13,6 +13,12 @@
   `epics` (input_simulation, relay_control: ids 304/305) merged in, so the
   dialect is now 300-305 and CRC-identical to the PC companion's copy.
 - `.gitattributes` added (LF in repo) -- ~80 files were CRLF-only noise.
+- PC companion (`IHMPCController`, outside this repo, not version-controlled):
+  new PWM command panel (`SendPwmChannelConfig` in `MavlinkLink.h`) and a
+  `HOW_TO_USE.md`. Compiles (VS 2022, x64 Debug); layout not visually checked.
+- `pwm_control` complete through task 5 (PWM tab mirrors PC configs); new
+  `mavlink/generated_py/` + `scripts/pwm_config.py`. AVR build after all of
+  it: RAM 4467 B (54.5%), Flash 70842 B (27.9%); native tests 110/110.
 - Planning fix: `PWM::setupPWMChannelN`'s duty argument is a **raw OCR
   count**, not a percent; `pwm_control` tasks 2/3 now reuse
   `computeSimplex/ComplexCallArgs` instead of scaling twice.
