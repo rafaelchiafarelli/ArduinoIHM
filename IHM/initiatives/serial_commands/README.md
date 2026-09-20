@@ -35,7 +35,10 @@ same split as `sendBoardState()` (the class packs the message,
 
 | Epic | Status | Scope |
 |---|---|---|
-| `pwm_control` | planned | PC configures the 4 PWM channels (2 simplex, 2 complex) over MAVLink. |
+| `serial_transport` | planned | Non-blocking, Timer2-tick-driven MAVLink RX; drop-not-block TX. Prerequisite for every command epic. |
+| `pwm_control` | in progress (task 1 done) | PC configures the 4 PWM channels (2 simplex, 2 complex) over MAVLink. |
+
+| `pc_companion` | planned | The Windows companion (`IHMPCController`) gains PWM/serial send UI + a how-to-use doc. |
 
 ### Not yet scoped (future epics under this initiative)
 

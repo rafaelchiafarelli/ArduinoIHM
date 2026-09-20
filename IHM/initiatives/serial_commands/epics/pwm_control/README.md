@@ -16,8 +16,11 @@ on-screen UI.
 
 `f_selector` is `PWMFrequency` (`lib/MultiOutput/src/PWMTiming.h`) -- 13
 fixed entries plus `frequency_variable` (raw ICRn TOP supplied in the
-`frequency` arg). `dutyCycle` args are 0-100 (percent), scaled against the
-mode's resolution TOP by `pwmResolutionTop()`.
+`frequency` arg). **`dutyCycle` args are RAW OCR counts, not percent**
+(`regs.ocrA = dutyCycle`). Percent->raw is done by the existing
+`computeSimplexCallArgs` / `computeComplexCallArgs`
+(`PWMChannelConfig.h`, using `pwmResolutionTop()`); this epic reuses
+them instead of scaling again.
 
 The `PWM pwm;` global in `main.cpp` is the instance to drive -- it exists
 but is never configured at runtime today.
@@ -45,9 +48,10 @@ saving under the 64-byte cap.)
 
 ```
 1-pwm-channel-config-message   dialect + regenerate            (no deps)
-2-pwm-channel-config-mapping   pure config->args mapping + test (no deps)
-3-pwm-config-receive-apply     MavlinkComms decode + main.cpp   (deps: 1, 2)
-                               apply to hardware + runbook
+2-pwm-channel-config-mapping   wire -> PWMChannelConfig adapter    (no deps)
+                               + test (reuses compute*CallArgs)
+3-pwm-config-receive-apply     MavlinkComms decode + main.cpp   (deps: 1, 2,
+                               apply to hardware + runbook       serial_transport/1)
 4-pwm-send-script              pymavlink bench sender           (deps: 1)
 5-pwm-tab-reflects-mavlink     mirror into pwm_instance so the  (deps: 3)
                                on-screen PWM tab tracks it
