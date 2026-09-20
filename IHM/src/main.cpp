@@ -236,6 +236,15 @@ int main()
         DIRECTION_TYPE dir[MAX_NUMBER_EMCODERS];
         for(int i = 0; i < MAX_NUMBER_EMCODERS; i++){
             dir[i] = rotaryEncoders.getDirection(i);
+            // A simulated turn (IHM_SIMULATE_ENCODER, PC -> board) only
+            // takes effect when the real hardware read was idle this
+            // pass -- real input always wins, and this is consumed
+            // exactly once either way.
+            if(dir[i] == not_supported){
+                uint8_t simulated = mavlinkComms.consumeSimulatedEncoderDirection(i);
+                if(simulated == CCW || simulated == CW)
+                    dir[i] = (DIRECTION_TYPE)simulated;
+            }
         }
         uint8_t btnMap = buildButtonMap(bMap);
 
@@ -326,6 +335,14 @@ int main()
                                          (uint8_t)dir[0], (uint8_t)dir[1], (uint8_t)dir[2],
                                          rotation, charging, battVoltage,
                                          analogIn, stats, count);
+
+            uint8_t relayMask = 0;
+            for (uint8_t i = 0; i < NUMBER_OF_RELAYS; i++)
+            {
+                if (relayState[i])
+                    relayMask |= (uint8_t)(1u << i);
+            }
+            mavlinkComms.sendRelayState(relayMask);
 
             refreshBusStatusInstance();
 

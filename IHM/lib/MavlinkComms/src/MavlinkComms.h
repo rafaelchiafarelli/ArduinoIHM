@@ -23,6 +23,13 @@ private:
     mavlink_rs485_signal_config_t rs485Config;
     bool rs485ConfigValid;
 
+    // Pending simulated encoder turns, one slot per encoder (hardcoded 3,
+    // same as canConfig[2] hardcodes 2 CAN buses -- this class stays
+    // decoupled from RotaryEncoder.h/MAX_NUMBER_EMCODERS, see the
+    // initiative's layering rule). Raw wire values, not DIRECTION_TYPE.
+    uint8_t simulatedEncoderDirection[3];
+    bool simulatedEncoderPending[3];
+
     void dispatch()
     {
         switch (rxMsg.msgid)
@@ -42,6 +49,17 @@ private:
             mavlink_msg_rs485_signal_config_decode(&rxMsg, &rs485Config);
             rs485ConfigValid = true;
             break;
+        case MAVLINK_MSG_ID_IHM_SIMULATE_ENCODER:
+        {
+            mavlink_ihm_simulate_encoder_t cmd;
+            mavlink_msg_ihm_simulate_encoder_decode(&rxMsg, &cmd);
+            if (cmd.encoder < 3)
+            {
+                simulatedEncoderDirection[cmd.encoder] = cmd.direction;
+                simulatedEncoderPending[cmd.encoder] = true;
+            }
+            break;
+        }
         default:
             break;
         }
@@ -49,7 +67,8 @@ private:
 
 public:
     explicit MavlinkComms(HardwareSerial *serialPort)
-        : serial(serialPort), canConfigValid{false, false}, rs485ConfigValid(false)
+        : serial(serialPort), canConfigValid{false, false}, rs485ConfigValid(false),
+          simulatedEncoderPending{false, false, false}
     {
     }
 
@@ -97,6 +116,31 @@ public:
         uint8_t buf[MAVLINK_MAX_PACKET_LEN];
         uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
         serial->write(buf, len);
+    }
+
+    // Packs and transmits one IHM_RELAY_STATE message. bitmask's bit i is
+    // relay i (0-7); caller (main.cpp) builds it from relayState[], this
+    // class only packs/sends it -- same split as sendBoardState().
+    void sendRelayState(uint8_t relayBitmask)
+    {
+        mavlink_message_t msg;
+        mavlink_msg_ihm_relay_state_pack(1, 1, &msg, relayBitmask);
+        uint8_t buf[MAVLINK_MAX_PACKET_LEN];
+        uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+        serial->write(buf, len);
+    }
+
+    // Returns 0 (not_supported) if encoderIndex is out of range or nothing
+    // is pending for it; otherwise clears the pending flag and returns the
+    // stored direction (raw wire value -- caller casts to DIRECTION_TYPE).
+    // One-shot by design, mirroring RotaryEncoder::getDirection()'s own
+    // consumed-on-read behavior for real turns.
+    uint8_t consumeSimulatedEncoderDirection(uint8_t encoderIndex)
+    {
+        if (encoderIndex >= 3 || !simulatedEncoderPending[encoderIndex])
+            return 0;
+        simulatedEncoderPending[encoderIndex] = false;
+        return simulatedEncoderDirection[encoderIndex];
     }
 
     // Returns nullptr if no config has been received yet for that bus.

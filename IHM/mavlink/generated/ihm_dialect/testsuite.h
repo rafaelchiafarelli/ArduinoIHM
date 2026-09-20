@@ -292,12 +292,133 @@ static void mavlink_test_pwm_channel_config(uint8_t system_id, uint8_t component
 #endif
 }
 
+static void mavlink_test_ihm_relay_state(uint8_t system_id, uint8_t component_id, mavlink_message_t *last_msg)
+{
+#ifdef MAVLINK_STATUS_FLAG_OUT_MAVLINK1
+    mavlink_status_t *status = mavlink_get_channel_status(MAVLINK_COMM_0);
+        if ((status->flags & MAVLINK_STATUS_FLAG_OUT_MAVLINK1) && MAVLINK_MSG_ID_IHM_RELAY_STATE >= 256) {
+            return;
+        }
+#endif
+    mavlink_message_t msg;
+        uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
+        uint16_t i;
+    mavlink_ihm_relay_state_t packet_in = {
+        5
+    };
+    mavlink_ihm_relay_state_t packet1, packet2;
+        memset(&packet1, 0, sizeof(packet1));
+        packet1.relays = packet_in.relays;
+        
+        
+#ifdef MAVLINK_STATUS_FLAG_OUT_MAVLINK1
+        if (status->flags & MAVLINK_STATUS_FLAG_OUT_MAVLINK1) {
+           // cope with extensions
+           memset(MAVLINK_MSG_ID_IHM_RELAY_STATE_MIN_LEN + (char *)&packet1, 0, sizeof(packet1)-MAVLINK_MSG_ID_IHM_RELAY_STATE_MIN_LEN);
+        }
+#endif
+        memset(&packet2, 0, sizeof(packet2));
+    mavlink_msg_ihm_relay_state_encode(system_id, component_id, &msg, &packet1);
+    mavlink_msg_ihm_relay_state_decode(&msg, &packet2);
+        MAVLINK_ASSERT(memcmp(&packet1, &packet2, sizeof(packet1)) == 0);
+
+        memset(&packet2, 0, sizeof(packet2));
+    mavlink_msg_ihm_relay_state_pack(system_id, component_id, &msg , packet1.relays );
+    mavlink_msg_ihm_relay_state_decode(&msg, &packet2);
+        MAVLINK_ASSERT(memcmp(&packet1, &packet2, sizeof(packet1)) == 0);
+
+        memset(&packet2, 0, sizeof(packet2));
+    mavlink_msg_ihm_relay_state_pack_chan(system_id, component_id, MAVLINK_COMM_0, &msg , packet1.relays );
+    mavlink_msg_ihm_relay_state_decode(&msg, &packet2);
+        MAVLINK_ASSERT(memcmp(&packet1, &packet2, sizeof(packet1)) == 0);
+
+        memset(&packet2, 0, sizeof(packet2));
+        mavlink_msg_to_send_buffer(buffer, &msg);
+        for (i=0; i<mavlink_msg_get_send_buffer_length(&msg); i++) {
+            comm_send_ch(MAVLINK_COMM_0, buffer[i]);
+        }
+    mavlink_msg_ihm_relay_state_decode(last_msg, &packet2);
+        MAVLINK_ASSERT(memcmp(&packet1, &packet2, sizeof(packet1)) == 0);
+        
+        memset(&packet2, 0, sizeof(packet2));
+    mavlink_msg_ihm_relay_state_send(MAVLINK_COMM_1 , packet1.relays );
+    mavlink_msg_ihm_relay_state_decode(last_msg, &packet2);
+        MAVLINK_ASSERT(memcmp(&packet1, &packet2, sizeof(packet1)) == 0);
+
+#ifdef MAVLINK_HAVE_GET_MESSAGE_INFO
+    MAVLINK_ASSERT(mavlink_get_message_info_by_name("IHM_RELAY_STATE") != NULL);
+    MAVLINK_ASSERT(mavlink_get_message_info_by_id(MAVLINK_MSG_ID_IHM_RELAY_STATE) != NULL);
+#endif
+}
+
+static void mavlink_test_ihm_simulate_encoder(uint8_t system_id, uint8_t component_id, mavlink_message_t *last_msg)
+{
+#ifdef MAVLINK_STATUS_FLAG_OUT_MAVLINK1
+    mavlink_status_t *status = mavlink_get_channel_status(MAVLINK_COMM_0);
+        if ((status->flags & MAVLINK_STATUS_FLAG_OUT_MAVLINK1) && MAVLINK_MSG_ID_IHM_SIMULATE_ENCODER >= 256) {
+            return;
+        }
+#endif
+    mavlink_message_t msg;
+        uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
+        uint16_t i;
+    mavlink_ihm_simulate_encoder_t packet_in = {
+        5,72
+    };
+    mavlink_ihm_simulate_encoder_t packet1, packet2;
+        memset(&packet1, 0, sizeof(packet1));
+        packet1.encoder = packet_in.encoder;
+        packet1.direction = packet_in.direction;
+        
+        
+#ifdef MAVLINK_STATUS_FLAG_OUT_MAVLINK1
+        if (status->flags & MAVLINK_STATUS_FLAG_OUT_MAVLINK1) {
+           // cope with extensions
+           memset(MAVLINK_MSG_ID_IHM_SIMULATE_ENCODER_MIN_LEN + (char *)&packet1, 0, sizeof(packet1)-MAVLINK_MSG_ID_IHM_SIMULATE_ENCODER_MIN_LEN);
+        }
+#endif
+        memset(&packet2, 0, sizeof(packet2));
+    mavlink_msg_ihm_simulate_encoder_encode(system_id, component_id, &msg, &packet1);
+    mavlink_msg_ihm_simulate_encoder_decode(&msg, &packet2);
+        MAVLINK_ASSERT(memcmp(&packet1, &packet2, sizeof(packet1)) == 0);
+
+        memset(&packet2, 0, sizeof(packet2));
+    mavlink_msg_ihm_simulate_encoder_pack(system_id, component_id, &msg , packet1.encoder , packet1.direction );
+    mavlink_msg_ihm_simulate_encoder_decode(&msg, &packet2);
+        MAVLINK_ASSERT(memcmp(&packet1, &packet2, sizeof(packet1)) == 0);
+
+        memset(&packet2, 0, sizeof(packet2));
+    mavlink_msg_ihm_simulate_encoder_pack_chan(system_id, component_id, MAVLINK_COMM_0, &msg , packet1.encoder , packet1.direction );
+    mavlink_msg_ihm_simulate_encoder_decode(&msg, &packet2);
+        MAVLINK_ASSERT(memcmp(&packet1, &packet2, sizeof(packet1)) == 0);
+
+        memset(&packet2, 0, sizeof(packet2));
+        mavlink_msg_to_send_buffer(buffer, &msg);
+        for (i=0; i<mavlink_msg_get_send_buffer_length(&msg); i++) {
+            comm_send_ch(MAVLINK_COMM_0, buffer[i]);
+        }
+    mavlink_msg_ihm_simulate_encoder_decode(last_msg, &packet2);
+        MAVLINK_ASSERT(memcmp(&packet1, &packet2, sizeof(packet1)) == 0);
+        
+        memset(&packet2, 0, sizeof(packet2));
+    mavlink_msg_ihm_simulate_encoder_send(MAVLINK_COMM_1 , packet1.encoder , packet1.direction );
+    mavlink_msg_ihm_simulate_encoder_decode(last_msg, &packet2);
+        MAVLINK_ASSERT(memcmp(&packet1, &packet2, sizeof(packet1)) == 0);
+
+#ifdef MAVLINK_HAVE_GET_MESSAGE_INFO
+    MAVLINK_ASSERT(mavlink_get_message_info_by_name("IHM_SIMULATE_ENCODER") != NULL);
+    MAVLINK_ASSERT(mavlink_get_message_info_by_id(MAVLINK_MSG_ID_IHM_SIMULATE_ENCODER) != NULL);
+#endif
+}
+
 static void mavlink_test_ihm_dialect(uint8_t system_id, uint8_t component_id, mavlink_message_t *last_msg)
 {
     mavlink_test_ihm_board_state(system_id, component_id, last_msg);
     mavlink_test_can_signal_config(system_id, component_id, last_msg);
     mavlink_test_rs485_signal_config(system_id, component_id, last_msg);
     mavlink_test_pwm_channel_config(system_id, component_id, last_msg);
+    mavlink_test_ihm_relay_state(system_id, component_id, last_msg);
+    mavlink_test_ihm_simulate_encoder(system_id, component_id, last_msg);
 }
 
 #ifdef __cplusplus

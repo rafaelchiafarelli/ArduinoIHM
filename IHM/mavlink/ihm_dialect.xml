@@ -170,5 +170,29 @@
       <field type="uint8_t" name="out3_inverting">Output C edge polarity. Ignored for channels 0 and 1.</field>
       <field type="uint8_t" name="out3_duty_percent">Output C duty cycle, 0-100. Ignored for channels 0 and 1.</field>
     </message>
+
+    <message id="304" name="IHM_RELAY_STATE">
+      <description>
+        Periodic snapshot of all 8 relay outputs. Board -> PC, telemetry,
+        read-only -- there is no PC -> board relay command yet (relays are
+        only toggled locally, by the physical buttons or the on-screen
+        Relay tab). Mirrors main.cpp's relayState[NUMBER_OF_RELAYS] the
+        same way IHM_BOARD_STATE.buttons mirrors the button bitmap.
+      </description>
+      <field type="uint8_t" name="relays">Bitmask, bit i = relay i (0-7), 1 = on.</field>
+    </message>
+
+    <message id="305" name="IHM_SIMULATE_ENCODER">
+      <description>
+        PC injects one simulated rotation step on the given encoder. The
+        board applies it only if that encoder's real hardware read was
+        idle (not_supported) on the same superloop pass -- real input
+        always wins, no fight between the two sources. Consumed exactly
+        once, mirroring the real encoder's own edge-triggered/consumed-
+        on-read semantics (RotaryEncoder.h). No ack. PC -> board, command.
+      </description>
+      <field type="uint8_t" name="encoder">Target encoder, 0-2. Out-of-range is dropped by the board.</field>
+      <field type="uint8_t" name="direction" enum="IHM_ENCODER_DIRECTION">CW or CCW; NOT_SUPPORTED is a no-op.</field>
+    </message>
   </messages>
 </mavlink>
