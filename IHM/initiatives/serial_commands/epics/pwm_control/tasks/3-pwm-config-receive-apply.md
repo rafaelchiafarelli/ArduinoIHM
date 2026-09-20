@@ -1,6 +1,6 @@
 # Task 3: pwm-config-receive-apply
 
-**Status:** not started
+**Status:** done
 **Branch:** `3-pwm-config-receive-apply` (from `tasks`)
 **Depends on:** task 1 (message), task 2 (`PwmWireConfig` adapter),
 `serial_transport` task 1 (ISR-side receive + atomic `take*` accessors)
