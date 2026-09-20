@@ -2,5 +2,6 @@
     "C_Cpp.errorSquiggles": "disabled",
     "files.associations": {
         "new": "cpp"
-    }
+    },
+    "cmake.sourceDirectory": "C:/Users/rafae/workspace/ArduinoIHM/IHM/lib/GUI/runtime"
 }
