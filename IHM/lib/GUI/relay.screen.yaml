@@ -1,14 +1,11 @@
 # Output tab -- 8 relays on the shared multiplexed bus (dig_1 strobe,
 # see ARCHITECTURE.md "The multiplexed output bus"). Each row mirrors
 # RelayConfig (lib/MultiOutput/src/RelayConfig.h): a single on/off bit.
+# Status text is app.yaml's `status: { text: ... }` chrome (status_bar
+# epic) now, not a per-screen row -- see pwm.screen.yaml's header comment.
 screen: Relay
 layout: column
 children:
-  - kind: row
-    id: status_bar
-    children:
-      - { kind: label, id: status_placeholder, text: "Status: TBD", font_size: medium, size: { w: 140, h: 20 } }
-
   - kind: navlist
     id: relay_list
     layout: column

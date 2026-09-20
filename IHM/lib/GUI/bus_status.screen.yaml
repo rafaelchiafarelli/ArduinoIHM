@@ -9,14 +9,12 @@
 # that need to read at a glance from a distance, which none of this
 # dense, read-only monitor content is. Sizes below are re-tuned for
 # medium's ~11px/char (1px pad + 10 + 1px gap) instead of large's ~21px.
+#
+# Status text is app.yaml's `status: { text: ... }` chrome (status_bar
+# epic) now, not a per-screen row -- see pwm.screen.yaml's header comment.
 screen: BusStatus
 layout: column
 children:
-  - kind: row
-    id: status_bar
-    children:
-      - { kind: label, id: status_placeholder, text: "Status: TBD", font_size: medium, size: { w: 140, h: 20 } }
-
   - kind: box
     id: can0_box
     layout: row

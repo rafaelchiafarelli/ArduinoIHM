@@ -11,6 +11,8 @@ nav:
     - { screen: PWM, title: "PWM" }
     - { screen: BusStatus, title: "SERIAL" }
     - { screen: Relay, title: "Output" }
+status:
+  text: "Status: TBD"
 display:
   size: { w: 320, h: 480 }
   color: rgb565
