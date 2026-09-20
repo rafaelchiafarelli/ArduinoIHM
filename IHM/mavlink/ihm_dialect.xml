@@ -194,5 +194,19 @@
       <field type="uint8_t" name="encoder">Target encoder, 0-2. Out-of-range is dropped by the board.</field>
       <field type="uint8_t" name="direction" enum="IHM_ENCODER_DIRECTION">CW or CCW; NOT_SUPPORTED is a no-op.</field>
     </message>
+
+    <message id="306" name="IHM_SIMULATE_BUTTON">
+      <description>
+        PC injects one simulated push of the given button(s): the bits set
+        in button_mask read as pressed for exactly one superloop pass, then
+        release. The pulse is OR-ed with the real hardware read (a real
+        press is never masked), so real input always wins. Same bit layout
+        as IHM_BOARD_STATE.buttons: bits 0-3 push buttons, 4 rot2, 5 rot1,
+        6 rot0. A pulse (not a held level) so a dropped frame can never
+        leave a button stuck down; the board acts on the press edge, so
+        one pulse is one click. No ack. PC -> board, command.
+      </description>
+      <field type="uint8_t" name="button_mask">Buttons to press this pass; bit i = button i, bit 7 ignored.</field>
+    </message>
   </messages>
 </mavlink>

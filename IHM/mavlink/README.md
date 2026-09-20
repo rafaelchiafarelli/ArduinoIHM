@@ -39,6 +39,7 @@ that class is unrelated and untouched by this).
 | `PWM_CHANNEL_CONFIG` | PC -> board | 13 | Configure one of the 4 PWM channels (0/1 simplex: output A only; 2/3 complex: outputs A/B/C) -- frequency selector, raw ICRn TOP for the variable mode, per-output enable/invert/duty. No ack; last writer wins |
 | `IHM_RELAY_STATE` | board -> PC | 1 | Bitmask of all 8 relay outputs, read-only telemetry -- mirrors `main.cpp`'s `relayState[]`; no PC -> board relay command exists yet |
 | `IHM_SIMULATE_ENCODER` | PC -> board | 2 | Inject one simulated CW/CCW rotation step on the given encoder; only applied when that encoder's real hardware read was idle the same pass -- real input always wins |
+| `IHM_SIMULATE_BUTTON` | PC -> board | 1 | Press the buttons in `button_mask` (bit layout as `IHM_BOARD_STATE.buttons`) for exactly one superloop pass; OR-ed with the real read, so real input wins |
 
 Largest message is 38 bytes, hence the 64-byte cap (some margin for the
 still-undesigned SD-card-status and UI-state messages -- see
@@ -49,7 +50,8 @@ still-undesigned SD-card-status and UI-state messages -- see
 | Command | Message | Tool |
 |---|---|---|
 | Configure a PWM channel | `PWM_CHANNEL_CONFIG` (303) | companion app "PWM command" panel, or `scripts/pwm_config.py` |
-| Simulate an encoder step | `IHM_SIMULATE_ENCODER` (305) | companion app CCW/CW buttons |
+| Simulate an encoder step | `IHM_SIMULATE_ENCODER` (305) | companion app CCW/CW buttons, or `scripts/sim_input.py encoder` |
+| Simulate a button click | `IHM_SIMULATE_BUTTON` (306) | `scripts/sim_input.py button` (companion app has no button UI yet) |
 
 None has an ack; the board's periodic `IHM_BOARD_STATE` is the only proof of
 life. Invalid frames are dropped silently. The companion app

@@ -30,6 +30,11 @@ private:
     uint8_t simulatedEncoderDirection[3];
     bool simulatedEncoderPending[3];
 
+    // Simulated button presses (IHM_SIMULATE_BUTTON), one bit per button in
+    // IHM_BOARD_STATE.buttons layout. Bits accumulate until consumed so two
+    // frames arriving in one pass are not lost.
+    uint8_t simulatedButtonMask;
+
     // Latest PWM_CHANNEL_CONFIG per channel, plus a pending flag set by
     // dispatch() (via poll()) and cleared by takePwmChannelConfig()
     // (superloop). Last writer wins: a newer frame for a channel replaces an
@@ -67,6 +72,13 @@ private:
             }
             break;
         }
+        case MAVLINK_MSG_ID_IHM_SIMULATE_BUTTON:
+        {
+            mavlink_ihm_simulate_button_t cmd;
+            mavlink_msg_ihm_simulate_button_decode(&rxMsg, &cmd);
+            simulatedButtonMask |= (cmd.button_mask & 0x7F);
+            break;
+        }
         case MAVLINK_MSG_ID_PWM_CHANNEL_CONFIG:
         {
             mavlink_pwm_channel_config_t cfg;
@@ -86,7 +98,7 @@ private:
 public:
     explicit MavlinkComms(HardwareSerial *serialPort)
         : serial(serialPort), canConfigValid{false, false}, rs485ConfigValid(false),
-          simulatedEncoderPending{false, false, false}, pwmConfigDirty{false, false, false, false}
+          simulatedEncoderPending{false, false, false}, simulatedButtonMask(0), pwmConfigDirty{false, false, false, false}
     {
     }
 
@@ -174,6 +186,16 @@ public:
             return 0;
         simulatedEncoderPending[encoderIndex] = false;
         return simulatedEncoderDirection[encoderIndex];
+    }
+
+    // Returns the bitmask of simulated buttons pressed since the last call
+    // (bit layout as IHM_BOARD_STATE.buttons) and clears it, so each
+    // IHM_SIMULATE_BUTTON is one press for exactly one superloop pass.
+    uint8_t consumeSimulatedButtons()
+    {
+        uint8_t m = simulatedButtonMask;
+        simulatedButtonMask = 0;
+        return m;
     }
 
     // Returns nullptr if no config has been received yet for that bus.

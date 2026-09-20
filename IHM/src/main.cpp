@@ -296,6 +296,11 @@ int main()
             }
         }
         uint8_t btnMap = buildButtonMap(bMap);
+        // A simulated press (IHM_SIMULATE_BUTTON, PC -> board) reads as
+        // pressed for this one pass. btnMap is active-low, so clearing the
+        // bit presses it; a real press is already 0 and stays 0. Applied
+        // before every btnMap consumer below (edge detection, telemetry).
+        btnMap &= (uint8_t)~mavlinkComms.consumeSimulatedButtons();
 
         // rot0: switch the active screen (PWM / SERIAL / Output) -- mirrors
         // the deleted TabSelector's rot0-drives-tabs behavior. Authored

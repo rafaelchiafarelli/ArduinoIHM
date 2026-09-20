@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-09-20 (later) -- PC input injection: buttons
+
+- New `IHM_SIMULATE_BUTTON` (id 306, PC -> board): pressed-for-one-pass pulse
+  per set bit, applied to `btnMap` right after `buildButtonMap()` in
+  `main.cpp` so edge detection and telemetry both see it. Encoders already
+  had `IHM_SIMULATE_ENCODER`; with this, the PC can drive every physical
+  input. `mavlink/scripts/sim_input.py` sends either. Still on `Serial`
+  (stopgap, see above). Not bench-tested; companion app has no button UI.
+
 ## 2026-09-20 -- PWM-over-MAVLink message; plan corrections; serial_transport reverted
 
 - **Reverted the `serial_transport` epic** (Timer2-tick `MavlinkComms::tick()`

@@ -427,6 +427,7 @@ MAVLINK_MSG_ID_RS485_SIGNAL_CONFIG = 302
 MAVLINK_MSG_ID_PWM_CHANNEL_CONFIG = 303
 MAVLINK_MSG_ID_IHM_RELAY_STATE = 304
 MAVLINK_MSG_ID_IHM_SIMULATE_ENCODER = 305
+MAVLINK_MSG_ID_IHM_SIMULATE_BUTTON = 306
 
 
 class MAVLink_ihm_board_state_message(MAVLink_message):
@@ -728,6 +729,52 @@ class MAVLink_ihm_simulate_encoder_message(MAVLink_message):
 setattr(MAVLink_ihm_simulate_encoder_message, "name", mavlink_msg_deprecated_name_property())
 
 
+class MAVLink_ihm_simulate_button_message(MAVLink_message):
+    """
+    PC injects one simulated push of the given button(s): the bits set
+    in button_mask read as pressed for exactly one superloop pass,
+    then         release. The pulse is OR-ed with the real hardware
+    read (a real         press is never masked), so real input always
+    wins. Same bit layout         as IHM_BOARD_STATE.buttons: bits 0-3
+    push buttons, 4 rot2, 5 rot1,         6 rot0. A pulse (not a held
+    level) so a dropped frame can never         leave a button stuck
+    down; the board acts on the press edge, so         one pulse is
+    one click. No ack. PC -> board, command.
+    """
+
+    id = MAVLINK_MSG_ID_IHM_SIMULATE_BUTTON
+    msgname = "IHM_SIMULATE_BUTTON"
+    fieldnames = ["button_mask"]
+    ordered_fieldnames = ["button_mask"]
+    fieldtypes = ["uint8_t"]
+    fielddisplays_by_name: Dict[str, str] = {}
+    fieldenums_by_name: Dict[str, str] = {}
+    fieldunits_by_name: Dict[str, str] = {}
+    native_format = bytearray(b"<B")
+    orders = [0]
+    lengths = [1]
+    array_lengths = [0]
+    crc_extra = 133
+    unpacker = struct.Struct("<B")
+    instance_field = None
+    instance_offset = -1
+
+    def __init__(self, button_mask: int):
+        MAVLink_message.__init__(self, MAVLink_ihm_simulate_button_message.id, MAVLink_ihm_simulate_button_message.msgname)
+        self._fieldnames = MAVLink_ihm_simulate_button_message.fieldnames
+        self._instance_field = MAVLink_ihm_simulate_button_message.instance_field
+        self._instance_offset = MAVLink_ihm_simulate_button_message.instance_offset
+        self.button_mask = button_mask
+
+    def pack(self, mav: "MAVLink", force_mavlink1: bool = False) -> bytes:
+        return self._pack(mav, self.crc_extra, self.unpacker.pack(self.button_mask), force_mavlink1=force_mavlink1)
+
+
+# Define name on the class for backwards compatibility (it is now msgname).
+# Done with setattr to hide the class variable from mypy.
+setattr(MAVLink_ihm_simulate_button_message, "name", mavlink_msg_deprecated_name_property())
+
+
 mavlink_map: Dict[int, Type[MAVLink_message]] = {
     MAVLINK_MSG_ID_IHM_BOARD_STATE: MAVLink_ihm_board_state_message,
     MAVLINK_MSG_ID_CAN_SIGNAL_CONFIG: MAVLink_can_signal_config_message,
@@ -735,6 +782,7 @@ mavlink_map: Dict[int, Type[MAVLink_message]] = {
     MAVLINK_MSG_ID_PWM_CHANNEL_CONFIG: MAVLink_pwm_channel_config_message,
     MAVLINK_MSG_ID_IHM_RELAY_STATE: MAVLink_ihm_relay_state_message,
     MAVLINK_MSG_ID_IHM_SIMULATE_ENCODER: MAVLink_ihm_simulate_encoder_message,
+    MAVLINK_MSG_ID_IHM_SIMULATE_BUTTON: MAVLink_ihm_simulate_button_message,
 }
 
 
@@ -1406,3 +1454,39 @@ class MAVLink(object):
 
         """
         self.send(self.ihm_simulate_encoder_encode(encoder, direction), force_mavlink1=force_mavlink1)
+
+    def ihm_simulate_button_encode(self, button_mask: int) -> MAVLink_ihm_simulate_button_message:
+        """
+        PC injects one simulated push of the given button(s): the bits set
+        in button_mask read as pressed for exactly one superloop pass,
+        then         release. The pulse is OR-ed with the real
+        hardware read (a real         press is never masked), so real
+        input always wins. Same bit layout         as
+        IHM_BOARD_STATE.buttons: bits 0-3 push buttons, 4 rot2, 5
+        rot1,         6 rot0. A pulse (not a held level) so a dropped
+        frame can never         leave a button stuck down; the board
+        acts on the press edge, so         one pulse is one click. No
+        ack. PC -> board, command.
+
+        button_mask               : Buttons to press this pass; bit i = button i, bit 7 ignored. (type:uint8_t)
+
+        """
+        return MAVLink_ihm_simulate_button_message(button_mask)
+
+    def ihm_simulate_button_send(self, button_mask: int, force_mavlink1: bool = False) -> None:
+        """
+        PC injects one simulated push of the given button(s): the bits set
+        in button_mask read as pressed for exactly one superloop pass,
+        then         release. The pulse is OR-ed with the real
+        hardware read (a real         press is never masked), so real
+        input always wins. Same bit layout         as
+        IHM_BOARD_STATE.buttons: bits 0-3 push buttons, 4 rot2, 5
+        rot1,         6 rot0. A pulse (not a held level) so a dropped
+        frame can never         leave a button stuck down; the board
+        acts on the press edge, so         one pulse is one click. No
+        ack. PC -> board, command.
+
+        button_mask               : Buttons to press this pass; bit i = button i, bit 7 ignored. (type:uint8_t)
+
+        """
+        self.send(self.ihm_simulate_button_encode(button_mask), force_mavlink1=force_mavlink1)
