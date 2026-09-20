@@ -1,14 +1,12 @@
 # Changelog
 
-## 2026-09-20 -- Timer2-tick MAVLink receive; PWM-over-MAVLink message; plan corrections
+## 2026-09-20 -- PWM-over-MAVLink message; plan corrections; serial_transport reverted
 
-- `MavlinkComms::poll()` (unbounded superloop drain) replaced by
-  `MavlinkComms::tick()`, run from the Timer2 ISR and bounded by
-  `MAVLINK_RX_BYTES_PER_TICK` (16). The superloop consumes results through
-  atomic `take*()` accessors (`consumeSimulatedEncoderDirection` ->
-  `takeSimulatedEncoderDirection`). Build: RAM unchanged at 4214 B (51.4%),
-  Flash +194 B. **Not bench-verified** (ISR budget; see
-  `initiatives/serial_commands/epics/serial_transport/README.md`).
+- **Reverted the `serial_transport` epic** (Timer2-tick `MavlinkComms::tick()`
+  RX and drop-not-block TX): it was built on the wrong premise that MAVLink
+  lives on the debug `Serial` port. `MavlinkComms::poll()` (superloop) and
+  plain `serial->write()` are back. MAVLink/protocol traffic must move to a
+  serial other than Serial0 -- see `NEXT-SESSION.md`.
 - `PWM_CHANNEL_CONFIG` (id 303) + `PWM_FREQUENCY` enum added to the dialect;
   `epics` (input_simulation, relay_control: ids 304/305) merged in, so the
   dialect is now 300-305 and CRC-identical to the PC companion's copy.

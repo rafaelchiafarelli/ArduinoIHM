@@ -223,12 +223,6 @@ ISR(TIMER2_COMPA_vect){ /*~1.008ms system tick*/
         newDataAvailable = comms.fast_handler(receivedRawData,10);
         rotaryEncoders.ms_handler(bMap);
     }
-    // Serial RX: bounded drain of the USART0 ring into the MAVLink parser.
-    // Last on purpose (AVR ISRs don't nest, so the USART0 RX ISR waits for
-    // everything above) and before the timeStatistics sample so the loop-
-    // time debug field reflects its cost. Never blocks, never drives
-    // hardware -- see MavlinkComms::tick().
-    mavlinkComms.tick();
     timeStatistics += TCNT2;
     timeCounter+=1;
     //TCNT2 = 0; //reset the T0 timer to the next interrupt point taking into account the drift;
@@ -296,8 +290,8 @@ int main()
             // pass -- real input always wins, and this is consumed
             // exactly once either way.
             if(dir[i] == not_supported){
-                uint8_t simulated = 0;
-                if(mavlinkComms.takeSimulatedEncoderDirection(i, &simulated) && (simulated == CCW || simulated == CW))
+                uint8_t simulated = mavlinkComms.consumeSimulatedEncoderDirection(i);
+                if(simulated == CCW || simulated == CW)
                     dir[i] = (DIRECTION_TYPE)simulated;
             }
         }
@@ -357,8 +351,12 @@ int main()
             }
         }
         prevBtnMap = btnMap;
-        // MAVLink RX is drained from the Timer2 tick (mavlinkComms.tick());
-        // this loop only consumes what it stored, via the take*() accessors.
+        // NOTE: MAVLink is on Serial (Serial0, the debug port) only as a
+        // stopgap. Serial0 is debug-only; MAVLink/any protocol belongs on a
+        // different hardware serial (e.g. Serial2). Do NOT build RX/TX
+        // machinery around Serial0 -- an attempt (Timer2-tick RX, drop-not-
+        // block TX) was reverted for that reason. See NEXT-SESSION.md.
+        mavlinkComms.poll();
 
         // PC-driven PWM (PWM_CHANNEL_CONFIG). Same registers as the
         // on-screen PWM tab -- last writer wins. Invalid frames are dropped

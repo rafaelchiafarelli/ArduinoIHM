@@ -256,13 +256,14 @@ fixing today.
    check. The `dac*.begin()` / `setVoltage()` calls are commented out for
    now (a missing DAC hangs `twi.c`'s unbounded wait loop). See
    [lib/MCP4725/README.md](lib/MCP4725/README.md).
-3. ~~`MavlinkComms::poll()` drained the whole RX ring buffer
-   unbounded~~ -- resolved by `serial_transport` task 1: RX is now a
-   bounded `MavlinkComms::tick()` run from the Timer2 ISR
-   (`MAVLINK_RX_BYTES_PER_TICK` bytes max); the superloop only consumes
-   decoded results via atomic `take*()` accessors. ISR-side cost is
-   **not yet bench-measured** -- see
-   `initiatives/serial_commands/epics/serial_transport/README.md`.
+3. **MAVLink is on Serial0 (the debug port) as a stopgap; it belongs on
+   another serial.** Serial0 is debug-only; MAVLink and any other protocol
+   go on a different hardware serial (e.g. Serial2). The `serial_transport`
+   epic (Timer2-tick RX / non-blocking TX) was reverted for assuming
+   otherwise. Also: `MavlinkComms::poll()` drains the whole RX ring buffer in one
+   `while (serial->available())` loop** (`lib/MavlinkComms/src/MavlinkComms.h`)
+   -- not bounded by a fixed iteration count, so a burst of buffered
+   bytes can hold up the rest of the superloop until they're all parsed.
 
 ## What's already solid
 

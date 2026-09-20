@@ -31,10 +31,15 @@ build and full functionality -- the display works, DAC output doesn't.
   `main.cpp` (`dac1.setVoltage(voltage0,...)`, `dac0.setVoltage(voltage1,...)`).
   May match board wiring -- check deliberately before assuming
   "channel 0 = voltage0".
-- **Bench-verify the Timer2-tick serial drain** (`MavlinkComms::tick()`,
-  `serial_transport` epic). It replaced the unbounded `poll()` loop and
-  is unmeasured on hardware: stream commands from the companion and
-  confirm no framing/CRC errors. Fallback knobs are in that epic's README.
+- **MAVLink must move off Serial0.** Serial0 (`Serial`, USB/programming) is
+  for debug only; MAVLink -- and any other protocol -- goes on a different
+  hardware serial (e.g. Serial2, the regular COM port). It only sits on
+  `Serial` as a stopgap. The `serial_transport` epic (Timer2-tick RX,
+  drop-not-block TX) was built on that wrong assumption and reverted on
+  2026-09-20; re-plan it against the real protocol serial.
+- **`MavlinkComms::poll()` drains its whole RX ring buffer in one
+  unbounded `while (serial->available())` loop.** A burst of buffered
+  bytes can hold up the rest of the superloop until they're all parsed.
 - **BusStatus tab passive refresh.** `bus_status_instance`'s CAN/RS-485
   fields only repaint on tab-switch or box-toggle -- the ~100ms tick
   redraws only the status bar. Live refresh there needs its own trigger
@@ -78,7 +83,7 @@ write sequence. Ask the user before testing against whatever is connected.
 
 ## Bench steps owed (nothing below was verifiable without hardware)
 
-1. `serial_transport`: Timer2-tick drain under sustained companion traffic.
+1. ~~`serial_transport`: Timer2-tick drain~~ -- epic reverted; nothing owed.
 2. `pwm_control`: `PWM_CHANNEL_CONFIG` from the companion's PWM panel or
    `pwm_config.py` changes the probed OC3A / OC1A-B pins as the runbook
    examples say; the PWM tab mirrors it. (Epic gate; the `pwm_control`,

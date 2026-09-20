@@ -1,6 +1,6 @@
 # Task 1: rx-tick-parser
 
-**Status:** done
+**Status:** not started
 **Branch:** `1-rx-tick-parser` (from `tasks`)
 **Depends on:** nothing
 

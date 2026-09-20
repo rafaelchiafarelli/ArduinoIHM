@@ -57,25 +57,18 @@ life. Invalid frames are dropped silently. The companion app
 keeps its own copy of `generated/ihm_dialect/`: after regenerating here, copy
 it over (CRC extras were verified identical for ids 300-305 on 2026-09-20).
 
-## Receive path (who does what)
+## Serial port
 
-1. The Arduino core's USART0 RX ISR puts every byte in its 64 B ring.
-2. `MavlinkComms::tick()` runs from the ~1 ms Timer2 ISR (`main.cpp`,
-   last statement before the loop-time sample). It moves at most
-   `MAVLINK_RX_BYTES_PER_TICK` (default 16) bytes into the parser and, on a
-   complete frame, decodes it into a storage slot and sets a pending flag.
-   It never blocks, never waits for data and never touches hardware.
-3. The superloop acts on results through atomic `take*()` copy-outs
-   (`takeSimulatedEncoderDirection`, and `takePwmChannelConfig` in
-   `pwm_control`), which are safe against `tick()` landing mid-read.
-
-Transmit is best-effort: telemetry frames are dropped, never waited on,
-when the TX ring cannot hold them (`MavlinkComms::sendFrame()`, counted by
-`txDroppedCount()`); the next periodic frame replaces the dropped one.
+**Serial0 (`Serial`, the USB/programming port) is for debug only.** MAVLink,
+and any other protocol, belongs on a different hardware serial (e.g. Serial2
+-- the regular COM port). It is currently on `Serial` only as a stopgap until
+that hardware is wired; the `serial_transport` work (Timer2-tick RX,
+non-blocking TX) was reverted because it assumed `Serial` was the real
+channel. `MavlinkComms::poll()` runs in the superloop.
 
 ## Parsing: use `mavlink_frame_char_buffer()`, not `mavlink_parse_char()`
 
-`MavlinkComms::tick()` feeds incoming bytes to `mavlink_frame_char_buffer()`,
+`MavlinkComms::poll()` feeds incoming bytes to `mavlink_frame_char_buffer()`,
 not the more commonly-shown `mavlink_parse_char()`. Measured, not
 theoretical: switching from the latter to the former dropped this project's
 build from 7059 to 6663 bytes of RAM (86.2% -> 81.3%) with zero functional

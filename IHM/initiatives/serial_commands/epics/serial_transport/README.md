@@ -1,5 +1,13 @@
 # Epic: serial_transport
 
+> **REVERTED 2026-09-20 -- do not implement as written.** This epic assumed
+> MAVLink lives on the debug `Serial` (Serial0) port. It does not: **Serial0
+> is debug-only**, and MAVLink (or any other protocol) must be carried on a
+> *different* hardware serial (e.g. Serial2 / the regular COM port). The
+> Timer2-tick RX and drop-not-block TX code was reverted; the design below is
+> kept only as reference. Re-plan it against the real protocol serial once
+> that port is chosen and wired. Tasks are reset to "not started".
+
 Make the board's MAVLink receive/transmit path **non-blocking and
 tick-driven**, so PC commands (PWM now, relay/motor/dac later) can never
 stall the superloop or the UI.

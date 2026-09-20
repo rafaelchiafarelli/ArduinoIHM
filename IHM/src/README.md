@@ -38,7 +38,7 @@ only by how long the loop body itself takes: `buildButtonMap()` /
 `rotaryEncoders.getDirection()`, the Janus UI (encoder-driven
 screen-switch and focus/activate, `janus_handle_action()`,
 `janus_render_*` -> `Display`; see `ARCHITECTURE.md`'s "The UI is
-generated" section), a ~100ms telemetry/bus-status
+generated" section), `mavlinkComms.poll()`, a ~100ms telemetry/bus-status
 block, and the two `MCP4725::setVoltage()` calls (currently commented out
 -- see `NEXT-SESSION.md`).
 

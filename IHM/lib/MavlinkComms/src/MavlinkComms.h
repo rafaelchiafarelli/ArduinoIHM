@@ -1,18 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <HardwareSerial.h>
-#include <util/atomic.h>
 #include "mavlink.h"
-
-// Max bytes tick() pulls out of the serial RX ring per call. tick() runs in
-// the ~1 ms Timer2 ISR (see main.cpp), so this is the hard bound on that
-// ISR's added cost. 250000 baud delivers at most ~25 B/ms; 16 B/tick easily
-// sustains any real command rate and the core's 64 B ring absorbs bursts.
-// Override with -D if a sustained-rate use ever appears -- and re-measure
-// (see initiatives/serial_commands/epics/serial_transport/README.md).
-#ifndef MAVLINK_RX_BYTES_PER_TICK
-#define MAVLINK_RX_BYTES_PER_TICK 16
-#endif
 
 // Wraps the board's MAVLink wire protocol (see IHM/mavlink/README.md) --
 // unrelated to lib/Comms/SerialCommunication, which is a separate,
@@ -42,31 +31,11 @@ private:
     bool simulatedEncoderPending[3];
 
     // Latest PWM_CHANNEL_CONFIG per channel, plus a pending flag set by
-    // dispatch() (ISR context) and cleared by takePwmChannelConfig()
+    // dispatch() (via poll()) and cleared by takePwmChannelConfig()
     // (superloop). Last writer wins: a newer frame for a channel replaces an
     // un-taken older one. Storage only -- this class never touches PWM.
     mavlink_pwm_channel_config_t pwmConfig[4];
     bool pwmConfigDirty[4];
-
-    // Telemetry frames dropped because the TX ring couldn't hold them
-    // (saturating). See sendFrame().
-    uint8_t txDropped;
-
-    // Non-blocking transmit: HardwareSerial::write() spins when the TX ring
-    // is full, which would stall the superloop behind a slow/absent PC.
-    // Telemetry is periodic, so dropping a frame is harmless -- the next
-    // tick's frame replaces it.
-    bool sendFrame(const uint8_t *buf, uint16_t len)
-    {
-        if (serial->availableForWrite() < (int)len)
-        {
-            if (txDropped < 255)
-                txDropped++;
-            return false;
-        }
-        serial->write(buf, len);
-        return true;
-    }
 
     void dispatch()
     {
@@ -117,17 +86,13 @@ private:
 public:
     explicit MavlinkComms(HardwareSerial *serialPort)
         : serial(serialPort), canConfigValid{false, false}, rs485ConfigValid(false),
-          simulatedEncoderPending{false, false, false}, pwmConfigDirty{false, false, false, false}, txDropped(0)
+          simulatedEncoderPending{false, false, false}, pwmConfigDirty{false, false, false, false}
     {
     }
 
-    // Feeds at most MAVLINK_RX_BYTES_PER_TICK already-received bytes through
-    // the MAVLink parser and dispatches any complete message into the
-    // storage slots below. Runs from the Timer2 ISR (main.cpp), so it is
-    // bounded, never blocks and never waits for data: an empty RX ring
-    // returns immediately. It only decodes and sets pending flags -- nothing
-    // here (or reachable from here) drives hardware; the superloop does that
-    // through the take*() accessors.
+    // Feeds all currently-available bytes through the MAVLink parser and
+    // dispatches any complete message. Call once per superloop pass; not
+    // ISR-driven (see main.cpp), no fixed cadence requirement.
     //
     // Uses mavlink_frame_char_buffer(), not the more commonly-shown
     // mavlink_parse_char() -- the latter's error-handling path references
@@ -139,9 +104,9 @@ public:
     // r_message/r_mavlink_status output params is fine, since a complete
     // message is already sitting in rxMsg itself once this returns
     // MAVLINK_FRAMING_OK; no separate output copy is needed.
-    void tick()
+    void poll()
     {
-        for (uint8_t n = 0; n < MAVLINK_RX_BYTES_PER_TICK && serial->available(); n++)
+        while (serial->available())
         {
             uint8_t c = (uint8_t)serial->read();
             if (mavlink_frame_char_buffer(&rxMsg, &rxStatus, c, NULL, NULL) == MAVLINK_FRAMING_OK)
@@ -168,7 +133,7 @@ public:
                                           timeStatistics, timeCounter);
         uint8_t buf[MAVLINK_MAX_PACKET_LEN];
         uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-        sendFrame(buf, len);
+        serial->write(buf, len);
     }
 
     // Packs and transmits one IHM_RELAY_STATE message. bitmask's bit i is
@@ -180,64 +145,37 @@ public:
         mavlink_msg_ihm_relay_state_pack(1, 1, &msg, relayBitmask);
         uint8_t buf[MAVLINK_MAX_PACKET_LEN];
         uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-        sendFrame(buf, len);
+        serial->write(buf, len);
     }
 
     // Superloop-side hand-off of the latest PWM_CHANNEL_CONFIG for channel
-    // `ch` that tick() stored. Returns false if ch >= 4 or nothing new has
+    // `ch` that poll() stored. Returns false if ch >= 4 or nothing new has
     // arrived for it; otherwise copies it to *out, clears the pending flag
-    // and returns true. Copy+clear is atomic against tick(). No validation
-    // beyond the channel bound here -- main.cpp validates with
-    // pwmWireConfigValid() before touching hardware.
+    // and returns true. poll() and this both run in the superloop, so no
+    // locking is needed. No validation beyond the channel bound here --
+    // main.cpp validates with pwmWireConfigValid() before touching hardware.
     bool takePwmChannelConfig(uint8_t ch, mavlink_pwm_channel_config_t *out)
     {
-        if (ch >= 4)
+        if (ch >= 4 || !pwmConfigDirty[ch])
             return false;
-        bool taken = false;
-        ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
-        {
-            if (pwmConfigDirty[ch])
-            {
-                pwmConfigDirty[ch] = false;
-                *out = pwmConfig[ch];
-                taken = true;
-            }
-        }
-        return taken;
+        pwmConfigDirty[ch] = false;
+        *out = pwmConfig[ch];
+        return true;
     }
 
-    // Number of telemetry frames dropped so far (saturates at 255).
-    uint8_t txDroppedCount() const { return txDropped; }
-
-    // Superloop-side hand-off of one simulated encoder turn that tick()
-    // (ISR context) stored. Returns false if encoderIndex is out of range
-    // or nothing is pending; otherwise copies the raw wire direction to
-    // *direction, clears the pending flag and returns true. The copy+clear is
-    // atomic against tick(). One-shot by design, mirroring
-    // RotaryEncoder::getDirection()'s own consumed-on-read behavior for real
-    // turns. Caller casts *direction to DIRECTION_TYPE.
-    bool takeSimulatedEncoderDirection(uint8_t encoderIndex, uint8_t *direction)
+    // Returns 0 (not_supported) if encoderIndex is out of range or nothing
+    // is pending for it; otherwise clears the pending flag and returns the
+    // stored direction (raw wire value -- caller casts to DIRECTION_TYPE).
+    // One-shot by design, mirroring RotaryEncoder::getDirection()'s own
+    // consumed-on-read behavior for real turns.
+    uint8_t consumeSimulatedEncoderDirection(uint8_t encoderIndex)
     {
-        if (encoderIndex >= 3)
-            return false;
-        bool taken = false;
-        ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
-        {
-            if (simulatedEncoderPending[encoderIndex])
-            {
-                simulatedEncoderPending[encoderIndex] = false;
-                *direction = simulatedEncoderDirection[encoderIndex];
-                taken = true;
-            }
-        }
-        return taken;
+        if (encoderIndex >= 3 || !simulatedEncoderPending[encoderIndex])
+            return 0;
+        simulatedEncoderPending[encoderIndex] = false;
+        return simulatedEncoderDirection[encoderIndex];
     }
 
-    // NOTE: the two getters below hand out pointers into storage that tick()
-    // (ISR) may overwrite, so a read can tear. That is tolerable only while
-    // nothing but the display reads them (see main.cpp
-    // refreshBusStatusInstance); the task that adds the first real consumer
-    // must convert these to take*() atomic copy-outs, like the ones above.
     // Returns nullptr if no config has been received yet for that bus.
     const mavlink_can_signal_config_t *getCanSignalConfig(uint8_t bus) const
     {
