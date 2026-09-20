@@ -140,6 +140,7 @@ void setup()
     const janus_screen_desc_t *screen = janus_app_get_screen(&janus_app, janus_app.active_screen);
 
     janus_render_screen(screen);
+    janus_render_status_bar(&janus_app);   // app-level status band -- no-op if app.yaml had no `status:`
     janus_render_nav_bar(&janus_app);   // app-level PWM/SERIAL/Output tab strip -- no-op if app.yaml had no `nav:`
 
     janus_focus_move(&janus_app, 0);   // establish initial focus
@@ -147,10 +148,11 @@ void setup()
 }
 
 ISR(TIMER2_COMPA_vect){ /*~1.008ms system tick*/
-    //should we stop the timer interrupt?
+    
     multiOuput.fast_handler();
     bMap = userInputs.fast_handler();
-
+    //put the serial protocol in the timer handler here. this is not a blocking function and will process all the inputs present in the buffer.
+    //the main loop will check if new data is available and will process it. the serial protocol must be non-blocking and must not depend on the presence of data in the buffer. it must be a few instructions only.
     counterT0++;
     if (counterT0 >= TEN_MS_T0_TICKS) { //~10ms elapsed
         counterT0 = 0;
@@ -291,7 +293,10 @@ int main()
             }
         }
         prevBtnMap = btnMap;
-
+        //this is bullshit. 
+        //serial protocol mus not be blocking of dependent on the presence of the data in the buffer.
+        //change this to a non-blocking protocol. the interruption should be a few instructions only. and a handler function must be installed in the timer handler.
+        //change the hardware serial to make this happen.
         mavlinkComms.poll();
 
         if(newDataAvailable){
@@ -324,45 +329,22 @@ int main()
 
             refreshBusStatusInstance();
 
-            // This tick used to also do a full janus_render_screen here,
-            // to pick up BusStatus's passive (non-action) MAVLink updates.
-            // Since the 2026-09-05 status-bar/tab-bar redesign, that
-            // repainted the *entire* active screen every ~100ms regardless
-            // of what actually changed -- including screens with nothing
-            // passively updating at all -- which is what "the telemetry
-            // refresh cadence is for the header, not for every part of the
-            // screen" was calling out. Redraw only the status bar now --
-            // status_bar is always the first top-level widget on every
-            // screen, by convention (every *.screen.yaml authors it that
-            // way), not something Janus enforces, so this breaks silently
-            // if that convention is ever violated.
+            // This tick used to also force-redraw the active screen's first
+            // top-level widget every ~100ms, back when that widget was
+            // always a per-screen status_bar row needing a periodic refresh.
+            // Since Janus's status_bar epic (2026-09-15), the status text is
+            // app-level chrome (app.yaml's `status:`, static, painted once
+            // by janus_render_status_bar) -- it's no longer a screen widget
+            // at all, so there's nothing left for this tick to periodically
+            // refresh. Removed rather than repointed at whatever now
+            // happens to be widgets[0] on each screen, which would silently
+            // redraw unrelated content for no reason.
             //
-            // janus_render_widget_if_dirty, not the plain janus_render_widget
-            // this used to call: status_bar's label is currently 100% static
-            // placeholder text ("Status: TBD", no bind), so a *forced* redraw
-            // every ~100ms just fills+redraws unchanging pixels 10x/second --
-            // visibly flickers for nothing (found on real hardware, not a
-            // Janus bug: janus_render_widget does exactly what it's for,
-            // this call site was just using the wrong entry point). The
-            // dirty-aware variant is what janus_runtime.h's own contract
-            // says to use here: an unbound leaf like this one draws once
-            // (the initial janus_render_screen) and is then skipped by every
-            // later sweep -- and it's still correct once status_bar carries
-            // a real bound field, redrawing only when that field's dirty bit
-            // is actually set.
-            //
-            // Known regression from this change, not fixed here:
-            // BusStatus's own CAN/RS485 fields no longer refresh on this
-            // timer -- only on tab-switch or a box being toggled. Needs
-            // its own mechanism (e.g. an action fired from the MAVLink
-            // receive path) if live passive refresh there still matters;
-            // deliberately left as a follow-up rather than smuggled back
-            // in as a second full-screen call here.
-            const janus_screen_desc_t *active_screen = janus_app_get_screen(&janus_app, janus_app.active_screen);
-            janus_screen_desc_t ls = janus_screen_load(active_screen);
-            if (ls.widget_count > 0) {
-                janus_render_widget_if_dirty(&ls.widgets[0], ls.bound_struct, ls.bound_dirty);
-            }
+            // Known regression, still not fixed here: BusStatus's own
+            // CAN/RS485 fields only refresh on tab-switch or a box being
+            // toggled, not passively on this timer. Needs its own mechanism
+            // (e.g. an action fired from the MAVLink receive path) if live
+            // passive refresh there still matters.
         }
 
     }

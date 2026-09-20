@@ -79,6 +79,7 @@ public:
         }
     }
 
+    
     // Packs and transmits one IHM_BOARD_STATE message. Field values are the
     // caller's responsibility to gather (see main.cpp) -- this class owns
     // the protocol, not the input/ADC reads.
