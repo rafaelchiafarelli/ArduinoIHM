@@ -1,6 +1,6 @@
 # Task 5: pwm-tab-reflects-mavlink
 
-**Status:** not started
+**Status:** done
 **Branch:** `5-pwm-tab-reflects-mavlink` (from `tasks`)
 **Depends on:** task 3 (the receive+apply path this hooks into)
 

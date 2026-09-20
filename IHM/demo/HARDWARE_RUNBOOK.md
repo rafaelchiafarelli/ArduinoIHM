@@ -54,7 +54,9 @@ shared 3.9 kHz timebase; OC1C stays disconnected.
 
 See "Pin reference" above for the pins. This drives the same registers as
 the on-screen PWM tab, so the two fight over a channel -- last writer wins,
-and until `pwm_control` task 5 the TFT does not reflect PC-driven changes.
+the PWM tab mirrors PC-driven changes (enable, duty, state label showing the
+frequency; complex channels' per-output *inverting* is not shown -- the UI has
+no field for it) and repaints only while that tab is showing.
 
 ## UI navigation (see PWMScreen.h / GUI.cpp)
 
