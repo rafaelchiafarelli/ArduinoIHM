@@ -1,6 +1,6 @@
 # Task 2: pwm-channel-config-mapping
 
-**Status:** not started
+**Status:** done
 **Branch:** `2-pwm-channel-config-mapping` (from `tasks`)
 **Depends on:** nothing (decoupled from task 1 via a POD struct)
 
