@@ -1,6 +1,6 @@
 # Task 1: pwm-channel-config-message
 
-**Status:** not started
+**Status:** done
 **Branch:** `1-pwm-channel-config-message` (from `tasks`)
 **Depends on:** nothing
 
@@ -72,10 +72,9 @@ Nothing. This is a pure protocol-definition change.
    output by policy (see `mavlink/README.md`), a stale one is a real bug.
 
 3. **`mavlink/README.md`** -- add the `PWM_CHANNEL_CONFIG` row to the
-   Messages table (direction PC -> board, 14 bytes) and bump the
-   "largest message" / cap sentence only if 14 changes anything (it
-   doesn't -- `RS485_SIGNAL_CONFIG` at 38 is still largest; leave the cap
-   note alone).
+   Messages table (direction PC -> board, 13 bytes). Leave the "largest
+   message" / 64-byte cap sentence alone -- `RS485_SIGNAL_CONFIG` at 38
+   is still the largest.
 
 ## Dependencies
 

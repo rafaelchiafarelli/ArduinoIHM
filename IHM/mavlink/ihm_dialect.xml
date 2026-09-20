@@ -27,6 +27,37 @@
         <description>Clockwise movement.</description>
       </entry>
     </enum>
+    <enum name="PWM_FREQUENCY">
+      <description>
+        PWM channel frequency selector. Mirrors PWMFrequency in
+        IHM/lib/MultiOutput/src/PWMTiming.h exactly (same order, same
+        0-based values) -- keep the two in sync if that enum ever
+        changes. The trailing NUMBER_OF_PWM_FREQUENCIES count in the C
+        enum is deliberately not mirrored here (it's a bound, not a
+        value). Entry names carry the truncated integer Hz; the C enum's
+        own names carry the exact fractional Hz.
+      </description>
+      <entry value="0"  name="PWM_FREQUENCY_62500_HZ"><description>frequency_62_500HZ.</description></entry>
+      <entry value="1"  name="PWM_FREQUENCY_31250_HZ"><description>frequency_31_250HZ.</description></entry>
+      <entry value="2"  name="PWM_FREQUENCY_15625_HZ"><description>frequency_15_625HZ.</description></entry>
+      <entry value="3"  name="PWM_FREQUENCY_7812_HZ"><description>frequency_7812_5HZ.</description></entry>
+      <entry value="4"  name="PWM_FREQUENCY_3906_HZ"><description>frequency_3906_25HZ.</description></entry>
+      <entry value="5"  name="PWM_FREQUENCY_1953_HZ"><description>frequency_1953_125HZ.</description></entry>
+      <entry value="6"  name="PWM_FREQUENCY_976_HZ"><description>frequency_976_5625HZ.</description></entry>
+      <entry value="7"  name="PWM_FREQUENCY_488_HZ"><description>frequency_488_28125HZ.</description></entry>
+      <entry value="8"  name="PWM_FREQUENCY_244_HZ"><description>frequency_244_140625HZ.</description></entry>
+      <entry value="9"  name="PWM_FREQUENCY_122_HZ"><description>frequency_122_0703125HZ.</description></entry>
+      <entry value="10" name="PWM_FREQUENCY_61_HZ"><description>frequency_61_03515625HZ.</description></entry>
+      <entry value="11" name="PWM_FREQUENCY_30_HZ"><description>frequency_30_517578125HZ.</description></entry>
+      <entry value="12" name="PWM_FREQUENCY_15_HZ"><description>frequency_15_2587890625HZ.</description></entry>
+      <entry value="13" name="PWM_FREQUENCY_VARIABLE">
+        <description>
+          frequency_variable -- Fast PWM mode 14, TOP = ICRn. The
+          PWM_CHANNEL_CONFIG.frequency field supplies that raw TOP; it is
+          ignored for every other selector.
+        </description>
+      </entry>
+    </enum>
   </enums>
   <messages>
     <message id="300" name="IHM_BOARD_STATE">
@@ -102,6 +133,42 @@
       <field type="uint16_t" name="period_ms">Repeat interval in ms. 0 = send once (one-shot).</field>
       <field type="uint16_t" name="repeat_count">Number of times to send. 0 = repeat until disabled.</field>
       <field type="uint8_t" name="enable">1 = start/keep running, 0 = stop. Resend with 0 to stop a running generator.</field>
+    </message>
+
+    <message id="303" name="PWM_CHANNEL_CONFIG">
+      <description>
+        Configure one of the board's 4 PWM channels. PC -> board, command.
+        The board applies it to the timer registers immediately; there is
+        no ack. Sending a new config for a channel replaces its previous
+        one (last writer wins, including against the on-screen PWM tab,
+        which drives the same registers).
+
+        One message shape covers both channel kinds (see
+        IHM/lib/MultiOutput/src/PWM.h):
+          * channels 0 and 1 are "simplex" -- a single output (OC3A /
+            OC5A). Only out1_* is used; out2_* and out3_* are ignored.
+          * channels 2 and 3 are "complex" -- three independent outputs
+            A/B/C (OC1A/B/C, OC4A/B/C). out1_/out2_/out3_ map to A/B/C.
+
+        Same "not bit-packed across byte boundaries" convention as the
+        other messages here -- each flag gets its own byte. 13 bytes,
+        well under the 64-byte cap.
+      </description>
+      <field type="uint8_t" name="channel">Target PWM channel, 0-3. Out-of-range configs are dropped by the board.</field>
+      <field type="uint8_t" name="f_selector" enum="PWM_FREQUENCY">Frequency selector for the whole channel.</field>
+      <field type="uint16_t" name="frequency">
+        Raw ICRn TOP (timer period). Only read when f_selector ==
+        PWM_FREQUENCY_VARIABLE; ignored for every fixed selector.
+      </field>
+      <field type="uint8_t" name="out1_enabled">Output A: 1 = drive the pin, 0 = disconnect it.</field>
+      <field type="uint8_t" name="out1_inverting">Output A: 0 = non-inverting (high from period start), 1 = inverting.</field>
+      <field type="uint8_t" name="out1_duty_percent">Output A duty cycle, 0-100. Scaled against the selector's resolution on-board.</field>
+      <field type="uint8_t" name="out2_enabled">Output B enable. Ignored for channels 0 and 1.</field>
+      <field type="uint8_t" name="out2_inverting">Output B edge polarity. Ignored for channels 0 and 1.</field>
+      <field type="uint8_t" name="out2_duty_percent">Output B duty cycle, 0-100. Ignored for channels 0 and 1.</field>
+      <field type="uint8_t" name="out3_enabled">Output C enable. Ignored for channels 0 and 1.</field>
+      <field type="uint8_t" name="out3_inverting">Output C edge polarity. Ignored for channels 0 and 1.</field>
+      <field type="uint8_t" name="out3_duty_percent">Output C duty cycle, 0-100. Ignored for channels 0 and 1.</field>
     </message>
   </messages>
 </mavlink>
