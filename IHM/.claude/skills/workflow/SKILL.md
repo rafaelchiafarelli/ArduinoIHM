@@ -15,6 +15,7 @@ Don't use the word "Track" — it was a false start and doesn't map to anything 
 - **Epic** — a grouping of related tasks within an initiative. Folder: `initiatives/<initiative>/epics/<epic>/`.
 - **Task** — the atomic unit of work. One file, one session, one testable **contract**. File: `initiatives/<initiative>/epics/<epic>/tasks/<task>.md`.
 - **Contract** — what a task delivers that other tasks or code will depend on: an interface, a schema, or a concrete update to a class. Smaller is better. The goal is that one file equals one incremental contract step — if a task's contract is ballooning to cover multiple deliverables, that's a signal to split it during planning, not to push through it.
+- **Defect** — a gap or bug found incidentally while doing other work (not what the current task/session set out to do), recorded so it isn't lost, with no implication it gets worked now. Structurally it's just an initiative: same `initiatives/<name>/README.md` + `epics/<epic>/tasks/<task>.md` shape, scoped as small as the gap actually is (often one epic, one task). What makes it a Defect rather than a normal initiative is purely intent — record now, implement whenever Rafael says "later" or picks it up cold — and the README should say so explicitly (who found it, when, and that it's not scheduled), the way a normal initiative's README doesn't need to. See "One initiative chain per working copy" below for what a Defect's branches look like when found mid-session, inside an already-active chain.
 
 ## Branches
 
@@ -29,6 +30,24 @@ names (`features`, `epics`, `tasks`) unambiguous. Never build a second chain
 alongside the first in the same clone. (Git also forbids it: a ref named
 `tasks` and a ref named `tasks/anything` cannot coexist — which is the reason the
 names are flat in the first place.)
+
+**Recording a Defect mid-session, inside an already-active chain.** A
+Defect found while working an unrelated task still wants its own
+`initiative` branch off `features` — but this clone's `epics`/`tasks`
+container names are already taken by the active chain, and reusing them
+would either fail (git) or silently move those branches off the
+in-progress work (never do this without Rafael confirming — it's a
+stop-and-ask, not a judgment call). Default instead to writing the Defect
+as **initiative-only**: skip the `epics`/`tasks` container branches,
+commit the `initiatives/<name>/` folder (still laid out with its normal
+epic/task subfolders, so it's plan-complete) straight on the `<initiative>`
+branch, and merge that directly into `features`. Create the proper
+`epics`/`tasks` branches later, off that same `initiative` branch, only
+once someone actually starts implementing it — at that point it behaves
+like any other initiative. If the Defect is small enough to just fix in
+the same session (confirm with Rafael — don't assume "later" applies),
+implement it on the initiative branch itself before merging up; the
+container levels still aren't needed for a single-task Defect.
 
 | Level | Branch name | Created from | Corresponds to |
 |---|---|---|---|
