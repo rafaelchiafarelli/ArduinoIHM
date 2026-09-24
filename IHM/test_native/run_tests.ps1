@@ -77,6 +77,7 @@ $libAllowlist = @(
     "lib/HAL/src",
     "lib/MultiOutput/src",
     "lib/RotaryEncoder",
+    "lib/Uart2/src",
     "src"
 )
 $includeDirs = @($root) + ($libAllowlist | ForEach-Object { Join-Path $repoRoot $_ })

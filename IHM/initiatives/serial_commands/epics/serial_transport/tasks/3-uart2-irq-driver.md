@@ -1,6 +1,6 @@
 # Task 3: uart2-irq-driver
 
-**Status:** not started
+**Status:** done
 **Branch:** `3-uart2-irq-driver` (from `tasks`)
 **Depends on:** nothing
 
