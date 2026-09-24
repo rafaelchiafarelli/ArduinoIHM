@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-09-23 -- MAVLink on Serial2, interrupt-driven
+
+- MAVLink moved off the debug port onto **Serial2 (USART2, D16/D17) at
+  250000 baud**. `Serial` is debug-only again.
+- New `lib/Uart2`: its own `USART2_RX_vect` / `USART2_UDRE_vect` that only
+  move bytes to/from 64-byte SPSC rings (`ByteRing`, natively tested), plus
+  saturating drop/line-error counters. Firmware must not reference
+  `Serial2`, which would link the core's duplicate ISRs.
+- `MavlinkComms::poll()` (unbounded superloop drain) replaced by
+  `fast_handler()`, which runs last in the Timer2 tick with interrupts
+  re-enabled and parses at most 32 bytes per tick. Superloop accessors are
+  atomic copy-outs; `getCanSignalConfig` / `getRs485SignalConfig` now copy
+  out instead of returning pointers. TX is drop-not-block, whole frames only.
+- `serial_transport` epic re-planned (tasks 3-4; 1-2 superseded). AVR
+  build: RAM 4611 B (56.3%, +134), Flash 71260 B (28.1%); native tests
+  117/117. Not bench-tested.
+
 ## 2026-09-20 (later) -- PC input injection: buttons
 
 - New `IHM_SIMULATE_BUTTON` (id 306, PC -> board): pressed-for-one-pass pulse

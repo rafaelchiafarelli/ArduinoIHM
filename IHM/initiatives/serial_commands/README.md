@@ -7,13 +7,11 @@ touch-free UI.
 ## Transport
 
 The board's existing private MAVLink dialect (`mavlink/ihm_dialect.xml`),
-carried on the debug/programming `Serial` port at 250000 baud -- the same
-port `MavlinkComms` already uses for `IHM_BOARD_STATE` telemetry and the
-`CAN_SIGNAL_CONFIG` / `RS485_SIGNAL_CONFIG` inbound configs. No second
-UART, no build-flag mode: inbound MAVLink command frames and outbound
-telemetry coexist on the port exactly as the two existing inbound configs
-already do. `MavlinkComms::poll()` is already called once per superloop
-pass in `main.cpp` and dispatches by `msgid`.
+carried on **Serial2** (USART2, D16/D17, 250000 baud). Serial0 (`Serial`) is
+debug-only. Inbound command frames and outbound telemetry share the port.
+RX/TX are interrupt-driven: `lib/Uart2` ISRs + rings, and
+`MavlinkComms::fast_handler()` in the Timer2 tick dispatches by `msgid`
+(see the `serial_transport` epic).
 
 Rationale for MAVLink over the hand-rolled `lib/Comms/SerialCommunication`
 framing (which is unwired and unrelated -- see `lib/Comms/README.md`) and

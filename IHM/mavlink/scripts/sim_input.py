@@ -4,10 +4,10 @@
 Requires: pip install pymavlink pyserial
 
 Examples
-  sim_input.py --port COM7 button rot1        # click rot1's push button
-  sim_input.py --port COM7 button 0 3         # push buttons 0 and 3 together
-  sim_input.py --port COM7 encoder 0 cw       # one clockwise step on encoder 0
-  sim_input.py --port COM7 encoder 1 ccw --repeat 5
+  sim_input.py --port COMx button rot1        # click rot1's push button
+  sim_input.py --port COMx button 0 3         # push buttons 0 and 3 together
+  sim_input.py --port COMx encoder 0 cw       # one clockwise step on encoder 0
+  sim_input.py --port COMx encoder 1 ccw --repeat 5
 
 Buttons: 0-3 = push buttons, rot2 / rot1 / rot0 = encoder push buttons
 (bits 4/5/6, same layout as IHM_BOARD_STATE.buttons). A button press is a
