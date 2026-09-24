@@ -1,6 +1,6 @@
 # Task 2: tx-nonblocking
 
-**Status:** not started
+**Status:** superseded by tasks 3-4 (Serial2), never to be implemented
 **Branch:** `2-tx-nonblocking` (from `tasks`)
 **Depends on:** nothing
 

@@ -35,7 +35,7 @@ same split as `sendBoardState()` (the class packs the message,
 
 | Epic | Status | Scope |
 |---|---|---|
-| `serial_transport` | **reverted** | Was Timer2-tick MAVLink RX + drop-not-block TX on `Serial`. Reverted: Serial0 is debug-only, MAVLink must go on another serial. Needs re-planning. |
+| `serial_transport` | planned (Serial2) | MAVLink on Serial2 via own USART2 ISRs + ring buffers; bounded fast handler in the Timer2 tick; drop-not-block TX. Tasks 3-4 (1-2 superseded). |
 | `pwm_control` | tasks done, bench pending | PC configures the 4 PWM channels (2 simplex, 2 complex) over MAVLink. |
 
 | `pc_companion` | tasks done, bench pending | The Windows companion (`IHMPCController`) gains PWM/serial send UI + a how-to-use doc. |

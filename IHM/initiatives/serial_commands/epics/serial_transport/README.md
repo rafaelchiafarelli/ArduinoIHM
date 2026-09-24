@@ -1,79 +1,82 @@
 # Epic: serial_transport
 
-> **REVERTED 2026-09-20 -- do not implement as written.** This epic assumed
-> MAVLink lives on the debug `Serial` (Serial0) port. It does not: **Serial0
-> is debug-only**, and MAVLink (or any other protocol) must be carried on a
-> *different* hardware serial (e.g. Serial2 / the regular COM port). The
-> Timer2-tick RX and drop-not-block TX code was reverted; the design below is
-> kept only as reference. Re-plan it against the real protocol serial once
-> that port is chosen and wired. Tasks are reset to "not started".
+Move the board's MAVLink link off the debug port and onto **Serial2 (USART2,
+RX2 = D17, TX2 = D16)**, and replace the polled `HardwareSerial` path with an
+**interrupt-driven** one: tiny RX/TX ISRs that only move bytes between the
+UART and ring buffers, plus one bounded fast handler that does the parsing
+and decoding.
 
-Make the board's MAVLink receive/transmit path **non-blocking and
-tick-driven**, so PC commands (PWM now, relay/motor/dac later) can never
-stall the superloop or the UI.
+## History
 
-## Why (Rafael's notes in `src/main.cpp`, 2026-09-20)
+The first plan (tasks 1-2, 2026-09-20) put the same idea on `Serial`
+(Serial0). That was reverted: **Serial0 is debug-only**. Tasks 1-2 are
+superseded by tasks 3-4 below; their branches (`1-rx-tick-parser`,
+`2-tx-nonblocking`) hold only the reverted attempt.
 
-> serial protocol must not be blocking or dependent on the presence of
-> data in the buffer. The interruption should be a few instructions only,
-> and a handler function must be installed in the timer handler.
+## Why (Rafael, 2026-09-23)
 
-Today `mavlinkComms.poll()` runs in the superloop and drains the whole RX
-buffer in one unbounded `while (serial->available())` (also listed in
-`NEXT-SESSION.md`), and `serial->write()` spins when the 64-byte TX ring
-is full.
+> move it to Serial2, and change the low level from polling to interruption.
+> the interruption itself is extremely small moving the received bytes to a
+> buffer and one fast handler making the necessary processing and eventually
+> decoding. the same for transmission
 
 ## Design (decided here, not left to the implementer)
 
-- **Bytes still arrive through the Arduino core's USART0 RX ISR** into its
-  ring buffer -- that ISR already is "a few instructions". We do not
-  replace it.
-- **A bounded drain runs from the existing Timer2 tick** (`TIMER2_COMPA_vect`,
-  ~1.008 ms): `MavlinkComms::tick()` feeds at most
-  `MAVLINK_RX_BYTES_PER_TICK` bytes (default 16, `-D` overridable) to
-  `mavlink_frame_char_buffer()`. When a frame completes it is decoded
-  straight into the storage slots (a <=38-byte copy) and a pending/dirty
-  flag is set. Nothing else happens in the ISR -- no hardware is driven
-  from it.
-- **The superloop only consumes flags** (`take*()` accessors), exactly the
-  dirty-flag shape task 3 of `pwm_control` already used.
-- **Every accessor that hands data from the ISR side to the superloop is
-  an atomic copy-out** (`ATOMIC_BLOCK(ATOMIC_RESTORESTATE)`), never a
-  pointer into ISR-written storage -- otherwise a frame landing mid-read
-  tears the struct.
-- **TX is drop-not-block**: a telemetry frame is sent only if
-  `availableForWrite() >= len`, else dropped and counted.
+```
+ PC --USB-TTL--> RX2 --USART2_RX_vect--> rxRing[64] --fast_handler (Timer2)--> parser --> dispatch --> slots
+ PC <--USB-TTL-- TX2 <-USART2_UDRE_vect-- txRing[64] <--send*() (superloop, whole frame or drop)
+```
 
-Sizing: 250000 baud = ~25 B/ms worst case; 16 B/tick sustains ~16 kB/s,
-far above any command rate (a PWM config is 12+13 B, sent by hand), and
-the core's 64 B ring absorbs bursts. If a sustained-rate use ever appears,
-raise the macro -- but see the risk below.
-
-## Risk (needs Rafael's bench, cannot be verified in this session)
-
-AVR ISRs don't nest. While the Timer2 tick runs, a USART0 byte waits; the
-UART has ~2 bytes of slack (~80 us at 250k). The tick already does
-`multiOuput.fast_handler()` + `userInputs.fast_handler()`; adding a drain
-must not push the total past that. The drain is placed **last** in the ISR
-and bounded, but the real number is unmeasured -- bench step: send a
-sustained stream from the companion and confirm no CRC/framing errors.
-Mitigation if it fails: lower `MAVLINK_RX_BYTES_PER_TICK`, or enable
-`ISR_NOBLOCK` for the drain only.
+- **Own USART2 driver, not `HardwareSerial`.** `lib/Uart2` defines
+  `USART2_RX_vect` / `USART2_UDRE_vect` itself. The Arduino core's
+  `HardwareSerial2.cpp` (which defines the same vectors) is only linked when
+  something references `Serial2`, so firmware code must never touch
+  `Serial2`. The `serial2_loopback_test` bench env still uses `Serial2`.
+  That is fine because it is a separate env that doesn't link `Uart2`.
+- **RX ISR:** read `UCSR2A` + `UDR2`, count line errors (DOR2/FE2), push
+  into the ring (count if full). Nothing else.
+- **TX ISR:** pop one byte into `UDR2`; when the ring is empty, disable
+  `UDRIE2`. Nothing else.
+- **Rings:** `ByteRing<N>`: single-producer/single-consumer, power-of-2,
+  `uint8_t` indices, no locking (each index has exactly one writer).
+  Header-only and host-testable.
+- **Fast handler:** `MavlinkComms::fast_handler()` feeds at most
+  `MAVLINK_RX_BYTES_PER_TICK` (default 32, `-D` overridable) bytes per tick
+  to `mavlink_frame_char_buffer()` and dispatches complete frames into the
+  storage slots. At 250000 baud the line rate is ~25 B/ms, so 32 per ~1 ms
+  tick keeps up with a saturated line.
+- **It runs last in `TIMER2_COMPA_vect` with interrupts re-enabled**,
+  guarded by a busy flag. Why: AVR ISRs don't nest, and USART2 has ~2 bytes
+  of hardware slack (~80-120 us at 250k). Parsing 32 bytes plus the rest of
+  the tick can exceed that. With `sei()` the RX ISR can preempt the parser.
+  The busy flag means a Timer2 tick that nests (only if the handler overruns
+  ~1 ms) runs its normal work and skips MAVLink.
+- **TX is drop-not-block:** `send*()` packs in the superloop, then enqueues
+  the whole frame or nothing (a partial frame would corrupt the stream) and
+  counts the drop. The next ~100 ms telemetry frame replaces it.
+- **Every ISR-to-superloop hand-off is an atomic copy-out**
+  (`ATOMIC_BLOCK(ATOMIC_RESTORESTATE)`), never a pointer into storage the
+  fast handler writes.
+- **Baud stays 250000** (`MAVLINK_SERIAL_BAUD`, `-D` overridable). That's 0%
+  error at 16 MHz with U2X, and the PC scripts already default to it. Only
+  `--port` changes (the USB-TTL adapter's COM port instead of the board's
+  USB port).
 
 ## Tasks
 
 ```
-1-rx-tick-parser     tick() bounded drain from Timer2; atomic take*()    (no deps)
-                     accessors; main loop stops calling poll()
-2-tx-nonblocking     drop-not-block telemetry writes + drop counter     (no deps; parallel-safe)
+3-uart2-irq-driver    lib/Uart2: ByteRing + USART2 ISRs + counters;       (no deps)
+                      native ByteRing tests
+4-mavlink-on-serial2  MavlinkComms on Uart2: fast_handler from Timer2,     (depends on 3)
+                      atomic copy-outs, drop-not-block TX; main.cpp; docs
 ```
-
-`pwm_control` task 3 depends on task 1 here (it consumes the atomic
-accessors).
 
 ## Acceptance gate
 
 - `platformio run` builds; RAM/Flash reported (flag a material jump).
 - `test_native/run_tests.ps1` passes.
-- Bench (Rafael): board keeps rendering the UI while the companion streams
-  commands; no framing errors at 250000 baud.
+- Bench (Rafael, on the new-revision board with the USB-TTL adapter on
+  D16/D17): telemetry arrives on the adapter's COM port at 250000;
+  `pwm_config.py --port <adapter>` and `sim_input.py` still work; a sustained
+  stream from the companion causes no framing/CRC errors while the UI keeps
+  rendering.

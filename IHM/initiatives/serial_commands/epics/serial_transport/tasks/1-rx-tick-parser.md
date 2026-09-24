@@ -1,6 +1,6 @@
 # Task 1: rx-tick-parser
 
-**Status:** not started
+**Status:** superseded by tasks 3-4 (Serial2), never to be implemented
 **Branch:** `1-rx-tick-parser` (from `tasks`)
 **Depends on:** nothing
 
