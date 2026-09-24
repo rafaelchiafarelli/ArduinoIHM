@@ -92,7 +92,7 @@ before the scheduler is running -- see that module's README.
 | UI | `lib/GUI` -- Janus-generated screens + vendored `lib/GUI/runtime`; `src/janus_actions.cpp` + the Janus block of `main.cpp` are the glue | [The UI is generated (`lib/GUI`)](#the-ui-is-generated-libgui) |
 | Comms/peripherals | `SerialCommunication`, `MavlinkComms`, `MCP4725` | [lib/Comms](lib/Comms/README.md), [lib/MCP4725](lib/MCP4725/README.md) |
 | HAL / shared low-level | `Ports`, `HAL/RegisterIO`, `BusIO` (vendored) | [lib/Ports](lib/Ports/README.md), [lib/HAL](lib/HAL/README.md), [lib/BusIO](lib/BusIO/README.md) |
-| Vendored, mostly untouched | `Display` (parallel-TFT, in active use), `lib/GUI/runtime` (Janus fixed runtime), `ArduinoLib`, `SD`, `TouchScreen` (not instantiated anywhere) | [lib/Display](lib/Display/README.md) |
+| Vendored, mostly untouched | `Display` (parallel-TFT, in active use), `lib/GUI/runtime` (Janus fixed runtime), `SD`, `TouchScreen` (not instantiated anywhere) | [lib/Display](lib/Display/README.md) |
 
 `lib/StateMachine/src/PWMStateMachine.h` is not used by the firmware --
 only `test_native/test_pwm_state_machine.cpp` includes it.
