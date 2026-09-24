@@ -1,6 +1,6 @@
 # Task 4: mavlink-on-serial2
 
-**Status:** not started
+**Status:** done
 **Branch:** `4-mavlink-on-serial2` (from `tasks`, after task 3 merged)
 **Depends on:** task 3 (`lib/Uart2`)
 

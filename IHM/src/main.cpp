@@ -60,7 +60,7 @@ uint16_t voltage0 = 0;
 uint16_t voltage1 = 0;
 Display tft; // Instantiate the display object
 PWM pwm;
-MavlinkComms mavlinkComms(&Serial);
+MavlinkComms mavlinkComms; // Serial2 via lib/Uart2 -- Serial0 is debug-only
 
 uint16_t receivedRawData[10];
 BinaryInputs userInputs;
@@ -111,8 +111,9 @@ extern "C" bool display_busy(void){
 
 void setup()
 {
-    Serial.begin(250000);
-    
+    Serial.begin(250000);   // debug port only
+    mavlinkComms.begin(MAVLINK_SERIAL_BAUD);   // protocol port: Serial2, interrupt-driven
+
     //dac0.begin(0x62);
     
     //dac1.begin(0x63);
@@ -223,6 +224,22 @@ ISR(TIMER2_COMPA_vect){ /*~1.008ms system tick*/
         newDataAvailable = comms.fast_handler(receivedRawData,10);
         rotaryEncoders.ms_handler(bMap);
     }
+
+    // MAVLink fast handler: drains the Serial2 RX ring (bounded) and decodes
+    // complete frames. Last, and with interrupts re-enabled, so the USART2
+    // RX ISR can preempt parsing -- with them off, a long tick overruns the
+    // UART's ~2-byte hardware FIFO at 250000 baud. The busy flag stops a
+    // nested tick (only if this ever overruns ~1 ms) from re-entering the
+    // parser; that tick still does all the work above.
+    static volatile bool mavlinkBusy = false;
+    if (!mavlinkBusy) {
+        mavlinkBusy = true;
+        sei();
+        mavlinkComms.fast_handler();
+        cli();
+        mavlinkBusy = false;
+    }
+
     timeStatistics += TCNT2;
     timeCounter+=1;
     //TCNT2 = 0; //reset the T0 timer to the next interrupt point taking into account the drift;
@@ -241,27 +258,26 @@ ISR(ADC_vect){
 // bound struct instead of a hand-written widget. Read-only tab, so this is
 // the only writer of these fields.
 static void refreshBusStatusInstance(){
-    const mavlink_can_signal_config_t *can0 = mavlinkComms.getCanSignalConfig(0);
-    if(can0){
-        bus_status_instance.can0_enabled = can0->enable ? 1 : 0;
-        bus_status_instance.can0_id = (int)can0->can_id;
-        bus_status_instance.can0_dlc = can0->dlc;
-        bus_status_instance.can0_extended = can0->extended_id ? 1 : 0;
+    mavlink_can_signal_config_t can;
+    if(mavlinkComms.getCanSignalConfig(0, &can)){
+        bus_status_instance.can0_enabled = can.enable ? 1 : 0;
+        bus_status_instance.can0_id = (int)can.can_id;
+        bus_status_instance.can0_dlc = can.dlc;
+        bus_status_instance.can0_extended = can.extended_id ? 1 : 0;
     }
 
-    const mavlink_can_signal_config_t *can1 = mavlinkComms.getCanSignalConfig(1);
-    if(can1){
-        bus_status_instance.can1_enabled = can1->enable ? 1 : 0;
-        bus_status_instance.can1_id = (int)can1->can_id;
-        bus_status_instance.can1_dlc = can1->dlc;
-        bus_status_instance.can1_extended = can1->extended_id ? 1 : 0;
+    if(mavlinkComms.getCanSignalConfig(1, &can)){
+        bus_status_instance.can1_enabled = can.enable ? 1 : 0;
+        bus_status_instance.can1_id = (int)can.can_id;
+        bus_status_instance.can1_dlc = can.dlc;
+        bus_status_instance.can1_extended = can.extended_id ? 1 : 0;
     }
 
-    const mavlink_rs485_signal_config_t *rs485 = mavlinkComms.getRs485SignalConfig();
-    if(rs485){
-        bus_status_instance.rs485_enabled = rs485->enable ? 1 : 0;
-        bus_status_instance.rs485_length = rs485->length;
-        bus_status_instance.rs485_period_ms = rs485->period_ms;
+    mavlink_rs485_signal_config_t rs485;
+    if(mavlinkComms.getRs485SignalConfig(&rs485)){
+        bus_status_instance.rs485_enabled = rs485.enable ? 1 : 0;
+        bus_status_instance.rs485_length = rs485.length;
+        bus_status_instance.rs485_period_ms = rs485.period_ms;
     }
 }
 
@@ -356,12 +372,6 @@ int main()
             }
         }
         prevBtnMap = btnMap;
-        // NOTE: MAVLink is on Serial (Serial0, the debug port) only as a
-        // stopgap. Serial0 is debug-only; MAVLink/any protocol belongs on a
-        // different hardware serial (e.g. Serial2). Do NOT build RX/TX
-        // machinery around Serial0 -- an attempt (Timer2-tick RX, drop-not-
-        // block TX) was reverted for that reason. See NEXT-SESSION.md.
-        mavlinkComms.poll();
 
         // PC-driven PWM (PWM_CHANNEL_CONFIG). Same registers as the
         // on-screen PWM tab -- last writer wins. Invalid frames are dropped

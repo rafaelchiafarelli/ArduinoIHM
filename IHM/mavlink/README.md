@@ -61,16 +61,31 @@ it over (CRC extras were verified identical for ids 300-305 on 2026-09-20).
 
 ## Serial port
 
-**Serial0 (`Serial`, the USB/programming port) is for debug only.** MAVLink,
-and any other protocol, belongs on a different hardware serial (e.g. Serial2
--- the regular COM port). It is currently on `Serial` only as a stopgap until
-that hardware is wired; the `serial_transport` work (Timer2-tick RX,
-non-blocking TX) was reverted because it assumed `Serial` was the real
-channel. `MavlinkComms::poll()` runs in the superloop.
+**MAVLink runs on Serial2 (USART2: RX2 = D17, TX2 = D16) at 250000 baud**
+(`MAVLINK_SERIAL_BAUD`). On the PC that's the USB-TTL adapter's COM port,
+not the board's USB port. **Serial0 (`Serial`, USB/programming) is
+debug-only.** Scripts: `--port <adapter COM port>`; the default baud is
+unchanged.
+
+Receive and transmit are interrupt-driven (`lib/Uart2`, see its README):
+
+```
+RX: USART2_RX_vect -> rxRing[64] -> MavlinkComms::fast_handler() (Timer2 tick,
+    <= MAVLINK_RX_BYTES_PER_TICK bytes, interrupts re-enabled) -> dispatch()
+    -> storage slots -> superloop take*/consume*/get* (atomic copy-outs)
+TX: send*() (superloop) packs -> uart2::writeFrame() whole frame or drop
+    -> txRing[64] -> USART2_UDRE_vect -> UDR2
+```
+
+The ISRs only move bytes. Telemetry is best-effort: a frame that doesn't
+fit in the TX ring is dropped and counted (`uart2::txDroppedCount()`), and
+the next ~100 ms frame replaces it. RX ring overflow and UART
+overrun/framing errors are counted too (`rxDroppedCount()`,
+`rxLineErrorCount()`). None of these counters are in telemetry yet.
 
 ## Parsing: use `mavlink_frame_char_buffer()`, not `mavlink_parse_char()`
 
-`MavlinkComms::poll()` feeds incoming bytes to `mavlink_frame_char_buffer()`,
+`MavlinkComms::fast_handler()` feeds incoming bytes to `mavlink_frame_char_buffer()`,
 not the more commonly-shown `mavlink_parse_char()`. Measured, not
 theoretical: switching from the latter to the former dropped this project's
 build from 7059 to 6663 bytes of RAM (86.2% -> 81.3%) with zero functional

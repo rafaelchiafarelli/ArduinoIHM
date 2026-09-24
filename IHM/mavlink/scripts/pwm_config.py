@@ -6,14 +6,14 @@ Requires: pip install pymavlink pyserial
 
 Examples
   # simplex channel 0 (OC3A): 62.5 kHz, 25 % duty
-  pwm_config.py --port COM7 --channel 0 --freq 62500_HZ --a on --a-duty 25
+  pwm_config.py --port COMx --channel 0 --freq 62500_HZ --a on --a-duty 25
 
   # complex channel 2: OC1A 20 % + OC1B inverted 60 %, shared 3.9 kHz timebase
-  pwm_config.py --port COM7 --channel 2 --freq 3906_HZ --a on --a-duty 20 \
+  pwm_config.py --port COMx --channel 2 --freq 3906_HZ --a on --a-duty 20 \
       --b on --b-invert --b-duty 60
 
   # variable frequency: raw ICRn TOP (timer period) is required
-  pwm_config.py --port COM7 --channel 1 --freq VARIABLE --top 2000 --a on --a-duty 50
+  pwm_config.py --port COMx --channel 1 --freq VARIABLE --top 2000 --a on --a-duty 50
 
 There is no ack message: after sending, the script waits ~1 s for the
 board's periodic IHM_BOARD_STATE telemetry and reports "link OK" if it
@@ -53,7 +53,7 @@ def parse_freq(text):
 def build_parser():
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--port", required=True, help="serial port, e.g. COM7 or /dev/ttyACM0")
+    p.add_argument("--port", required=True, help="the Serial2 USB-TTL adapter's port, e.g. COMx or /dev/ttyUSB0")
     p.add_argument("--baud", type=int, default=250000)
     p.add_argument("--channel", type=int, required=True, choices=range(4),
                    help="0,1 = simplex (output A only); 2,3 = complex (A/B/C)")
