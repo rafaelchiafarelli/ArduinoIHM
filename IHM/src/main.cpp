@@ -286,6 +286,33 @@ void pwmCycleChannelFrequency(uint8_t ch)
     pwmSetFrequency(ch, pwmCycleFrequency((PWMFrequency)pwmLast[ch].f_selector));
 }
 
+// On-screen duty edit: re-applies channel `ch` with output `out` (0-2 =
+// A-C) at `percent`, keeping everything else. No-op if unchanged.
+static void pwmSetDuty(uint8_t ch, uint8_t out, uint8_t percent)
+{
+    if (ch > 3 || out > 2 || pwmLast[ch].out[out].duty_percent == percent) return;
+    PwmWireConfig w = pwmLast[ch];
+    w.out[out].duty_percent = percent;
+    applyPwmChannel(w);
+}
+
+// Which duty bar an action belongs to (channel, output 0-2 = A-C); false
+// for any other action.
+static bool pwmDutyActionTarget(janus_action_t action, uint8_t* ch, uint8_t* out)
+{
+    switch (action) {
+        case JANUS_ACTION_EDIT_PWM_CH0_DUTY:   *ch = 0; *out = 0; return true;
+        case JANUS_ACTION_EDIT_PWM_CH1_DUTY:   *ch = 1; *out = 0; return true;
+        case JANUS_ACTION_EDIT_PWM_CH2_A_DUTY: *ch = 2; *out = 0; return true;
+        case JANUS_ACTION_EDIT_PWM_CH2_B_DUTY: *ch = 2; *out = 1; return true;
+        case JANUS_ACTION_EDIT_PWM_CH2_C_DUTY: *ch = 2; *out = 2; return true;
+        case JANUS_ACTION_EDIT_PWM_CH3_A_DUTY: *ch = 3; *out = 0; return true;
+        case JANUS_ACTION_EDIT_PWM_CH3_B_DUTY: *ch = 3; *out = 1; return true;
+        case JANUS_ACTION_EDIT_PWM_CH3_C_DUTY: *ch = 3; *out = 2; return true;
+        default: return false;
+    }
+}
+
 // Which channel's frequency label an action belongs to; -1 for any other.
 static int8_t pwmFrequencyActionChannel(janus_action_t action)
 {
@@ -470,18 +497,28 @@ int main()
         }
         prevBtnMap = btnMap;
 
-        // rot2: steps the frequency of the PWM channel whose frequency label
-        // has focus (CW = higher, clamped at 62500 Hz / 15 Hz); does nothing
-        // on any other focus. janus_focus_activate only resolves the focused
-        // widget to its action here, it runs nothing: its one side effect,
-        // committing a previewed tab, needs focus on the nav strip, which
-        // rot1 never gives (see above).
+        // rot2 changes whatever rot1 has selected, live (navigation
+        // initiative's editing rule): a frequency label steps its channel's
+        // frequency (CW = higher, clamped at 62500 Hz / 15 Hz), a duty bar
+        // steps that output's duty 1 % (CW = higher, clamped 0-100). Any
+        // other focus: nothing. janus_focus_activate only resolves the
+        // focused widget to its action here, it runs nothing: its one side
+        // effect, committing a previewed tab, needs focus on the nav strip,
+        // which rot1 never gives (see above).
         if(dir[2] == CW || dir[2] == CCW){
+            int8_t step = dir[2] == CW ? 1 : -1;
             janus_input_result_t hit = janus_focus_activate(&janus_app);
-            int8_t ch = hit.kind == JANUS_INPUT_ACTION ? pwmFrequencyActionChannel((janus_action_t)hit.action) : -1;
-            if (ch >= 0) {
-                PWMFrequency f = (PWMFrequency)pwmLast[ch].f_selector;
-                pwmSetFrequency((uint8_t)ch, pwmStepFrequency(f, dir[2] == CW ? 1 : -1));
+            if (hit.kind == JANUS_INPUT_ACTION) {
+                janus_action_t action = (janus_action_t)hit.action;
+                int8_t ch = pwmFrequencyActionChannel(action);
+                uint8_t dutyCh, dutyOut;
+                if (ch >= 0) {
+                    PWMFrequency f = (PWMFrequency)pwmLast[ch].f_selector;
+                    pwmSetFrequency((uint8_t)ch, pwmStepFrequency(f, step));
+                } else if (pwmDutyActionTarget(action, &dutyCh, &dutyOut)) {
+                    uint8_t duty = pwmLast[dutyCh].out[dutyOut].duty_percent;
+                    pwmSetDuty(dutyCh, dutyOut, pwmStepDuty(duty, step));
+                }
                 janus_render_screen_if_dirty(screen);
             }
         }

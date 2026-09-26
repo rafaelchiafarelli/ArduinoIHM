@@ -1,6 +1,9 @@
 # Task 2: pwm-duty-edit
 
-**Status:** ready (re-planned 2026-09-26)
+**Status:** done 2026-09-26. All 5 items delivered as written: 125 native
+tests pass; RAM 58.9 %. Generated layout: CH3's C duty bar ends at x 310,
+y 474, and its ring reaches exactly the panel's bottom edge (480). The
+scope check is Rafael's bench step.
 **Branch:** `2-pwm-duty-edit` (from `tasks`)
 **Depends on:** nothing unmerged. It uses today's RE1 focus as "selected"
 and the apply path from `fixes/000004`.

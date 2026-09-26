@@ -85,3 +85,24 @@ TEST(PWMWireConfig, ComplexDisabledOutputStaysDisabledInCallArgs) {
     CHECK_FALSE(a.enabledB);
     CHECK_FALSE(a.enabledC);
 }
+
+// ---- On-screen duty editing (pwmStepDuty) ----
+
+TEST(PWMDutyEdit, StepsByOnePercentEachWay) {
+    CHECK_EQ(pwmStepDuty(50, 1), 51);
+    CHECK_EQ(pwmStepDuty(50, -1), 49);
+    CHECK_EQ(pwmStepDuty(50, 0), 50);
+}
+
+TEST(PWMDutyEdit, ClampsAtZeroAndHundred) {
+    CHECK_EQ(pwmStepDuty(100, 1), 100);
+    CHECK_EQ(pwmStepDuty(0, -1), 0);
+    CHECK_EQ(pwmStepDuty(98, 10), 100);
+    CHECK_EQ(pwmStepDuty(3, -100), 0);
+}
+
+TEST(PWMDutyEdit, OutOfRangeStartIsTreatedAsHundred) {
+    CHECK_EQ(pwmStepDuty(150, 0), 100);
+    CHECK_EQ(pwmStepDuty(150, -1), 99);
+    CHECK_EQ(pwmStepDuty(255, 1), 100);
+}
