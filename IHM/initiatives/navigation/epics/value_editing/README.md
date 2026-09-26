@@ -1,18 +1,19 @@
 # Epic: value_editing
 
-What L3 (VALUE) does for each `NavSettingKind` in the nav table. It fills
-in the `navEdit(...)` stub from `nav_state_machine/3`.
+What RE2 does to the selected setting, per setting kind (the initiative's
+editing rule: select it, turn RE2, it changes, live). The initiative
+README's open questions 3 (live) and 4 (1 % duty step) are answered, so
+nothing in this epic is blocked on them any more.
 
-The whole epic is blocked on initiative open question 3 (live apply vs.
-confirm, and keep vs. discard on B0/timeout). Task 2 is also blocked on
-open question 4 (duty step).
+Until `nav_state_machine/3` lands, "selected" means the RE1 focus ring;
+afterwards it means the navigator's L2 setting.
 
 ## Tasks
 
 ```
 1-toggle-settings     Enabled / Inverting / Relay N flip          (deps: nav_state_machine/3)
-2-pwm-duty-edit       duty ±step per RE0 detent, applied to the   (deps: nav_state_machine/3)
-                      timer via the same path as PWM_CHANNEL_CONFIG
+2-pwm-duty-edit       duty ±1 % per RE2 detent on a selected      (no deps -- uses RE1 focus today)
+                      duty bar, applied via applyPwmChannel
 3-pwm-frequency-edit  step through PWMFrequency's fixed entries   (deps: nav_state_machine/3)
                       -- partly delivered by fixes/000006, see the task
 ```
