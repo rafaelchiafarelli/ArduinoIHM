@@ -189,6 +189,17 @@ public:
         sendMessage(&msg);
     }
 
+    // Packs and queues one IHM_PWM_STATE message: the config currently
+    // applied to one PWM channel, same field layout as PWM_CHANNEL_CONFIG.
+    // Caller (main.cpp) passes its last-applied config for that channel; this
+    // class only packs/sends it -- same split as sendRelayState().
+    void sendPwmState(const mavlink_ihm_pwm_state_t &state)
+    {
+        mavlink_message_t msg;
+        mavlink_msg_ihm_pwm_state_encode(1, 1, &msg, &state);
+        sendMessage(&msg);
+    }
+
     // Superloop-side hand-off of the latest PWM_CHANNEL_CONFIG for channel
     // `ch` that fast_handler() stored. Returns false if ch >= 4 or nothing
     // new has arrived for it; otherwise copies it to *out, clears the

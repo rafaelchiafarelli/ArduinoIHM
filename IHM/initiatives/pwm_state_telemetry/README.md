@@ -1,6 +1,10 @@
 # Initiative: pwm_state_telemetry
 
-**Defect record, not scheduled.** Found 2026-09-21/22 explaining the PC
+**Fixed 2026-09-26 on `fixes/000005/pwm-state-telemetry`** (Rafael chose a
+fix branch off `dev` instead of the initiative chain below). What was built
+differs from the draft here: see `epics/pwm_state_message/README.md`.
+
+**Originally a defect record, not scheduled.** Found 2026-09-21/22 explaining the PC
 companion app's PWM panel to Rafael: it always shows "Sent ch%d @ %s (no
 ack -- check the output pin)" after `PWM_CHANNEL_CONFIG`, and that message
 is honest, not a bug -- the board never tells the PC whether a PWM config

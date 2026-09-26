@@ -501,6 +501,22 @@ int main()
             }
             mavlinkComms.sendRelayState(relayMask);
 
+            // One PWM channel per tick, round-robin: all 4 refresh every
+            // ~400 ms and each tick's frames fit the TX ring together.
+            // Duty is clamped as the adapters clamp it, so the PC sees what
+            // was applied, not a raw out-of-range value it may have sent.
+            static uint8_t pwmStateCh = 0;
+            const PwmWireConfig& p = pwmLast[pwmStateCh];
+            mavlink_ihm_pwm_state_t s;
+            s.channel = p.channel;
+            s.f_selector = p.f_selector;
+            s.frequency = p.frequency;
+            s.out1_enabled = p.out[0].enabled; s.out1_inverting = p.out[0].inverting; s.out1_duty_percent = min(p.out[0].duty_percent, (uint8_t)100);
+            s.out2_enabled = p.out[1].enabled; s.out2_inverting = p.out[1].inverting; s.out2_duty_percent = min(p.out[1].duty_percent, (uint8_t)100);
+            s.out3_enabled = p.out[2].enabled; s.out3_inverting = p.out[2].inverting; s.out3_duty_percent = min(p.out[2].duty_percent, (uint8_t)100);
+            mavlinkComms.sendPwmState(s);
+            pwmStateCh = (pwmStateCh + 1) & 0x03;
+
             refreshBusStatusInstance();
 
             // This tick used to also force-redraw the active screen's first
