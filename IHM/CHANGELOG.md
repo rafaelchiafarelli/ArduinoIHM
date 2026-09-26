@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-09-25 -- PWM tab: stale frequency placeholders removed
+
+- Every PWM channel row showed two frequencies: the live one in
+  `chN_state_label` and a static `pwm_chN_freq` placeholder ("1200Hz",
+  "2400Hz", "500Hz", "8000Hz") left over from before the live label existed.
+  The placeholders are removed from `lib/GUI/pwm.screen.yaml` and the UI is
+  regenerated. Bench: CH3 @ 488 Hz sent from the companion shows one correct
+  frequency.
+
 ## 2026-09-25 -- Timer2 tick preemptible (Serial2 RX overrun fix)
 
 - Bench found ~60 % of PC -> board MAVLink frames lost. A debug build tied

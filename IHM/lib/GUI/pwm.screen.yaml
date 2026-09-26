@@ -24,9 +24,10 @@
 # enable bit.
 #
 # `top` (the timer's variable-TOP register) stays dropped -- no v1 widget
-# edits a raw numeric value. `frequency` is a static placeholder label
-# (Janus live-text only renders string-bound fields -- see Janus.md's Open
-# Questions).
+# edits a raw numeric value. The frequency is shown inside the string-bound
+# `chN_state_label` (main.cpp's formatFrequencyLabel fills it). The old
+# static `pwm_chN_freq` placeholder labels were removed 2026-09-25: they sat
+# next to the live label and showed a fixed, wrong value.
 #
 # font_size: every in-row label renders at `medium` (10x14).
 # The PWM/SERIAL/Output tab switcher is Janus's own generated nav strip
@@ -53,7 +54,6 @@ children:
             children:
               - { kind: led, id: pwm_ch0_led, bind: { message: pwm, field: ch0_enabled, type: int }, states: [off, on], size: { w: 16, h: 16 } }
               - { kind: label, id: pwm_ch0_state, bind: { message: pwm, field: ch0_state_label, type: string }, font_size: medium, size: { w: 90, h: 18 } }
-              - { kind: label, id: pwm_ch0_freq, text: "1200Hz", font_size: medium, size: { w: 70, h: 18 } }  # placeholder, see header comment
               - { kind: progress, id: pwm_ch0_duty, bind: { message: pwm, field: ch0_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 40, h: 16 } }
           - kind: row
             focus_ring: true
@@ -80,7 +80,6 @@ children:
             children:
               - { kind: led, id: pwm_ch1_led, bind: { message: pwm, field: ch1_enabled, type: int }, states: [off, on], size: { w: 16, h: 16 } }
               - { kind: label, id: pwm_ch1_state, bind: { message: pwm, field: ch1_state_label, type: string }, font_size: medium, size: { w: 90, h: 18 } }
-              - { kind: label, id: pwm_ch1_freq, text: "2400Hz", font_size: medium, size: { w: 70, h: 18 } }  # placeholder, see header comment
               - { kind: progress, id: pwm_ch1_duty, bind: { message: pwm, field: ch1_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 40, h: 16 } }
           - kind: row
             focus_ring: true
@@ -107,7 +106,6 @@ children:
           - kind: row
             children:
               - { kind: label, id: pwm_ch2_state, bind: { message: pwm, field: ch2_state_label, type: string }, font_size: medium, size: { w: 90, h: 18 } }
-              - { kind: label, id: pwm_ch2_freq, text: "500Hz", font_size: medium, size: { w: 70, h: 18 } }  # placeholder, see header comment
           - kind: row
             focus_ring: true
             children:
@@ -141,7 +139,6 @@ children:
           - kind: row
             children:
               - { kind: label, id: pwm_ch3_state, bind: { message: pwm, field: ch3_state_label, type: string }, font_size: medium, size: { w: 90, h: 18 } }
-              - { kind: label, id: pwm_ch3_freq, text: "8000Hz", font_size: medium, size: { w: 70, h: 18 } }  # placeholder, see header comment
           - kind: row
             focus_ring: true
             children:
