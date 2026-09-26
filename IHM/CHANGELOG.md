@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-09-25 -- Timer2 tick preemptible (Serial2 RX overrun fix)
+
+- Bench found ~60 % of PC -> board MAVLink frames lost. A debug build tied
+  every loss to a USART2 line error: the Timer2 tick kept interrupts off for
+  up to ~216 us (the output/input handlers ~116 us every tick, plus
+  relay/encoder/comms work every 25 ms), past USART2's ~120 us of buffering
+  at 250000 baud.
+- `ISR(TIMER2_COMPA_vect)` now calls `sei()` first; task 4's busy flag
+  around `mavlinkComms.fast_handler()` is gone. Rule: the tick must finish
+  inside its ~1 ms slot. Bench: 10/10 simulated presses applied, 0 overrun
+  and 0 framing errors, 0 bad telemetry frames in a 10 s command stream.
+- Known, not fixed here: a full-screen redraw after an on-screen action
+  blocks the superloop for > 0.7 s, so two presses inside that window merge
+  into one (same as a real button).
+
 ## 2026-09-23 -- MAVLink on Serial2, interrupt-driven
 
 - MAVLink moved off the debug port onto **Serial2 (USART2, D16/D17) at
