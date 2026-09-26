@@ -28,26 +28,18 @@
 # (Janus live-text only renders string-bound fields -- see Janus.md's Open
 # Questions).
 #
-# font_size: status_bar and every in-row label render at `medium` (10x14);
-# tab_bar stays `large` (20x28) so the tab labels read at a glance.
+# font_size: every in-row label renders at `medium` (10x14).
+# The PWM/SERIAL/Output tab switcher is Janus's own generated nav strip
+# (app.yaml's `nav: { kind: tabs }`) -- no hand-authored tab_bar row here
+# any more; a manual one used to duplicate it before that strip existed.
+# Likewise the status text is app.yaml's `status: { text: ... }` chrome
+# (status_bar epic) now, not a per-screen row -- the old per-screen
+# status_bar here used to duplicate identical placeholder text across all
+# three screens, which is exactly what caused relay.screen.yaml's
+# duplicate-children-key bug.
 screen: PWM
 layout: column
 children:
-  - kind: row
-    id: status_bar
-    children:
-      - { kind: label, id: status_placeholder, text: "Status: TBD", font_size: medium, size: { w: 140, h: 20 } }
-
-  - kind: row
-    id: tab_bar
-    children:
-      - { kind: button, id: tab_pwm, text: "PWM", navigate: PWM, font_size: large,
-          size: { w: 104, h: 28 }, bg: "#FFFFFF", color: "#000000" }
-      - { kind: button, id: tab_serial, text: "SERIAL", navigate: BusStatus, font_size: large,
-          size: { w: 104, h: 28 }, bg: "#333333", color: "#AAAAAA" }
-      - { kind: button, id: tab_output, text: "Output", navigate: Relay, font_size: large,
-          size: { w: 104, h: 28 }, bg: "#333333", color: "#AAAAAA" }
-
   # ---- CH0 -- small row (80px). Controls left, full-height icon right ---
   - kind: row
     id: pwm_ch0_row

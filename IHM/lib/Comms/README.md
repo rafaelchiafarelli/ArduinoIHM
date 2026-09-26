@@ -25,7 +25,7 @@ interrupt-driven transmission (`TXEN0`/`TXCIE0`).
 entry point that feeds bytes into the framing state machine, but nothing
 -- not `main.cpp`, not any ISR -- calls `comms.receive(byte)`. The actual
 USART0 RX interrupt (`ISR(USART0_RX_vect)` in
-`lib/ArduinoLib/src/HardwareSerial0.cpp`) only fills the standard Arduino
+the Arduino core's `HardwareSerial0.cpp`) only fills the standard Arduino
 `Serial` ring buffer; it doesn't forward to `SerialCommunication`.
 
 Consequence: `able_to_parse` can never become true, so
