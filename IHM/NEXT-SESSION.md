@@ -36,11 +36,6 @@ build and full functionality -- the display works, DAC output doesn't.
   task 6); before that, ~60 % of PC -> board frames were lost to USART2
   overruns. The UART drop/error counters (`uart2::*Count()`) still aren't
   in telemetry. Add a field if trouble returns.
-- **PWM tab shows a stale frequency next to the live one.** Each channel
-  row in `lib/GUI/pwm.screen.yaml` still has a static placeholder label
-  (`pwm_chN_freq`: "1200Hz" / "2400Hz" / "500Hz" / "8000Hz") beside the live
-  `chN_state_label`. Remove the placeholders and regenerate (planned as a
-  fix on `dev`, after serial_commands merges).
 - **A full-screen redraw after an on-screen action blocks the superloop
   > 0.7 s** (`janus_render_screen` in main.cpp's ACTION case). Two presses
   inside that window merge into one, real or simulated. Relevant to the
