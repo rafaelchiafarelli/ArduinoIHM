@@ -15,7 +15,7 @@
 #define UART2_RX_RING_SIZE 64
 #endif
 #ifndef UART2_TX_RING_SIZE
-#define UART2_TX_RING_SIZE 64
+#define UART2_TX_RING_SIZE 128
 #endif
 
 namespace uart2

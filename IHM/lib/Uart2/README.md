@@ -13,7 +13,7 @@ board's protocol port. Serial0 (`Serial`) stays debug-only.
   `MavlinkComms::fast_handler()`, bounded, from the Timer2 tick).
 - `uart2::writeFrame()`: all-or-nothing enqueue (never a partial frame,
   never blocks); a frame that doesn't fit is dropped and counted.
-- Ring sizes: `UART2_RX_RING_SIZE` / `UART2_TX_RING_SIZE` (default 64 each,
+- Ring sizes: `UART2_RX_RING_SIZE` / `UART2_TX_RING_SIZE` (default 64 / 128,
   `-D` overridable).
 
 **Don't reference `Serial2` in firmware code.** That links the Arduino
