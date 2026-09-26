@@ -40,7 +40,10 @@ usual strategy," this is what they mean.
    `ISR(TIMER2_COMPA_vect)` in `src/main.cpp` fires every ~1.008ms and
    dispatches to modules at three cadences (every tick / every 25th tick
    / an unused every-10th-tick slot); `main()`'s `while(1)` superloop
-   handles everything else with no fixed cadence. See
+   handles everything else with no fixed cadence. The tick re-enables
+   interrupts as its first statement, so UART RX ISRs can always preempt
+   it, and it must always finish inside its ~1 ms slot (there is no
+   re-entry guard). See
    [`src/README.md`](src/README.md) for the exact dispatch table. PWM
    timing runs on its own dedicated hardware timers (Timer1/3/4/5), not
    on delay loops.

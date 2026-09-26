@@ -1,6 +1,6 @@
 # Task 6: preemptible-timer2-tick
 
-**Status:** planned
+**Status:** done
 **Branch:** `6-preemptible-timer2-tick` (from `tasks`)
 **Depends on:** task 4
 
@@ -38,3 +38,13 @@ Short critical sections that already have their own `ATOMIC_BLOCK`
 simulated pbRE1 presses toggle a relay, and a sustained 10 s command
 stream on COM3 shows 0 bad telemetry frames; task file marked done in the
 same commit.
+
+## Result (2026-09-25)
+
+AVR build RAM 4618 B (56.4%), Flash 72048 B (28.4%); native tests 117/117.
+Bench on COM3: 10/10 pbRE1 presses toggled the relay (1.6 s apart), and a
+10 s stream of 400 command frames gave 0 bad telemetry frames. A debug
+build showed 0 overrun and 0 framing errors. Presses 0.7 s apart still merge
+in pairs: a full-screen redraw after an action blocks the superloop for
+> 0.7 s. That is a UI issue, flagged for the navigation initiative, not a
+serial one.

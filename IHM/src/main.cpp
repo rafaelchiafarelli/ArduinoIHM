@@ -200,7 +200,12 @@ static void mirrorPwmToUi(uint8_t ch, const PWMChannelConfig* simplex, const PWM
 }
 
 ISR(TIMER2_COMPA_vect){ /*~1.008ms system tick*/
-    
+    // Interrupts back on first thing: the tick's handlers take up to ~220 us,
+    // and at 250000 baud USART2 overruns after ~3 byte times (~120 us) if its
+    // RX ISR can't get in (serial_transport task 6). No re-entry guard: the
+    // tick must always finish inside its ~1 ms slot -- keep it that way.
+    sei();
+
     multiOuput.fast_handler();
     bMap = userInputs.fast_handler();
     counterT0++;
@@ -226,19 +231,8 @@ ISR(TIMER2_COMPA_vect){ /*~1.008ms system tick*/
     }
 
     // MAVLink fast handler: drains the Serial2 RX ring (bounded) and decodes
-    // complete frames. Last, and with interrupts re-enabled, so the USART2
-    // RX ISR can preempt parsing -- with them off, a long tick overruns the
-    // UART's ~2-byte hardware FIFO at 250000 baud. The busy flag stops a
-    // nested tick (only if this ever overruns ~1 ms) from re-entering the
-    // parser; that tick still does all the work above.
-    static volatile bool mavlinkBusy = false;
-    if (!mavlinkBusy) {
-        mavlinkBusy = true;
-        sei();
-        mavlinkComms.fast_handler();
-        cli();
-        mavlinkBusy = false;
-    }
+    // complete frames. Preemptible like the rest of the tick (see the top).
+    mavlinkComms.fast_handler();
 
     timeStatistics += TCNT2;
     timeCounter+=1;

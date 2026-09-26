@@ -45,12 +45,14 @@ superseded by tasks 3-4 below; their branches (`1-rx-tick-parser`,
   to `mavlink_frame_char_buffer()` and dispatches complete frames into the
   storage slots. At 250000 baud the line rate is ~25 B/ms, so 32 per ~1 ms
   tick keeps up with a saturated line.
-- **It runs last in `TIMER2_COMPA_vect` with interrupts re-enabled**,
-  guarded by a busy flag. Why: AVR ISRs don't nest, and USART2 has ~2 bytes
-  of hardware slack (~80-120 us at 250k). Parsing 32 bytes plus the rest of
-  the tick can exceed that. With `sei()` the RX ISR can preempt the parser.
-  The busy flag means a Timer2 tick that nests (only if the handler overruns
-  ~1 ms) runs its normal work and skips MAVLink.
+- **It runs last in `TIMER2_COMPA_vect`, and the whole tick is
+  preemptible** (`sei()` is its first statement -- task 6). Why: AVR ISRs
+  don't nest, and USART2 has ~3 bytes of hardware slack (~120 us at 250k).
+  The tick's other handlers alone take up to ~220 us (measured), so any
+  interrupts-off stretch that long overruns RX. There is no re-entry guard:
+  the tick must always finish inside its ~1 ms slot. (Task 4 re-enabled
+  interrupts only around the parser, behind a busy flag; the bench showed
+  that still lost ~60 % of PC -> board frames.)
 - **TX is drop-not-block:** `send*()` packs in the superloop, then enqueues
   the whole frame or nothing (a partial frame would corrupt the stream) and
   counts the drop. The next ~100 ms telemetry frame replaces it.
@@ -69,6 +71,9 @@ superseded by tasks 3-4 below; their branches (`1-rx-tick-parser`,
                       native ByteRing tests
 4-mavlink-on-serial2  MavlinkComms on Uart2: fast_handler from Timer2,     (depends on 3)
                       atomic copy-outs, drop-not-block TX; main.cpp; docs
+5-remove-vendored-arduinolib  stock framework = arduino                  (depends on 4)
+6-preemptible-timer2-tick     sei() first in the Timer2 ISR (RX overrun   (depends on 4)
+                              fix found on the bench)
 ```
 
 ## Acceptance gate
