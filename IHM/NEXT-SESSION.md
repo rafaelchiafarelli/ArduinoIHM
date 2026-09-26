@@ -31,12 +31,20 @@ build and full functionality -- the display works, DAC output doesn't.
   `main.cpp` (`dac1.setVoltage(voltage0,...)`, `dac0.setVoltage(voltage1,...)`).
   May match board wiring -- check deliberately before assuming
   "channel 0 = voltage0".
-- **MAVLink is on Serial2 now (2026-09-23), not bench-verified.**
-  Interrupt-driven: `lib/Uart2` ISRs + rings, `MavlinkComms::fast_handler()`
-  in the Timer2 tick. Bench: USB-TTL adapter on D16/D17, scripts with
-  `--port <adapter>`; stream from the companion and confirm no CRC errors.
-  The UART drop/error counters (`uart2::*Count()`) aren't reported
-  anywhere yet; consider a telemetry field if the bench shows trouble.
+- **MAVLink on Serial2 is bench-verified (2026-09-25)**, on COM3 (PL2303
+  adapter on D16/D17). The Timer2 tick is now preemptible (serial_transport
+  task 6); before that, ~60 % of PC -> board frames were lost to USART2
+  overruns. The UART drop/error counters (`uart2::*Count()`) still aren't
+  in telemetry. Add a field if trouble returns.
+- **PWM tab shows a stale frequency next to the live one.** Each channel
+  row in `lib/GUI/pwm.screen.yaml` still has a static placeholder label
+  (`pwm_chN_freq`: "1200Hz" / "2400Hz" / "500Hz" / "8000Hz") beside the live
+  `chN_state_label`. Remove the placeholders and regenerate (planned as a
+  fix on `dev`, after serial_commands merges).
+- **A full-screen redraw after an on-screen action blocks the superloop
+  > 0.7 s** (`janus_render_screen` in main.cpp's ACTION case). Two presses
+  inside that window merge into one, real or simulated. Relevant to the
+  `navigation` initiative (redraw only dirty widgets instead).
 - **BusStatus tab passive refresh.** `bus_status_instance`'s CAN/RS-485
   fields only repaint on tab-switch or box-toggle -- the ~100ms tick
   redraws only the status bar. Live refresh there needs its own trigger
@@ -78,16 +86,12 @@ write sequence. Ask the user before testing against whatever is connected.
   walkthrough; `IHM/demo/HARDWARE_RUNBOOK.md` has the equivalent checks
   for real hardware.
 
-## Bench steps owed (nothing below was verifiable without hardware)
+## Bench steps owed
 
-1. ~~`serial_transport`: Timer2-tick drain~~ -- epic reverted; nothing owed.
-2. `pwm_control`: `PWM_CHANNEL_CONFIG` from the companion's PWM panel or
-   `pwm_config.py` changes the probed OC3A / OC1A-B pins as the runbook
-   examples say; the PWM tab mirrors it. (Epic gate; the `pwm_control`,
-   `serial_transport` and `pc_companion` epic branches are deliberately NOT
-   merged upward past `tasks` until this passes.)
-3. `pc_companion`: companion window looks right (layout was compile-checked
-   only, never viewed).
+1. `pwm_control`: the PWM tab mirrors every channel (verified
+   2026-09-25). **The output pins themselves were not probed** -- scope
+   OC3A / OC1A-B per `demo/HARDWARE_RUNBOOK.md` when an instrument is at
+   hand.
 
 ## Related repo
 

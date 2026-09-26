@@ -33,15 +33,16 @@ same split as `sendBoardState()` (the class packs the message,
 
 | Epic | Status | Scope |
 |---|---|---|
-| `serial_transport` | planned (Serial2) | MAVLink on Serial2 via own USART2 ISRs + ring buffers; bounded fast handler in the Timer2 tick; drop-not-block TX. Tasks 3-4 (1-2 superseded). |
-| `pwm_control` | tasks done, bench pending | PC configures the 4 PWM channels (2 simplex, 2 complex) over MAVLink. |
-
-| `pc_companion` | tasks done, bench pending | The Windows companion (`IHMPCController`) gains PWM/serial send UI + a how-to-use doc. |
+| `serial_transport` | done, bench-verified 2026-09-25 | MAVLink on Serial2 via own USART2 ISRs + ring buffers; bounded fast handler in a preemptible Timer2 tick; drop-not-block TX. Tasks 3-6 (1-2 superseded). |
+| `pwm_control` | done, bench-verified 2026-09-25 (screen; no probe) | PC configures the 4 PWM channels (2 simplex, 2 complex) over MAVLink. |
+| `pc_companion` | done, bench-verified 2026-09-25 | The Windows companion (`IHMPCController`): PWM panel, input simulation (encoders + buttons), how-to-use doc. |
+| `input_simulation` | done, bench-verified 2026-09-25 | PC simulates encoder turns (id 305) and button presses (id 306). |
+| `relay_control` | telemetry done | Board -> PC relay state (id 304). PC -> board relay commands not scoped. |
 
 ### Not yet scoped (future epics under this initiative)
 
-- **`relay_control`** -- relay on/off over MAVLink. The `Relay` driver is
-  confirmed-working; lowest-risk of the remaining outputs.
+- **`relay_control` commands** -- relay on/off PC -> board over MAVLink
+  (the telemetry direction is done). Lowest-risk of the remaining outputs.
 - **`motor_control`** -- `MotorDC` drive/stop over MAVLink. Blocked on
   confirming `MotorDC`'s bit layout against `IOs IHM.xlsx` / the KiCad
   schematic first (see `IHM/NEXT-SESSION.md`); exercising it over serial

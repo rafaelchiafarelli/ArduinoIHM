@@ -18,6 +18,8 @@ Janus is a black box here: the companion's `include/*.gen.h`,
                 enable/invert/duty, sends PWM_CHANNEL_CONFIG   (deps: pwm_control/1)
 2-how-to-use    HOW_TO_USE.md in the companion repo: build, connect,
                 every panel, the wire protocol table, troubleshooting
+3-link-fixes-and-buttons   serial-port fixes found on the bench + button
+                           simulation (id 306) buttons
 ```
 
 ## Acceptance
