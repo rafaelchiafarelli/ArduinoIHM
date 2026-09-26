@@ -268,6 +268,36 @@ void pwmToggleOutput(uint8_t ch, uint8_t out, bool inverting)
     applyPwmChannel(w);
 }
 
+// On-screen frequency edit: re-applies channel `ch` at frequency `f`,
+// keeping its outputs' enable/inverting/duty. No-op if unchanged.
+static void pwmSetFrequency(uint8_t ch, PWMFrequency f)
+{
+    if (ch > 3 || pwmLast[ch].f_selector == (uint8_t)f) return;
+    PwmWireConfig w = pwmLast[ch];
+    w.f_selector = (uint8_t)f;
+    applyPwmChannel(w);
+}
+
+// pbRE1 on a focused frequency label (via janus_actions.cpp): one step
+// lower, wrapping from 15 Hz back to 62500 Hz.
+void pwmCycleChannelFrequency(uint8_t ch)
+{
+    if (ch > 3) return;
+    pwmSetFrequency(ch, pwmCycleFrequency((PWMFrequency)pwmLast[ch].f_selector));
+}
+
+// Which channel's frequency label an action belongs to; -1 for any other.
+static int8_t pwmFrequencyActionChannel(janus_action_t action)
+{
+    switch (action) {
+        case JANUS_ACTION_CYCLE_PWM_CH0_FREQUENCY: return 0;
+        case JANUS_ACTION_CYCLE_PWM_CH1_FREQUENCY: return 1;
+        case JANUS_ACTION_CYCLE_PWM_CH2_FREQUENCY: return 2;
+        case JANUS_ACTION_CYCLE_PWM_CH3_FREQUENCY: return 3;
+        default: return -1;
+    }
+}
+
 ISR(TIMER2_COMPA_vect){ /*~1.008ms system tick*/
     // Interrupts back on first thing: the tick's handlers take up to ~220 us,
     // and at 250000 baud USART2 overruns after ~3 byte times (~120 us) if its
@@ -439,6 +469,22 @@ int main()
             }
         }
         prevBtnMap = btnMap;
+
+        // rot2: steps the frequency of the PWM channel whose frequency label
+        // has focus (CW = higher, clamped at 62500 Hz / 15 Hz); does nothing
+        // on any other focus. janus_focus_activate only resolves the focused
+        // widget to its action here, it runs nothing: its one side effect,
+        // committing a previewed tab, needs focus on the nav strip, which
+        // rot1 never gives (see above).
+        if(dir[2] == CW || dir[2] == CCW){
+            janus_input_result_t hit = janus_focus_activate(&janus_app);
+            int8_t ch = hit.kind == JANUS_INPUT_ACTION ? pwmFrequencyActionChannel((janus_action_t)hit.action) : -1;
+            if (ch >= 0) {
+                PWMFrequency f = (PWMFrequency)pwmLast[ch].f_selector;
+                pwmSetFrequency((uint8_t)ch, pwmStepFrequency(f, dir[2] == CW ? 1 : -1));
+                janus_render_screen_if_dirty(screen);
+            }
+        }
 
         // PC-driven PWM (PWM_CHANNEL_CONFIG). Same apply path as the
         // on-screen switches -- last writer wins. Invalid frames are dropped

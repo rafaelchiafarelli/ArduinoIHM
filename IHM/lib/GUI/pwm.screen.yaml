@@ -28,6 +28,13 @@
 # Janus `hidden`/state flag to select enabled vs disabled from the bound
 # enable bit.
 #
+# Frequency editing (fixes/000006, 2026-09-26): each channel's frequency
+# label sits in its own focus_ring row with `on_press:
+# cycle_pwm_chN_frequency`, which makes it focusable. With it focused, RE2
+# steps the frequency live (CW = higher, clamped at 62500 Hz / 15 Hz), and
+# pbRE1 cycles it one step lower, wrapping (main.cpp / janus_actions.cpp).
+# Only the 13 fixed frequencies are reachable here.
+#
 # `top` (the timer's variable-TOP register) stays dropped -- no v1 widget
 # edits a raw numeric value. The frequency is shown inside the string-bound
 # `chN_state_label` (main.cpp's formatFrequencyLabel fills it). The old
@@ -58,7 +65,10 @@ children:
           - kind: row
             children:
               - { kind: led, id: pwm_ch0_led, bind: { message: pwm, field: ch0_enabled, type: int }, states: [off, on], size: { w: 16, h: 16 }, color: "#00FF00", bg: "#FF0000" }
-              - { kind: label, id: pwm_ch0_state, bind: { message: pwm, field: ch0_state_label, type: string }, font_size: medium, size: { w: 90, h: 18 } }
+              - kind: row
+                focus_ring: true   # frequency: RE1 focuses it, RE2 steps it, pbRE1 cycles it
+                children:
+                  - { kind: label, id: pwm_ch0_state, bind: { message: pwm, field: ch0_state_label, type: string }, on_press: cycle_pwm_ch0_frequency, font_size: medium, size: { w: 90, h: 18 } }
               - kind: row
                 focus_ring: true   # toggles draw no ring of their own; this row carries it
                 children:
@@ -83,7 +93,10 @@ children:
           - kind: row
             children:
               - { kind: led, id: pwm_ch1_led, bind: { message: pwm, field: ch1_enabled, type: int }, states: [off, on], size: { w: 16, h: 16 }, color: "#00FF00", bg: "#FF0000" }
-              - { kind: label, id: pwm_ch1_state, bind: { message: pwm, field: ch1_state_label, type: string }, font_size: medium, size: { w: 90, h: 18 } }
+              - kind: row
+                focus_ring: true   # frequency: RE1 focuses it, RE2 steps it, pbRE1 cycles it
+                children:
+                  - { kind: label, id: pwm_ch1_state, bind: { message: pwm, field: ch1_state_label, type: string }, on_press: cycle_pwm_ch1_frequency, font_size: medium, size: { w: 90, h: 18 } }
               - kind: row
                 focus_ring: true   # toggles draw no ring of their own; this row carries it
                 children:
@@ -108,7 +121,10 @@ children:
         children:
           - kind: row
             children:
-              - { kind: label, id: pwm_ch2_state, bind: { message: pwm, field: ch2_state_label, type: string }, font_size: medium, size: { w: 90, h: 18 } }
+              - kind: row
+                focus_ring: true   # frequency: RE1 focuses it, RE2 steps it, pbRE1 cycles it
+                children:
+                  - { kind: label, id: pwm_ch2_state, bind: { message: pwm, field: ch2_state_label, type: string }, on_press: cycle_pwm_ch2_frequency, font_size: medium, size: { w: 90, h: 18 } }
           - kind: row
             focus_ring: true
             children:
@@ -144,7 +160,10 @@ children:
         children:
           - kind: row
             children:
-              - { kind: label, id: pwm_ch3_state, bind: { message: pwm, field: ch3_state_label, type: string }, font_size: medium, size: { w: 90, h: 18 } }
+              - kind: row
+                focus_ring: true   # frequency: RE1 focuses it, RE2 steps it, pbRE1 cycles it
+                children:
+                  - { kind: label, id: pwm_ch3_state, bind: { message: pwm, field: ch3_state_label, type: string }, on_press: cycle_pwm_ch3_frequency, font_size: medium, size: { w: 90, h: 18 } }
           - kind: row
             focus_ring: true
             children:

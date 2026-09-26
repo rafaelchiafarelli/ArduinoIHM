@@ -60,18 +60,19 @@ the PWM tab mirrors PC-driven changes (enable, duty, state label showing the
 frequency; complex channels' per-output *inverting* is not shown -- the UI has
 no field for it) and repaints only while that tab is showing.
 
-## UI navigation (see PWMScreen.h / GUI.cpp)
+## UI navigation (src/main.cpp, lib/GUI/pwm.screen.yaml)
 
-1. Power on. Rotate rot0 (encoder 0) until the PWM tab is highlighted.
-2. Rotate rot1 (encoder 1) to move the highlight between the 4 channel
-   boxes.
-3. Press rot1's button to drill into the highlighted channel -- rot1 now
-   moves between that channel's fields (Mode, Frequency, Duty Cycle, Edge,
-   and for complex channels, per-output Activate/Duty/Edge for A/B/C).
-4. Rotate rot2 (encoder 2) to change the highlighted field's value. Every
-   change is applied to the real timer immediately -- there is no separate
-   confirm step.
-5. Press rot1's button again to back out to channel selection.
+1. Power on. Rotate rot0 (encoder 0) to switch tabs (PWM / SERIAL / Output).
+2. Rotate rot1 (encoder 1) to move the focus ring through the tab's
+   controls: on the PWM tab, each channel's frequency label and its
+   Enabled/Inverting (CH0/CH1) or A/B/C enable (CH2/CH3) switches.
+3. Press rot1's button to activate the focused control: a switch flips; a
+   frequency label steps to the next lower frequency (15 Hz wraps to
+   62500 Hz).
+4. With a frequency label focused, rotate rot2 (encoder 2) to step that
+   channel's frequency: CW = higher, CCW = lower, stopping at 62500 Hz and
+   15 Hz. Only the 13 fixed frequencies; VARIABLE (raw TOP) is PC-only.
+   Every change is applied to the timer immediately, with no confirm step.
 
 ## Checks
 

@@ -1,6 +1,10 @@
 # Task 3: pwm-frequency-edit
 
-**Status:** planned -- blocked on initiative open question 3
+**Status:** planned -- blocked on initiative open question 3. Partly
+pre-delivered 2026-09-26 by fixes/000006: `pwmStepFrequency()` (clamped,
+never VARIABLE, unit-tested, in `PWMTiming.h`, the "stepFrequency" below),
+the focusable, bound frequency labels (item 3), and an RE2 binding. See the
+initiative README's "RE2 frequency step" section.
 **Branch:** `3-pwm-frequency-edit` (from `tasks`)
 **Depends on:** `value_editing/2-pwm-duty-edit`
 
