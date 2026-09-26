@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-09-25 -- PWM switches drive the hardware; LED colours
+
+- pbRE1 on a focused PWM switch now changes the real output. Each channel
+  keeps its last config (`pwmLast[4]`, from the PC or a switch). A press
+  flips one enable/inverting bit and re-applies it via `applyPwmChannel()`,
+  which is shared with `PWM_CHANNEL_CONFIG`. Boot default: 62500 Hz, 50 %,
+  outputs off, mirrored onto the PWM tab.
+- LEDs: green on / red off on PWM CH0/CH1 and SERIAL; new green/red LEDs
+  beside each CH2/CH3 A/B/C switch; a new LED at the end of each relay row,
+  green on / grey off.
+- Relay presses now update `relay_instance` + dirty flags; before this, the
+  Relay tab's switches never followed the relays.
+- Janus regenerated as a black box. RAM 4738 B (57.8%). Bench-checked.
+
 ## 2026-09-25 -- PWM switches back, black canvas, RE1 stays on screen
 
 - CH0/CH1: the Enabled and Inverting switches are back, unlabeled, next to
