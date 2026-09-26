@@ -1,9 +1,44 @@
 # Task 1: pwm-state-message
 
-**Status:** not started
-**Branch:** `1-pwm-state-message` (from `tasks`, once the epic's container
-branches exist -- see the initiative README on why they don't yet)
+**Status:** done 2026-09-26 -- on `fixes/000005/pwm-state-telemetry` (off
+`dev`), not the `1-pwm-state-message` task branch: Rafael chose a fix
+branch. Board-side acceptance (listener sees `IHM_PWM_STATE` matching the
+PWM tab) is Rafael's bench step.
 **Depends on:** nothing
+
+## As delivered (supersedes the contract below where they differ)
+
+Decisions by Rafael, 2026-09-26 -- see the epic README:
+
+1. `IHM_PWM_STATE` (307) is **per channel, same fields as
+   `PWM_CHANNEL_CONFIG`** (13 B payload), not the 18-byte flat draft. Sent
+   round-robin, one channel per ~100 ms tick, from `main.cpp`'s `pwmLast[]`
+   (duty clamped to 100), not from `pwm_instance`.
+2. `UART2_TX_RING_SIZE` default **64 -> 128** (`lib/Uart2/src/Uart2.h`), so
+   board state + relay state + PWM state (69 B per tick) fit. RAM 58.8 %
+   (was 56.4 %).
+3. `MavlinkComms::sendPwmState(const mavlink_ihm_pwm_state_t&)`.
+4. **Companion (`IHMPCController`, not under git -- this is the record):**
+   `mavlink/ihm_dialect/` re-synced from `IHM/mavlink/generated/`
+   (old copy kept as `mavlink/ihm_dialect.000005.bak/`); `MavlinkLink.h`
+   decodes 307 and posts `WM_APP_PWM_STATE` (state split over
+   WPARAM/LPARAM so the Win32 build works too; `PackPwmState`/
+   `UnpackPwmState` round-trip checked on x64 and x86);
+   `IHMPCController.cpp` shows live `PWM chN` readback in Outputs and
+   replaces "no ack -- check the output pin" with "waiting for the board's
+   readback..." -> "Board applied chN" / "Board reports chN differs" (after
+   two mismatching readbacks, since the first can predate the apply);
+   `HOW_TO_USE.md` updated. Backups: `MavlinkLink.h.bak`,
+   `IHMPCController.cpp.bak`, `HOW_TO_USE.md.000005.bak`. Builds x64 and
+   x86 Debug.
+
+Power-on check (item 5 below): `initPwmDefaults()` fills `pwmLast[]` with
+62500 Hz / 50 % / every output **off**, and leaves the timers untouched
+until the first apply. The readback's `enabled = 0` is true to the
+hardware. The frequency/duty it reports for a channel that was never applied
+are the defaults the first switch press will use, not register contents.
+That's acceptable because the outputs are disconnected. It's recorded here
+rather than treated as a bug.
 
 ## Contract
 

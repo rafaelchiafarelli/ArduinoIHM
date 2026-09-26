@@ -5,42 +5,38 @@ the missing counterpart to `PWM_CHANNEL_CONFIG` (303, PC -> board), same
 shape `relay_control`'s `IHM_RELAY_STATE` gave relays. See the initiative
 README for why this exists and why it's a defect record, not active work.
 
-## The one message
+## The one message (as built, 2026-09-26)
 
-`IHM_PWM_STATE`, id 307 (next free after `IHM_SIMULATE_BUTTON`, 306),
-board -> PC. One message covers all 4 channels, mirroring
-`PWM_CHANNEL_CONFIG`'s own per-channel field layout (not bit-packed
-across bytes -- same reasoning as every other message in this dialect,
-see `mavlink/README.md`) and exactly the fields `main.cpp` already
-computes into `pwm_instance` for the on-screen tab:
+`IHM_PWM_STATE`, id 307, board -> PC. **Per channel, same 12 fields as
+`PWM_CHANNEL_CONFIG` (303)** -- `channel`, `f_selector`, `frequency`,
+`out1..3_{enabled,inverting,duty_percent}` -- 13-byte payload, 25 bytes on
+the wire. The board sends one channel per ~100 ms tick, round-robin 0-3, so
+all four refresh every ~400 ms.
 
-| Field | Type | Meaning |
-|---|---|---|
-| `ch0_enabled`, `ch0_duty_percent`, `ch0_inverting` | `uint8_t` x3 | channel 0 (simplex, output A only) |
-| `ch1_enabled`, `ch1_duty_percent`, `ch1_inverting` | `uint8_t` x3 | channel 1 (simplex) |
-| `ch2_a_enabled`, `ch2_a_duty_percent`, `ch2_b_enabled`, `ch2_b_duty_percent`, `ch2_c_enabled`, `ch2_c_duty_percent` | `uint8_t` x6 | channel 2 (complex, outputs A/B/C) |
-| `ch3_a_enabled`, `ch3_a_duty_percent`, `ch3_b_enabled`, `ch3_b_duty_percent`, `ch3_c_enabled`, `ch3_c_duty_percent` | `uint8_t` x6 | channel 3 (complex) |
+Source is `main.cpp`'s `pwmLast[4]` (the last config applied per channel,
+from the PC or an on-screen switch, added by `fixes/000004`), not
+`pwm_instance` as first planned: `pwmLast` also has the frequency and the
+per-output inverting of the complex channels, which `pwm_instance` lacks.
+Duty is clamped to 100 on the way out, as the adapters clamp it when
+applying.
 
-18-byte payload (3 + 3 + 6 + 6). Frequency selector is deliberately left
-out: nothing on the PC side currently needs to display it back, and it
-would need either 4x `PWM_FREQUENCY` bytes or a shared-timebase encoding
-(channels 0/1 vs. 2/3 don't share timers, but 2 and 3 each have one
-selector for all 3 outputs) -- revisit if a consumer actually needs it,
-don't guess the shape now (workflow skill: explicit, not inferred).
+Decided by Rafael 2026-09-26, replacing this README's earlier flat 18-byte
+draft (no frequency, no complex-channel inverting) and its open "flat vs.
+per-channel" question:
 
-Whether this should be one flat message (as above, matching
-`PWM_CHANNEL_CONFIG`'s existing "channel" field pattern would instead
-need 4 separate sends, one per channel, each keyed by `channel` like
-`PWM_CHANNEL_CONFIG` itself does) is an open planning question for
-whoever picks this up -- the task below assumes the flat form since it
-needs no per-channel key and matches `pwm_instance`'s own flat shape, but
-confirm against `janus_generated.harpia`'s `pwm` message (same flat
-shape) before implementing.
+- **Per-channel mirror of `PWM_CHANNEL_CONFIG`**, so the PC compares what it
+  sent with what was applied field by field.
+- **TX ring 64 -> 128** (`UART2_TX_RING_SIZE`). Each ~100 ms tick queues
+  `IHM_BOARD_STATE` (31 B) + `IHM_RELAY_STATE` (13 B) + `IHM_PWM_STATE`
+  (25 B) = 69 B. That doesn't fit 64, and `writeFrame()` drops whole frames.
+  128 is `ByteRing`'s maximum.
+- **Companion app in scope**: live `PWM chN` readback and an
+  applied/differs result in place of "no ack -- check the output pin".
 
 ## Tasks
 
 ```
-1-pwm-state-message   dialect + regenerate + main.cpp send   (no deps)
+1-pwm-state-message   dialect + regenerate + main.cpp send + companion   (no deps) -- done
 ```
 
 ## Acceptance gate

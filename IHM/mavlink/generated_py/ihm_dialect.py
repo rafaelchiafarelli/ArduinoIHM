@@ -428,6 +428,7 @@ MAVLINK_MSG_ID_PWM_CHANNEL_CONFIG = 303
 MAVLINK_MSG_ID_IHM_RELAY_STATE = 304
 MAVLINK_MSG_ID_IHM_SIMULATE_ENCODER = 305
 MAVLINK_MSG_ID_IHM_SIMULATE_BUTTON = 306
+MAVLINK_MSG_ID_IHM_PWM_STATE = 307
 
 
 class MAVLink_ihm_board_state_message(MAVLink_message):
@@ -775,6 +776,66 @@ class MAVLink_ihm_simulate_button_message(MAVLink_message):
 setattr(MAVLink_ihm_simulate_button_message, "name", mavlink_msg_deprecated_name_property())
 
 
+class MAVLink_ihm_pwm_state_message(MAVLink_message):
+    """
+    The config currently applied to one PWM channel. Board -> PC,
+    telemetry, read-only -- PWM_CHANNEL_CONFIG (303) stays the only
+    way         to change it. The board sends one channel per ~100 ms
+    tick,         round-robin 0-1-2-3, so the whole picture refreshes
+    every ~400 ms.         Same fields as PWM_CHANNEL_CONFIG, so the
+    PC can compare it field         by field with what it sent.
+    Mirrors main.cpp's pwmLast[]: the last         config applied by
+    the PC or by an on-screen switch (last writer         wins), or
+    the boot default before either one (62500 Hz, 50 % duty,
+    every output off and non-inverting). Shows what was applied to the
+    timer registers, not what the pin physically does. A rejected
+    PWM_CHANNEL_CONFIG leaves it unchanged.
+    """
+
+    id = MAVLINK_MSG_ID_IHM_PWM_STATE
+    msgname = "IHM_PWM_STATE"
+    fieldnames = ["channel", "f_selector", "frequency", "out1_enabled", "out1_inverting", "out1_duty_percent", "out2_enabled", "out2_inverting", "out2_duty_percent", "out3_enabled", "out3_inverting", "out3_duty_percent"]
+    ordered_fieldnames = ["frequency", "channel", "f_selector", "out1_enabled", "out1_inverting", "out1_duty_percent", "out2_enabled", "out2_inverting", "out2_duty_percent", "out3_enabled", "out3_inverting", "out3_duty_percent"]
+    fieldtypes = ["uint8_t", "uint8_t", "uint16_t", "uint8_t", "uint8_t", "uint8_t", "uint8_t", "uint8_t", "uint8_t", "uint8_t", "uint8_t", "uint8_t"]
+    fielddisplays_by_name: Dict[str, str] = {}
+    fieldenums_by_name: Dict[str, str] = {"f_selector": "PWM_FREQUENCY"}
+    fieldunits_by_name: Dict[str, str] = {}
+    native_format = bytearray(b"<HBBBBBBBBBBB")
+    orders = [1, 2, 0, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    lengths = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    array_lengths = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    crc_extra = 142
+    unpacker = struct.Struct("<HBBBBBBBBBBB")
+    instance_field = None
+    instance_offset = -1
+
+    def __init__(self, channel: int, f_selector: int, frequency: int, out1_enabled: int, out1_inverting: int, out1_duty_percent: int, out2_enabled: int, out2_inverting: int, out2_duty_percent: int, out3_enabled: int, out3_inverting: int, out3_duty_percent: int):
+        MAVLink_message.__init__(self, MAVLink_ihm_pwm_state_message.id, MAVLink_ihm_pwm_state_message.msgname)
+        self._fieldnames = MAVLink_ihm_pwm_state_message.fieldnames
+        self._instance_field = MAVLink_ihm_pwm_state_message.instance_field
+        self._instance_offset = MAVLink_ihm_pwm_state_message.instance_offset
+        self.channel = channel
+        self.f_selector = f_selector
+        self.frequency = frequency
+        self.out1_enabled = out1_enabled
+        self.out1_inverting = out1_inverting
+        self.out1_duty_percent = out1_duty_percent
+        self.out2_enabled = out2_enabled
+        self.out2_inverting = out2_inverting
+        self.out2_duty_percent = out2_duty_percent
+        self.out3_enabled = out3_enabled
+        self.out3_inverting = out3_inverting
+        self.out3_duty_percent = out3_duty_percent
+
+    def pack(self, mav: "MAVLink", force_mavlink1: bool = False) -> bytes:
+        return self._pack(mav, self.crc_extra, self.unpacker.pack(self.frequency, self.channel, self.f_selector, self.out1_enabled, self.out1_inverting, self.out1_duty_percent, self.out2_enabled, self.out2_inverting, self.out2_duty_percent, self.out3_enabled, self.out3_inverting, self.out3_duty_percent), force_mavlink1=force_mavlink1)
+
+
+# Define name on the class for backwards compatibility (it is now msgname).
+# Done with setattr to hide the class variable from mypy.
+setattr(MAVLink_ihm_pwm_state_message, "name", mavlink_msg_deprecated_name_property())
+
+
 mavlink_map: Dict[int, Type[MAVLink_message]] = {
     MAVLINK_MSG_ID_IHM_BOARD_STATE: MAVLink_ihm_board_state_message,
     MAVLINK_MSG_ID_CAN_SIGNAL_CONFIG: MAVLink_can_signal_config_message,
@@ -783,6 +844,7 @@ mavlink_map: Dict[int, Type[MAVLink_message]] = {
     MAVLINK_MSG_ID_IHM_RELAY_STATE: MAVLink_ihm_relay_state_message,
     MAVLINK_MSG_ID_IHM_SIMULATE_ENCODER: MAVLink_ihm_simulate_encoder_message,
     MAVLINK_MSG_ID_IHM_SIMULATE_BUTTON: MAVLink_ihm_simulate_button_message,
+    MAVLINK_MSG_ID_IHM_PWM_STATE: MAVLink_ihm_pwm_state_message,
 }
 
 
@@ -1490,3 +1552,67 @@ class MAVLink(object):
 
         """
         self.send(self.ihm_simulate_button_encode(button_mask), force_mavlink1=force_mavlink1)
+
+    def ihm_pwm_state_encode(self, channel: int, f_selector: int, frequency: int, out1_enabled: int, out1_inverting: int, out1_duty_percent: int, out2_enabled: int, out2_inverting: int, out2_duty_percent: int, out3_enabled: int, out3_inverting: int, out3_duty_percent: int) -> MAVLink_ihm_pwm_state_message:
+        """
+        The config currently applied to one PWM channel. Board -> PC,
+        telemetry, read-only -- PWM_CHANNEL_CONFIG (303) stays the
+        only way         to change it. The board sends one channel per
+        ~100 ms tick,         round-robin 0-1-2-3, so the whole
+        picture refreshes every ~400 ms.         Same fields as
+        PWM_CHANNEL_CONFIG, so the PC can compare it field         by
+        field with what it sent. Mirrors main.cpp's pwmLast[]: the
+        last         config applied by the PC or by an on-screen
+        switch (last writer         wins), or the boot default before
+        either one (62500 Hz, 50 % duty,         every output off and
+        non-inverting). Shows what was applied to the         timer
+        registers, not what the pin physically does. A rejected
+        PWM_CHANNEL_CONFIG leaves it unchanged.
+
+        channel                   : PWM channel this snapshot describes, 0-3. (type:uint8_t)
+        f_selector                : Frequency selector for the whole channel. (type:uint8_t, values:PWM_FREQUENCY)
+        frequency                 : Raw ICRn TOP; meaningful only when f_selector == PWM_FREQUENCY_VARIABLE. (type:uint16_t)
+        out1_enabled              : Output A: 1 = driving the pin, 0 = disconnected. (type:uint8_t)
+        out1_inverting            : Output A: 0 = non-inverting, 1 = inverting. (type:uint8_t)
+        out1_duty_percent         : Output A duty cycle, 0-100. (type:uint8_t)
+        out2_enabled              : Output B enable. Unused by channels 0 and 1. (type:uint8_t)
+        out2_inverting            : Output B edge polarity. Unused by channels 0 and 1. (type:uint8_t)
+        out2_duty_percent         : Output B duty cycle, 0-100. Unused by channels 0 and 1. (type:uint8_t)
+        out3_enabled              : Output C enable. Unused by channels 0 and 1. (type:uint8_t)
+        out3_inverting            : Output C edge polarity. Unused by channels 0 and 1. (type:uint8_t)
+        out3_duty_percent         : Output C duty cycle, 0-100. Unused by channels 0 and 1. (type:uint8_t)
+
+        """
+        return MAVLink_ihm_pwm_state_message(channel, f_selector, frequency, out1_enabled, out1_inverting, out1_duty_percent, out2_enabled, out2_inverting, out2_duty_percent, out3_enabled, out3_inverting, out3_duty_percent)
+
+    def ihm_pwm_state_send(self, channel: int, f_selector: int, frequency: int, out1_enabled: int, out1_inverting: int, out1_duty_percent: int, out2_enabled: int, out2_inverting: int, out2_duty_percent: int, out3_enabled: int, out3_inverting: int, out3_duty_percent: int, force_mavlink1: bool = False) -> None:
+        """
+        The config currently applied to one PWM channel. Board -> PC,
+        telemetry, read-only -- PWM_CHANNEL_CONFIG (303) stays the
+        only way         to change it. The board sends one channel per
+        ~100 ms tick,         round-robin 0-1-2-3, so the whole
+        picture refreshes every ~400 ms.         Same fields as
+        PWM_CHANNEL_CONFIG, so the PC can compare it field         by
+        field with what it sent. Mirrors main.cpp's pwmLast[]: the
+        last         config applied by the PC or by an on-screen
+        switch (last writer         wins), or the boot default before
+        either one (62500 Hz, 50 % duty,         every output off and
+        non-inverting). Shows what was applied to the         timer
+        registers, not what the pin physically does. A rejected
+        PWM_CHANNEL_CONFIG leaves it unchanged.
+
+        channel                   : PWM channel this snapshot describes, 0-3. (type:uint8_t)
+        f_selector                : Frequency selector for the whole channel. (type:uint8_t, values:PWM_FREQUENCY)
+        frequency                 : Raw ICRn TOP; meaningful only when f_selector == PWM_FREQUENCY_VARIABLE. (type:uint16_t)
+        out1_enabled              : Output A: 1 = driving the pin, 0 = disconnected. (type:uint8_t)
+        out1_inverting            : Output A: 0 = non-inverting, 1 = inverting. (type:uint8_t)
+        out1_duty_percent         : Output A duty cycle, 0-100. (type:uint8_t)
+        out2_enabled              : Output B enable. Unused by channels 0 and 1. (type:uint8_t)
+        out2_inverting            : Output B edge polarity. Unused by channels 0 and 1. (type:uint8_t)
+        out2_duty_percent         : Output B duty cycle, 0-100. Unused by channels 0 and 1. (type:uint8_t)
+        out3_enabled              : Output C enable. Unused by channels 0 and 1. (type:uint8_t)
+        out3_inverting            : Output C edge polarity. Unused by channels 0 and 1. (type:uint8_t)
+        out3_duty_percent         : Output C duty cycle, 0-100. Unused by channels 0 and 1. (type:uint8_t)
+
+        """
+        self.send(self.ihm_pwm_state_encode(channel, f_selector, frequency, out1_enabled, out1_inverting, out1_duty_percent, out2_enabled, out2_inverting, out2_duty_percent, out3_enabled, out3_inverting, out3_duty_percent), force_mavlink1=force_mavlink1)
