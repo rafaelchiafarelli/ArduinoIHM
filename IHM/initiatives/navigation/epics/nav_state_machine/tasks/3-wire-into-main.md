@@ -22,7 +22,10 @@
 2. **Removed:** RE1's `janus_focus_move` branch and pbRE1's
    `janus_focus_activate` branch; the `BTN_MASK_ROT*` aliases from
    `input_map/1`. RE1, pbRE1, RE2, pbRE2 and B1-B3 are still read and
-   still reported in `IHM_BOARD_STATE`, but drive nothing.
+   still reported in `IHM_BOARD_STATE`, but drive nothing. **Since
+   written:** RE2 steps a focused PWM frequency label (fixes/000006) and
+   depends on the RE1 focus this item removes; decide its fate here (see
+   the initiative README).
 3. Update `ARCHITECTURE.md`'s input/UI section and
    `lib/RotaryEncoder/README.md`'s role column.
 

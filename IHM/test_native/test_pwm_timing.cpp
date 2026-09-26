@@ -119,3 +119,39 @@ TEST(PWMCompareOutputBits, NeverReturnsTheReservedZeroOneCombination) {
         }
     }
 }
+
+// ---- On-screen frequency editing (pwmStepFrequency / pwmCycleFrequency) ----
+
+TEST(PWMFrequencyEdit, StepUpMovesTowardHigherFrequency) {
+    CHECK_EQ(pwmStepFrequency(frequency_976_5625HZ, 1), frequency_1953_125HZ);
+    CHECK_EQ(pwmStepFrequency(frequency_976_5625HZ, -1), frequency_488_28125HZ);
+    CHECK_EQ(pwmStepFrequency(frequency_976_5625HZ, 3), frequency_7812_5HZ);
+}
+
+TEST(PWMFrequencyEdit, StepClampsAtBothEndsWithoutWrapping) {
+    CHECK_EQ(pwmStepFrequency(frequency_62_500HZ, 1), frequency_62_500HZ);
+    CHECK_EQ(pwmStepFrequency(frequency_31_250HZ, 5), frequency_62_500HZ);
+    CHECK_EQ(pwmStepFrequency(frequency_15_2587890625HZ, -1), frequency_15_2587890625HZ);
+    CHECK_EQ(pwmStepFrequency(frequency_30_517578125HZ, -100), frequency_15_2587890625HZ);
+}
+
+TEST(PWMFrequencyEdit, StepFromVariableLandsOnTheEndTurnedToward) {
+    CHECK_EQ(pwmStepFrequency(frequency_variable, 1), frequency_62_500HZ);
+    CHECK_EQ(pwmStepFrequency(frequency_variable, -1), frequency_15_2587890625HZ);
+    CHECK_EQ(pwmStepFrequency(frequency_variable, 0), frequency_variable);
+}
+
+TEST(PWMFrequencyEdit, StepNeverProducesVariable) {
+    for (int f = 0; f <= (int)frequency_variable; f++)
+        for (int s = -20; s <= 20; s++) {
+            if (s == 0) continue;
+            CHECK_TRUE(pwmStepFrequency((PWMFrequency)f, (int8_t)s) != frequency_variable);
+        }
+}
+
+TEST(PWMFrequencyEdit, CycleStepsDownAndWrapsToTheTop) {
+    CHECK_EQ(pwmCycleFrequency(frequency_62_500HZ), frequency_31_250HZ);
+    CHECK_EQ(pwmCycleFrequency(frequency_30_517578125HZ), frequency_15_2587890625HZ);
+    CHECK_EQ(pwmCycleFrequency(frequency_15_2587890625HZ), frequency_62_500HZ);
+    CHECK_EQ(pwmCycleFrequency(frequency_variable), frequency_62_500HZ);
+}

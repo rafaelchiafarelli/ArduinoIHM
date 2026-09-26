@@ -17,7 +17,7 @@ built yet; this is the set the firmware already reads.
 | pbRE0 | push-button | PL4 | D45 | 8 | 6 | **enter / confirm** |
 | RE1 | encoder A/B | PL2 / PL1 | D47 / D48 | 9 / 10 | -- | unassigned |
 | pbRE1 | push-button | PL0 | D49 | 11 | 5 | unassigned |
-| RE2 | encoder A/B | PC4 / PC5 | D33 / D32 | 12 / 13 | -- | unassigned |
+| RE2 | encoder A/B | PC4 / PC5 | D33 / D32 | 12 / 13 | -- | unassigned here; today steps a focused PWM frequency label (fixes/000006, see below) |
 | pbRE2 | push-button | PC7 | D30 | 14 | 4 | unassigned |
 | B0 | push-button | PA4 | D26 | 0 | 0 | **back** |
 | B1 | push-button | PE4 | D2 | 1 | 1 | unassigned |
@@ -91,6 +91,17 @@ nav_state_machine/1-navigator ─> 2-ihm-nav-table ─┘
    but no bus driver consumes them yet. Blocks `nav_state_machine/2`.
 6. **What resets the 4 s timer?** Only RE0/pbRE0/B0, or any input
    including the unassigned ones? Blocks `nav_state_machine/1`.
+
+## Since planned: RE2 frequency step (fixes/000006, 2026-09-26)
+
+Outside this initiative, Rafael had RE2 wired to PWM frequency: RE1
+focuses a channel's frequency label (now a focusable `focus_ring` row with
+`on_press: cycle_pwm_chN_frequency`), RE2 steps it live (clamped), and
+pbRE1 cycles it. It relies on RE1 focus, which `nav_state_machine/3`
+removes, and it overlaps `value_editing/3`. Decide when that task is
+picked up: keep RE2 as a shortcut on nav focus, or fold it into RE0's L3
+edit. `pwmStepFrequency`/`pwmCycleFrequency` (`PWMTiming.h`, unit-tested)
+already exist either way.
 
 ## Dependency on serial_commands
 

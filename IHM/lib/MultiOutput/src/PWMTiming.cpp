@@ -63,3 +63,28 @@ uint16_t pwmResolutionTop(PWMFrequency f, uint16_t variableTop) {
         default: return 0;
     }
 }
+
+// Fixed selectors are ordered highest frequency first (index 0 = 62500 Hz,
+// index 12 = 15 Hz), so "higher frequency" is a lower index.
+static const int8_t kLastFixedFrequency = (int8_t)frequency_15_2587890625HZ;
+
+PWMFrequency pwmStepFrequency(PWMFrequency f, int8_t steps)
+{
+    if (steps == 0)
+        return f;
+    if (f == frequency_variable || (int)f > kLastFixedFrequency)
+        return steps > 0 ? frequency_62_500HZ : frequency_15_2587890625HZ;
+    int16_t index = (int16_t)f - steps;
+    if (index < 0)
+        index = 0;
+    if (index > kLastFixedFrequency)
+        index = kLastFixedFrequency;
+    return (PWMFrequency)index;
+}
+
+PWMFrequency pwmCycleFrequency(PWMFrequency f)
+{
+    if (f == frequency_variable || (int)f >= kLastFixedFrequency)
+        return frequency_62_500HZ;
+    return (PWMFrequency)((int)f + 1);
+}
