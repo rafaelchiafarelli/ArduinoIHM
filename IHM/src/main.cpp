@@ -179,16 +179,18 @@ static void mirrorPwmToUi(uint8_t ch, const PWMChannelConfig* simplex, const PWM
         case 0:
             pwm_instance.ch0_enabled = simplex->enabled;
             pwm_instance.ch0_duty_percent = simplex->dutyCyclePercent;
+            pwm_instance.ch0_inverting = simplex->inverting;
             pwm_instance.ch0_inverting_label = pwmInvertingText(simplex->inverting);
             pwm_instance.ch0_state_label = pwmStateLabel[0];
-            pwm_dirty.ch0_enabled = pwm_dirty.ch0_duty_percent = pwm_dirty.ch0_inverting_label = pwm_dirty.ch0_state_label = true;
+            pwm_dirty.ch0_enabled = pwm_dirty.ch0_duty_percent = pwm_dirty.ch0_inverting = pwm_dirty.ch0_inverting_label = pwm_dirty.ch0_state_label = true;
             break;
         case 1:
             pwm_instance.ch1_enabled = simplex->enabled;
             pwm_instance.ch1_duty_percent = simplex->dutyCyclePercent;
+            pwm_instance.ch1_inverting = simplex->inverting;
             pwm_instance.ch1_inverting_label = pwmInvertingText(simplex->inverting);
             pwm_instance.ch1_state_label = pwmStateLabel[1];
-            pwm_dirty.ch1_enabled = pwm_dirty.ch1_duty_percent = pwm_dirty.ch1_inverting_label = pwm_dirty.ch1_state_label = true;
+            pwm_dirty.ch1_enabled = pwm_dirty.ch1_duty_percent = pwm_dirty.ch1_inverting = pwm_dirty.ch1_inverting_label = pwm_dirty.ch1_state_label = true;
             break;
         case 2:
             pwm_instance.ch2_a_enabled = complex->outputA.enabled; pwm_instance.ch2_a_duty_percent = complex->outputA.dutyCyclePercent;
@@ -345,14 +347,18 @@ int main()
 
         // rot1 + its button: focus move / activate within the current
         // screen -- mirrors the deleted GUI::update()'s tab-local
-        // navigation (BTN_MASK_ROT1). janus_focus_move/activate now take
-        // the whole janus_app_t (nav_tabs epic task 4), not just the
-        // active screen -- walking rot1 past the last/first focusable
-        // widget lands on the tab strip itself, previewed there, and a
-        // click commits the switch, same as rot0 above.
+        // navigation (BTN_MASK_ROT1). rot1 only scans the screen's own
+        // widgets: rot0 owns the tabs, so Janus's walk-off-the-end onto the
+        // tab strip (nav_tabs epic task 4) is unwanted here. A copy of the
+        // app with no nav strip gets Janus's documented plain per-screen
+        // wrap; focus movement only reads the app (active_screen is never
+        // changed by a move), so the copy is safe.
         const janus_screen_desc_t *screen = janus_app_get_screen(&janus_app, janus_app.active_screen);
         if(dir[1] == CW || dir[1] == CCW){
-            janus_focus_move(&janus_app, dir[1] == CW ? 1 : -1);
+            janus_app_t screenOnly = janus_app;
+            screenOnly.nav_tabs = NULL;
+            screenOnly.nav_tab_count = 0;
+            janus_focus_move(&screenOnly, dir[1] == CW ? 1 : -1);
         }
         bool rot1Pressed = (btnMap & BTN_MASK_ROT1) == 0x00;
         bool rot1WasPressed = (prevBtnMap & BTN_MASK_ROT1) == 0x00;
