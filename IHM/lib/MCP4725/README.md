@@ -37,7 +37,7 @@ relying on "channel 0 = `voltage0`."
 ## Coupling
 
 Depends on [lib/BusIO](../BusIO/README.md) (`I2CDevice`) and `Wire`
-(ArduinoLib). Output values, once [Comms](../Comms/README.md)'s wiring
+(stock Arduino framework). Output values, once [Comms](../Comms/README.md)'s wiring
 gap is fixed, come straight from the decoded serial frame -- no
 clamping/range validation currently happens in `main.cpp` between
 `receivedRawData` and `setVoltage()`.

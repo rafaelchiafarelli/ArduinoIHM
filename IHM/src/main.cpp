@@ -19,6 +19,8 @@
 #include "Timer2Config.h"
 #include "AnalogInput.h"
 #include "MavlinkComms.h"
+#include "PWMWireConfig.h"
+#include "PWMLabelFormat.h"
 
 // Janus-generated UI (lib/GUI) -- plain C, so every header/declaration that
 // crosses into this .cpp translation unit needs extern "C" linkage to match
@@ -58,7 +60,7 @@ uint16_t voltage0 = 0;
 uint16_t voltage1 = 0;
 Display tft; // Instantiate the display object
 PWM pwm;
-MavlinkComms mavlinkComms(&Serial);
+MavlinkComms mavlinkComms; // Serial2 via lib/Uart2 -- Serial0 is debug-only
 
 uint16_t receivedRawData[10];
 BinaryInputs userInputs;
@@ -109,8 +111,9 @@ extern "C" bool display_busy(void){
 
 void setup()
 {
-    Serial.begin(250000);
-    
+    Serial.begin(250000);   // debug port only
+    mavlinkComms.begin(MAVLINK_SERIAL_BAUD);   // protocol port: Serial2, interrupt-driven
+
     //dac0.begin(0x62);
     
     //dac1.begin(0x63);
@@ -138,18 +141,73 @@ void setup()
     display_driver_init();
     
     const janus_screen_desc_t *screen = janus_app_get_screen(&janus_app, janus_app.active_screen);
-    
+
     janus_render_screen(screen);
-    
-    janus_focus_move(screen, 0);   // establish initial focus
-    
+    janus_render_status_bar(&janus_app);   // app-level status band -- no-op if app.yaml had no `status:`
+    janus_render_nav_bar(&janus_app);   // app-level PWM/SERIAL/Output tab strip -- no-op if app.yaml had no `nav:`
+
+    janus_focus_move(&janus_app, 0);   // establish initial focus
+
+}
+
+// RAM-resident text for pwm_instance.chN_state_label (the runtime reads
+// bound strings through a plain RAM pointer -- a PROGMEM literal would be
+// read as garbage on AVR, same bug class as the janus_handoff notes).
+static char pwmStateLabel[4][PWM_LABEL_BUFFER_SIZE];
+
+// Mirrors one PC-applied PWM channel into the Janus-bound pwm_instance and
+// marks the touched fields dirty, so the PWM tab shows what the PC set.
+// pwm_instance has no per-channel inverting for complex channels and no
+// frequency field -- only what exists is mirrored (the frequency goes into
+// the state label). Display-only: the hardware was already configured.
+static void mirrorPwmToUi(uint8_t ch, const PWMChannelConfig* simplex, const PWMComplexChannelConfig* complex)
+{
+    PWMFrequency f = simplex ? simplex->frequency : complex->frequency;
+    uint16_t top = simplex ? simplex->variableTopValue : complex->variableTopValue;
+    formatFrequencyLabel(pwmStateLabel[ch], f, top);
+    switch (ch) {
+        case 0:
+            pwm_instance.ch0_enabled = simplex->enabled;
+            pwm_instance.ch0_duty_percent = simplex->dutyCyclePercent;
+            pwm_instance.ch0_inverting = simplex->inverting;
+            pwm_instance.ch0_state_label = pwmStateLabel[0];
+            pwm_dirty.ch0_enabled = pwm_dirty.ch0_duty_percent = pwm_dirty.ch0_inverting = pwm_dirty.ch0_state_label = true;
+            break;
+        case 1:
+            pwm_instance.ch1_enabled = simplex->enabled;
+            pwm_instance.ch1_duty_percent = simplex->dutyCyclePercent;
+            pwm_instance.ch1_inverting = simplex->inverting;
+            pwm_instance.ch1_state_label = pwmStateLabel[1];
+            pwm_dirty.ch1_enabled = pwm_dirty.ch1_duty_percent = pwm_dirty.ch1_inverting = pwm_dirty.ch1_state_label = true;
+            break;
+        case 2:
+            pwm_instance.ch2_a_enabled = complex->outputA.enabled; pwm_instance.ch2_a_duty_percent = complex->outputA.dutyCyclePercent;
+            pwm_instance.ch2_b_enabled = complex->outputB.enabled; pwm_instance.ch2_b_duty_percent = complex->outputB.dutyCyclePercent;
+            pwm_instance.ch2_c_enabled = complex->outputC.enabled; pwm_instance.ch2_c_duty_percent = complex->outputC.dutyCyclePercent;
+            pwm_instance.ch2_state_label = pwmStateLabel[2];
+            pwm_dirty.ch2_a_enabled = pwm_dirty.ch2_a_duty_percent = pwm_dirty.ch2_b_enabled = pwm_dirty.ch2_b_duty_percent = true;
+            pwm_dirty.ch2_c_enabled = pwm_dirty.ch2_c_duty_percent = pwm_dirty.ch2_state_label = true;
+            break;
+        case 3:
+            pwm_instance.ch3_a_enabled = complex->outputA.enabled; pwm_instance.ch3_a_duty_percent = complex->outputA.dutyCyclePercent;
+            pwm_instance.ch3_b_enabled = complex->outputB.enabled; pwm_instance.ch3_b_duty_percent = complex->outputB.dutyCyclePercent;
+            pwm_instance.ch3_c_enabled = complex->outputC.enabled; pwm_instance.ch3_c_duty_percent = complex->outputC.dutyCyclePercent;
+            pwm_instance.ch3_state_label = pwmStateLabel[3];
+            pwm_dirty.ch3_a_enabled = pwm_dirty.ch3_a_duty_percent = pwm_dirty.ch3_b_enabled = pwm_dirty.ch3_b_duty_percent = true;
+            pwm_dirty.ch3_c_enabled = pwm_dirty.ch3_c_duty_percent = pwm_dirty.ch3_state_label = true;
+            break;
+    }
 }
 
 ISR(TIMER2_COMPA_vect){ /*~1.008ms system tick*/
-    //should we stop the timer interrupt?
+    // Interrupts back on first thing: the tick's handlers take up to ~220 us,
+    // and at 250000 baud USART2 overruns after ~3 byte times (~120 us) if its
+    // RX ISR can't get in (serial_transport task 6). No re-entry guard: the
+    // tick must always finish inside its ~1 ms slot -- keep it that way.
+    sei();
+
     multiOuput.fast_handler();
     bMap = userInputs.fast_handler();
-
     counterT0++;
     if (counterT0 >= TEN_MS_T0_TICKS) { //~10ms elapsed
         counterT0 = 0;
@@ -171,6 +229,11 @@ ISR(TIMER2_COMPA_vect){ /*~1.008ms system tick*/
         newDataAvailable = comms.fast_handler(receivedRawData,10);
         rotaryEncoders.ms_handler(bMap);
     }
+
+    // MAVLink fast handler: drains the Serial2 RX ring (bounded) and decodes
+    // complete frames. Preemptible like the rest of the tick (see the top).
+    mavlinkComms.fast_handler();
+
     timeStatistics += TCNT2;
     timeCounter+=1;
     //TCNT2 = 0; //reset the T0 timer to the next interrupt point taking into account the drift;
@@ -189,27 +252,26 @@ ISR(ADC_vect){
 // bound struct instead of a hand-written widget. Read-only tab, so this is
 // the only writer of these fields.
 static void refreshBusStatusInstance(){
-    const mavlink_can_signal_config_t *can0 = mavlinkComms.getCanSignalConfig(0);
-    if(can0){
-        bus_status_instance.can0_enabled = can0->enable ? 1 : 0;
-        bus_status_instance.can0_id = (int)can0->can_id;
-        bus_status_instance.can0_dlc = can0->dlc;
-        bus_status_instance.can0_extended = can0->extended_id ? 1 : 0;
+    mavlink_can_signal_config_t can;
+    if(mavlinkComms.getCanSignalConfig(0, &can)){
+        bus_status_instance.can0_enabled = can.enable ? 1 : 0;
+        bus_status_instance.can0_id = (int)can.can_id;
+        bus_status_instance.can0_dlc = can.dlc;
+        bus_status_instance.can0_extended = can.extended_id ? 1 : 0;
     }
 
-    const mavlink_can_signal_config_t *can1 = mavlinkComms.getCanSignalConfig(1);
-    if(can1){
-        bus_status_instance.can1_enabled = can1->enable ? 1 : 0;
-        bus_status_instance.can1_id = (int)can1->can_id;
-        bus_status_instance.can1_dlc = can1->dlc;
-        bus_status_instance.can1_extended = can1->extended_id ? 1 : 0;
+    if(mavlinkComms.getCanSignalConfig(1, &can)){
+        bus_status_instance.can1_enabled = can.enable ? 1 : 0;
+        bus_status_instance.can1_id = (int)can.can_id;
+        bus_status_instance.can1_dlc = can.dlc;
+        bus_status_instance.can1_extended = can.extended_id ? 1 : 0;
     }
 
-    const mavlink_rs485_signal_config_t *rs485 = mavlinkComms.getRs485SignalConfig();
-    if(rs485){
-        bus_status_instance.rs485_enabled = rs485->enable ? 1 : 0;
-        bus_status_instance.rs485_length = rs485->length;
-        bus_status_instance.rs485_period_ms = rs485->period_ms;
+    mavlink_rs485_signal_config_t rs485;
+    if(mavlinkComms.getRs485SignalConfig(&rs485)){
+        bus_status_instance.rs485_enabled = rs485.enable ? 1 : 0;
+        bus_status_instance.rs485_length = rs485.length;
+        bus_status_instance.rs485_period_ms = rs485.period_ms;
     }
 }
 
@@ -233,14 +295,31 @@ int main()
         DIRECTION_TYPE dir[MAX_NUMBER_EMCODERS];
         for(int i = 0; i < MAX_NUMBER_EMCODERS; i++){
             dir[i] = rotaryEncoders.getDirection(i);
+            // A simulated turn (IHM_SIMULATE_ENCODER, PC -> board) only
+            // takes effect when the real hardware read was idle this
+            // pass -- real input always wins, and this is consumed
+            // exactly once either way.
+            if(dir[i] == not_supported){
+                uint8_t simulated = mavlinkComms.consumeSimulatedEncoderDirection(i);
+                if(simulated == CCW || simulated == CW)
+                    dir[i] = (DIRECTION_TYPE)simulated;
+            }
         }
         uint8_t btnMap = buildButtonMap(bMap);
+        // A simulated press (IHM_SIMULATE_BUTTON, PC -> board) reads as
+        // pressed for this one pass. btnMap is active-low, so clearing the
+        // bit presses it; a real press is already 0 and stays 0. Applied
+        // before every btnMap consumer below (edge detection, telemetry).
+        btnMap &= (uint8_t)~mavlinkComms.consumeSimulatedButtons();
 
         // rot0: switch the active screen (PWM / SERIAL / Output) -- mirrors
-        // the deleted TabSelector's rot0-drives-tabs behavior. Janus's own
-        // `nav: tabs` block in app.yaml is metadata only (nav_titles for a
-        // tab bar), not a wired input path, so this is authored directly
-        // here rather than through janus_focus_move/activate.
+        // the deleted TabSelector's rot0-drives-tabs behavior. Authored
+        // directly here (not through janus_focus_move/activate) because
+        // this board has a *dedicated* control for it, unlike Janus's
+        // stock single-control encoder scaffold, whose nav_tabs task 4
+        // reaches the tab strip by walking off the end of the focus order
+        // -- not needed here, but harmless: rot1 below can still reach the
+        // strip that way too, since app.yaml declares `nav: tabs`.
         if(dir[0] == CW || dir[0] == CCW){
             uint16_t count = janus_app.screen_count;
             uint16_t next = (uint16_t)((janus_app.active_screen + (dir[0] == CW ? 1 : (count - 1))) % count);
@@ -250,21 +329,25 @@ int main()
             // The runtime can't own this: it has no notion of "canvas
             // background color", that's a per-project/hardware choice.
            // tft.fillScreen(0x0000);
-            janus_switch_screen(&janus_app, next); // also re-renders the new screen
-            janus_focus_move(janus_app_get_screen(&janus_app, janus_app.active_screen), 0);
+            janus_switch_screen(&janus_app, next); // also re-renders the new screen + repaints the tab strip
+            janus_focus_move(&janus_app, 0);
         }
 
         // rot1 + its button: focus move / activate within the current
         // screen -- mirrors the deleted GUI::update()'s tab-local
-        // navigation (BTN_MASK_ROT1).
+        // navigation (BTN_MASK_ROT1). janus_focus_move/activate now take
+        // the whole janus_app_t (nav_tabs epic task 4), not just the
+        // active screen -- walking rot1 past the last/first focusable
+        // widget lands on the tab strip itself, previewed there, and a
+        // click commits the switch, same as rot0 above.
         const janus_screen_desc_t *screen = janus_app_get_screen(&janus_app, janus_app.active_screen);
         if(dir[1] == CW || dir[1] == CCW){
-            janus_focus_move(screen, dir[1] == CW ? 1 : -1);
+            janus_focus_move(&janus_app, dir[1] == CW ? 1 : -1);
         }
         bool rot1Pressed = (btnMap & BTN_MASK_ROT1) == 0x00;
         bool rot1WasPressed = (prevBtnMap & BTN_MASK_ROT1) == 0x00;
         if(rot1Pressed && !rot1WasPressed){
-            janus_input_result_t hit = janus_focus_activate(screen);
+            janus_input_result_t hit = janus_focus_activate(&janus_app);
             switch (hit.kind) {
                 case JANUS_INPUT_ACTION:
                     janus_handle_action((janus_action_t)hit.action);
@@ -273,7 +356,7 @@ int main()
                 case JANUS_INPUT_NAVIGATE:
                     tft.fillScreen(0x0000); // see the rot0 branch above for why
                     janus_switch_screen(&janus_app, (uint16_t)hit.navigate_target);
-                    janus_focus_move(janus_app_get_screen(&janus_app, janus_app.active_screen), 0);
+                    janus_focus_move(&janus_app, 0);
                     break;
                 case JANUS_INPUT_TOGGLE_BOX:
                     janus_toggle_box(hit.widget);
@@ -284,7 +367,48 @@ int main()
         }
         prevBtnMap = btnMap;
 
-        mavlinkComms.poll();
+        // PC-driven PWM (PWM_CHANNEL_CONFIG). Same registers as the
+        // on-screen PWM tab -- last writer wins. Invalid frames are dropped
+        // silently (no ack in the protocol). Duty goes through
+        // compute*CallArgs because setupPWMChannelN takes RAW OCR counts,
+        // not percent.
+        bool pwmUiChanged = false;
+        for (uint8_t ch = 0; ch < 4; ch++) {
+            mavlink_pwm_channel_config_t m;
+            if (!mavlinkComms.takePwmChannelConfig(ch, &m)) continue;
+            PwmWireConfig w = {
+                m.channel, m.f_selector, m.frequency,
+                { { m.out1_enabled, m.out1_inverting, m.out1_duty_percent },
+                  { m.out2_enabled, m.out2_inverting, m.out2_duty_percent },
+                  { m.out3_enabled, m.out3_inverting, m.out3_duty_percent } }
+            };
+            if (!pwmWireConfigValid(w)) continue;
+            if (ch < 2) {
+                PWMChannelConfig sc = pwmWireToSimplex(w);
+                SimplexPWMCallArgs a = computeSimplexCallArgs(sc);
+                if (ch == 0) pwm.setupPWMChannel0(a.frequency, a.inverting, a.enabled, a.rawFrequency, a.rawDutyCycle);
+                else         pwm.setupPWMChannel1(a.frequency, a.inverting, a.enabled, a.rawFrequency, a.rawDutyCycle);
+                mirrorPwmToUi(ch, &sc, NULL);
+            } else {
+                PWMComplexChannelConfig cc = pwmWireToComplex(w);
+                ComplexPWMCallArgs a = computeComplexCallArgs(cc);
+                if (ch == 2) pwm.setupPWMChannel2(a.frequency, a.rawFrequency,
+                                 a.invertingA, a.enabledA, a.invertingB, a.enabledB, a.invertingC, a.enabledC,
+                                 a.rawDutyCycleA, a.rawDutyCycleB, a.rawDutyCycleC);
+                else         pwm.setupPWMChannel3(a.frequency, a.rawFrequency,
+                                 a.invertingA, a.enabledA, a.invertingB, a.enabledB, a.invertingC, a.enabledC,
+                                 a.rawDutyCycleA, a.rawDutyCycleB, a.rawDutyCycleC);
+                mirrorPwmToUi(ch, NULL, &cc);
+            }
+            pwmUiChanged = true;
+        }
+        // Repaint only when the PWM tab is the one showing, and only the
+        // dirty widgets -- not a full-screen redraw (see the ~100 ms block's
+        // note about that regression). Off-screen the values simply wait in
+        // pwm_instance for the next full render of the tab.
+        if (pwmUiChanged && janus_app_get_screen(&janus_app, janus_app.active_screen) == &pwm_screen) {
+            janus_render_screen_if_dirty(&pwm_screen);
+        }
 
         if(newDataAvailable){
             voltage0 = receivedRawData[0];
@@ -314,34 +438,32 @@ int main()
                                          rotation, charging, battVoltage,
                                          analogIn, stats, count);
 
+            uint8_t relayMask = 0;
+            for (uint8_t i = 0; i < NUMBER_OF_RELAYS; i++)
+            {
+                if (relayState[i])
+                    relayMask |= (uint8_t)(1u << i);
+            }
+            mavlinkComms.sendRelayState(relayMask);
+
             refreshBusStatusInstance();
 
-            // This tick used to also do a full janus_render_screen here,
-            // to pick up BusStatus's passive (non-action) MAVLink updates.
-            // Since the 2026-09-05 status-bar/tab-bar redesign, that
-            // repainted the *entire* active screen every ~100ms regardless
-            // of what actually changed -- including screens with nothing
-            // passively updating at all -- which is what "the telemetry
-            // refresh cadence is for the header, not for every part of the
-            // screen" was calling out. Redraw only the status bar now
-            // (janus_render_widget, new 2026-09-05 -- see janus_runtime.h)
-            // -- status_bar is always the first top-level widget on every
-            // screen, by convention (every *.screen.yaml authors it that
-            // way), not something Janus enforces, so this breaks silently
-            // if that convention is ever violated.
+            // This tick used to also force-redraw the active screen's first
+            // top-level widget every ~100ms, back when that widget was
+            // always a per-screen status_bar row needing a periodic refresh.
+            // Since Janus's status_bar epic (2026-09-15), the status text is
+            // app-level chrome (app.yaml's `status:`, static, painted once
+            // by janus_render_status_bar) -- it's no longer a screen widget
+            // at all, so there's nothing left for this tick to periodically
+            // refresh. Removed rather than repointed at whatever now
+            // happens to be widgets[0] on each screen, which would silently
+            // redraw unrelated content for no reason.
             //
-            // Known regression from this change, not fixed here:
-            // BusStatus's own CAN/RS485 fields no longer refresh on this
-            // timer -- only on tab-switch or a box being toggled. Needs
-            // its own mechanism (e.g. an action fired from the MAVLink
-            // receive path) if live passive refresh there still matters;
-            // deliberately left as a follow-up rather than smuggled back
-            // in as a second full-screen call here.
-            const janus_screen_desc_t *active_screen = janus_app_get_screen(&janus_app, janus_app.active_screen);
-            janus_screen_desc_t ls = janus_screen_load(active_screen);
-            if (ls.widget_count > 0) {
-                janus_render_widget(&ls.widgets[0], ls.bound_struct);
-            }
+            // Known regression, still not fixed here: BusStatus's own
+            // CAN/RS485 fields only refresh on tab-switch or a box being
+            // toggled, not passively on this timer. Needs its own mechanism
+            // (e.g. an action fired from the MAVLink receive path) if live
+            // passive refresh there still matters.
         }
 
     }

@@ -40,7 +40,10 @@ usual strategy," this is what they mean.
    `ISR(TIMER2_COMPA_vect)` in `src/main.cpp` fires every ~1.008ms and
    dispatches to modules at three cadences (every tick / every 25th tick
    / an unused every-10th-tick slot); `main()`'s `while(1)` superloop
-   handles everything else with no fixed cadence. See
+   handles everything else with no fixed cadence. The tick re-enables
+   interrupts as its first statement, so UART RX ISRs can always preempt
+   it, and it must always finish inside its ~1 ms slot (there is no
+   re-entry guard). See
    [`src/README.md`](src/README.md) for the exact dispatch table. PWM
    timing runs on its own dedicated hardware timers (Timer1/3/4/5), not
    on delay loops.
@@ -92,7 +95,7 @@ before the scheduler is running -- see that module's README.
 | UI | `lib/GUI` -- Janus-generated screens + vendored `lib/GUI/runtime`; `src/janus_actions.cpp` + the Janus block of `main.cpp` are the glue | [The UI is generated (`lib/GUI`)](#the-ui-is-generated-libgui) |
 | Comms/peripherals | `SerialCommunication`, `MavlinkComms`, `MCP4725` | [lib/Comms](lib/Comms/README.md), [lib/MCP4725](lib/MCP4725/README.md) |
 | HAL / shared low-level | `Ports`, `HAL/RegisterIO`, `BusIO` (vendored) | [lib/Ports](lib/Ports/README.md), [lib/HAL](lib/HAL/README.md), [lib/BusIO](lib/BusIO/README.md) |
-| Vendored, mostly untouched | `Display` (parallel-TFT, in active use), `lib/GUI/runtime` (Janus fixed runtime), `ArduinoLib`, `SD`, `TouchScreen` (not instantiated anywhere) | [lib/Display](lib/Display/README.md) |
+| Vendored, mostly untouched | `Display` (parallel-TFT, in active use), `lib/GUI/runtime` (Janus fixed runtime), `SD`, `TouchScreen` (not instantiated anywhere) | [lib/Display](lib/Display/README.md) |
 
 `lib/StateMachine/src/PWMStateMachine.h` is not used by the firmware --
 only `test_native/test_pwm_state_machine.cpp` includes it.
@@ -256,10 +259,12 @@ fixing today.
    check. The `dac*.begin()` / `setVoltage()` calls are commented out for
    now (a missing DAC hangs `twi.c`'s unbounded wait loop). See
    [lib/MCP4725/README.md](lib/MCP4725/README.md).
-3. **`MavlinkComms::poll()` drains the whole RX ring buffer in one
-   `while (serial->available())` loop** (`lib/MavlinkComms/src/MavlinkComms.h`)
-   -- not bounded by a fixed iteration count, so a burst of buffered
-   bytes can hold up the rest of the superloop until they're all parsed.
+3. **Serial2 MAVLink path is not bench-verified.** MAVLink moved to
+   Serial2 with interrupt-driven RX/TX (`lib/Uart2`, fast handler in the
+   Timer2 tick; see [mavlink/README.md](mavlink/README.md)). The
+   RX-overrun margin at 250000 baud and the drop/error counters haven't
+   been exercised on hardware, and the counters aren't reported anywhere
+   yet.
 
 ## What's already solid
 
