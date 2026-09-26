@@ -71,3 +71,20 @@ uint8_t pwmCompareOutputBits(bool enabled, bool inverting);
  * scale a UI-facing duty-cycle percentage into the correct raw OCRnX value.
  */
 uint16_t pwmResolutionTop(PWMFrequency f, uint16_t variableTop);
+
+/**
+ * On-screen frequency editing (RE2 turns, pbRE1 presses on a channel's
+ * frequency label). Only the 13 fixed selectors are reachable from the
+ * panel; frequency_variable (raw TOP) is PC-only and is never returned.
+ *
+ * pwmStepFrequency: `steps` > 0 moves toward higher frequencies (toward
+ * frequency_62_500HZ), < 0 toward lower ones; clamped at both ends, no
+ * wrap. From frequency_variable (set by the PC) it lands on the end it
+ * was turned toward: up -> 62500 Hz, down -> 15 Hz; steps == 0 returns f
+ * unchanged, variable included.
+ *
+ * pwmCycleFrequency: one step toward lower frequencies, wrapping from
+ * 15 Hz back to 62500 Hz. From frequency_variable it goes to 62500 Hz.
+ */
+PWMFrequency pwmStepFrequency(PWMFrequency f, int8_t steps);
+PWMFrequency pwmCycleFrequency(PWMFrequency f);
