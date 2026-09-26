@@ -64,6 +64,7 @@ all three epics together just ends up with a dialect containing
 
 ```
 1-simulate-encoder-message   dialect + regenerate + MavlinkComms + main.cpp   (no deps)
+2-simulate-button-message    IHM_SIMULATE_BUTTON (id 306) + sim_input.py      (no deps)
 ```
 
 ## Acceptance gate

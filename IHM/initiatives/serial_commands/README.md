@@ -7,13 +7,11 @@ touch-free UI.
 ## Transport
 
 The board's existing private MAVLink dialect (`mavlink/ihm_dialect.xml`),
-carried on the debug/programming `Serial` port at 250000 baud -- the same
-port `MavlinkComms` already uses for `IHM_BOARD_STATE` telemetry and the
-`CAN_SIGNAL_CONFIG` / `RS485_SIGNAL_CONFIG` inbound configs. No second
-UART, no build-flag mode: inbound MAVLink command frames and outbound
-telemetry coexist on the port exactly as the two existing inbound configs
-already do. `MavlinkComms::poll()` is already called once per superloop
-pass in `main.cpp` and dispatches by `msgid`.
+carried on **Serial2** (USART2, D16/D17, 250000 baud). Serial0 (`Serial`) is
+debug-only. Inbound command frames and outbound telemetry share the port.
+RX/TX are interrupt-driven: `lib/Uart2` ISRs + rings, and
+`MavlinkComms::fast_handler()` in the Timer2 tick dispatches by `msgid`
+(see the `serial_transport` epic).
 
 Rationale for MAVLink over the hand-rolled `lib/Comms/SerialCommunication`
 framing (which is unwired and unrelated -- see `lib/Comms/README.md`) and
@@ -35,12 +33,16 @@ same split as `sendBoardState()` (the class packs the message,
 
 | Epic | Status | Scope |
 |---|---|---|
-| `pwm_control` | planned | PC configures the 4 PWM channels (2 simplex, 2 complex) over MAVLink. |
+| `serial_transport` | done, bench-verified 2026-09-25 | MAVLink on Serial2 via own USART2 ISRs + ring buffers; bounded fast handler in a preemptible Timer2 tick; drop-not-block TX. Tasks 3-6 (1-2 superseded). |
+| `pwm_control` | done, bench-verified 2026-09-25 (screen; no probe) | PC configures the 4 PWM channels (2 simplex, 2 complex) over MAVLink. |
+| `pc_companion` | done, bench-verified 2026-09-25 | The Windows companion (`IHMPCController`): PWM panel, input simulation (encoders + buttons), how-to-use doc. |
+| `input_simulation` | done, bench-verified 2026-09-25 | PC simulates encoder turns (id 305) and button presses (id 306). |
+| `relay_control` | telemetry done | Board -> PC relay state (id 304). PC -> board relay commands not scoped. |
 
 ### Not yet scoped (future epics under this initiative)
 
-- **`relay_control`** -- relay on/off over MAVLink. The `Relay` driver is
-  confirmed-working; lowest-risk of the remaining outputs.
+- **`relay_control` commands** -- relay on/off PC -> board over MAVLink
+  (the telemetry direction is done). Lowest-risk of the remaining outputs.
 - **`motor_control`** -- `MotorDC` drive/stop over MAVLink. Blocked on
   confirming `MotorDC`'s bit layout against `IOs IHM.xlsx` / the KiCad
   schematic first (see `IHM/NEXT-SESSION.md`); exercising it over serial

@@ -15,6 +15,12 @@ that class is unrelated and untouched by this).
   `generated/` is committed (AVR builds shouldn't depend on Python/pymavlink
   being installed), so a stale `generated/` after an XML edit is a real bug,
   not just an inconvenience.
+- `generated_py/ihm_dialect.py` -- mavgen Python binding of the same dialect, for
+  bench tooling (`scripts/`). Committed like `generated/`; `generate.py` now emits
+  both trees.
+- `scripts/pwm_config.py` -- CLI that sends one `PWM_CHANNEL_CONFIG` (see
+  `--help`; worked examples in `demo/HARDWARE_RUNBOOK.md`). Needs
+  `pip install pymavlink pyserial`.
 - `generated/` -- mavgen output, C only. This is a *complete*, self-contained
   MAVLink v2 C implementation (mavgen vendors `mavlink_helpers.h`,
   `mavlink_types.h`, `protocol.h`, `checksum.h` alongside the dialect-specific
@@ -30,16 +36,56 @@ that class is unrelated and untouched by this).
 | `IHM_BOARD_STATE` | board -> PC | 19 | Buttons, 3x encoder direction, house-keeping, 4x analog input, loop-timing debug (`time_statistics`/`time_counter`, mirrors `main.cpp`'s variables of the same name) |
 | `CAN_SIGNAL_CONFIG` | PC -> board | 20 | Configure/start/stop a generated signal on one of the 2 CAN buses (`bus_id` selects which) -- one active signal per bus, arbitrary bytes, no on-board waveform math |
 | `RS485_SIGNAL_CONFIG` | PC -> board | 38 | Same idea for the single RS-485 connection -- no bus_id needed |
+| `PWM_CHANNEL_CONFIG` | PC -> board | 13 | Configure one of the 4 PWM channels (0/1 simplex: output A only; 2/3 complex: outputs A/B/C) -- frequency selector, raw ICRn TOP for the variable mode, per-output enable/invert/duty. No ack; last writer wins |
 | `IHM_RELAY_STATE` | board -> PC | 1 | Bitmask of all 8 relay outputs, read-only telemetry -- mirrors `main.cpp`'s `relayState[]`; no PC -> board relay command exists yet |
 | `IHM_SIMULATE_ENCODER` | PC -> board | 2 | Inject one simulated CW/CCW rotation step on the given encoder; only applied when that encoder's real hardware read was idle the same pass -- real input always wins |
+| `IHM_SIMULATE_BUTTON` | PC -> board | 1 | Press the buttons in `button_mask` (bit layout as `IHM_BOARD_STATE.buttons`) for exactly one superloop pass; OR-ed with the real read, so real input wins |
 
 Largest message is 38 bytes, hence the 64-byte cap (some margin for the
 still-undesigned SD-card-status and UI-state messages -- see
 `IHM/NEXT-SESSION.md`).
 
+## Sending commands (PC side)
+
+| Command | Message | Tool |
+|---|---|---|
+| Configure a PWM channel | `PWM_CHANNEL_CONFIG` (303) | companion app "PWM command" panel, or `scripts/pwm_config.py` |
+| Simulate an encoder step | `IHM_SIMULATE_ENCODER` (305) | companion app CCW/CW buttons, or `scripts/sim_input.py encoder` |
+| Simulate a button click | `IHM_SIMULATE_BUTTON` (306) | `scripts/sim_input.py button` (companion app has no button UI yet) |
+
+None has an ack; the board's periodic `IHM_BOARD_STATE` is the only proof of
+life. Invalid frames are dropped silently. The companion app
+(`C:\Users\rafae\source\repos\IHMPCController`, see its `HOW_TO_USE.md`)
+keeps its own copy of `generated/ihm_dialect/`: after regenerating here, copy
+it over (CRC extras were verified identical for ids 300-305 on 2026-09-20).
+
+## Serial port
+
+**MAVLink runs on Serial2 (USART2: RX2 = D17, TX2 = D16) at 250000 baud**
+(`MAVLINK_SERIAL_BAUD`). On the PC that's the USB-TTL adapter's COM port,
+not the board's USB port. **Serial0 (`Serial`, USB/programming) is
+debug-only.** Scripts: `--port <adapter COM port>`; the default baud is
+unchanged.
+
+Receive and transmit are interrupt-driven (`lib/Uart2`, see its README):
+
+```
+RX: USART2_RX_vect -> rxRing[64] -> MavlinkComms::fast_handler() (Timer2 tick,
+    <= MAVLINK_RX_BYTES_PER_TICK bytes, interrupts re-enabled) -> dispatch()
+    -> storage slots -> superloop take*/consume*/get* (atomic copy-outs)
+TX: send*() (superloop) packs -> uart2::writeFrame() whole frame or drop
+    -> txRing[64] -> USART2_UDRE_vect -> UDR2
+```
+
+The ISRs only move bytes. Telemetry is best-effort: a frame that doesn't
+fit in the TX ring is dropped and counted (`uart2::txDroppedCount()`), and
+the next ~100 ms frame replaces it. RX ring overflow and UART
+overrun/framing errors are counted too (`rxDroppedCount()`,
+`rxLineErrorCount()`). None of these counters are in telemetry yet.
+
 ## Parsing: use `mavlink_frame_char_buffer()`, not `mavlink_parse_char()`
 
-`MavlinkComms::poll()` feeds incoming bytes to `mavlink_frame_char_buffer()`,
+`MavlinkComms::fast_handler()` feeds incoming bytes to `mavlink_frame_char_buffer()`,
 not the more commonly-shown `mavlink_parse_char()`. Measured, not
 theoretical: switching from the latter to the former dropped this project's
 build from 7059 to 6663 bytes of RAM (86.2% -> 81.3%) with zero functional
@@ -74,5 +120,9 @@ default (255) since RAM isn't a constraint there.
 
 ```sh
 pip install pymavlink   # once
-python mavlink/generate.py
+python mavlink/generate.py   # writes generated/ (C) and generated_py/ (Python)
 ```
+
+Regenerating rewrites version/date stamps in `generated/ihm_dialect/ihm_dialect.h`
+and `mavlink.h` even when nothing else changed -- revert those two if the XML
+didn't.
