@@ -33,3 +33,11 @@ PWMComplexChannelConfig pwmWireToComplex(const PwmWireConfig& w) {
     }
     return c;
 }
+
+uint8_t pwmStepDuty(uint8_t percent, int8_t steps)
+{
+    int16_t v = (int16_t)clampDuty(percent) + steps;
+    if (v < 0) v = 0;
+    if (v > 100) v = 100;
+    return (uint8_t)v;
+}

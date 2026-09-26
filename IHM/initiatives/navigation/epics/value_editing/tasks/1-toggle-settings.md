@@ -8,12 +8,12 @@
 
 ### Delivers
 
-1. **`src/main.cpp` `navEdit`** for `NAV_SET_TOGGLE`: a step in either
-   direction flips the value by dispatching the widget's existing
+1. **`src/main.cpp` `navEdit`** for `NAV_SET_TOGGLE`: an RE2 step in
+   either direction (the editing rule, initiative README) flips the value by dispatching the widget's existing
    `on_press` action through `janus_handle_action`, e.g.
    `toggle_pwm_ch0_enabled` or `toggle_relay_3`. That keeps one code path
-   for "flip this toggle". Confirm, cancel and timeout behave as open
-   question 3 decides.
+   for "flip this toggle". Live, with no confirm (open question 3, answered
+   2026-09-26).
 2. If the nav table exposes Inverting on the complex channels, the
    missing widgets and actions are **not** added here. They get their own
    task (flag it).

@@ -56,6 +56,18 @@ extern "C" void janus_handle_action(janus_action_t action) {
         case JANUS_ACTION_CYCLE_PWM_CH1_FREQUENCY:  pwmCycleChannelFrequency(1); break;
         case JANUS_ACTION_CYCLE_PWM_CH2_FREQUENCY:  pwmCycleChannelFrequency(2); break;
         case JANUS_ACTION_CYCLE_PWM_CH3_FREQUENCY:  pwmCycleChannelFrequency(3); break;
+        // edit_pwm_*_duty: a press does nothing (Rafael, 2026-09-26). The
+        // actions exist only so Janus can focus the duty bars; RE2 edits
+        // them in main.cpp.
+        case JANUS_ACTION_EDIT_PWM_CH0_DUTY:
+        case JANUS_ACTION_EDIT_PWM_CH1_DUTY:
+        case JANUS_ACTION_EDIT_PWM_CH2_A_DUTY:
+        case JANUS_ACTION_EDIT_PWM_CH2_B_DUTY:
+        case JANUS_ACTION_EDIT_PWM_CH2_C_DUTY:
+        case JANUS_ACTION_EDIT_PWM_CH3_A_DUTY:
+        case JANUS_ACTION_EDIT_PWM_CH3_B_DUTY:
+        case JANUS_ACTION_EDIT_PWM_CH3_C_DUTY:
+            break;
         default: break;
     }
 }
