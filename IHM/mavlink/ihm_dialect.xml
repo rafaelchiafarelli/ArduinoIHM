@@ -208,5 +208,33 @@
       </description>
       <field type="uint8_t" name="button_mask">Buttons to press this pass; bit i = button i, bit 7 ignored.</field>
     </message>
+
+    <message id="307" name="IHM_PWM_STATE">
+      <description>
+        The config currently applied to one PWM channel. Board -> PC,
+        telemetry, read-only -- PWM_CHANNEL_CONFIG (303) stays the only way
+        to change it. The board sends one channel per ~100 ms tick,
+        round-robin 0-1-2-3, so the whole picture refreshes every ~400 ms.
+        Same fields as PWM_CHANNEL_CONFIG, so the PC can compare it field
+        by field with what it sent. Mirrors main.cpp's pwmLast[]: the last
+        config applied by the PC or by an on-screen switch (last writer
+        wins), or the boot default before either one (62500 Hz, 50 % duty,
+        every output off and non-inverting). Shows what was applied to the
+        timer registers, not what the pin physically does. A rejected
+        PWM_CHANNEL_CONFIG leaves it unchanged.
+      </description>
+      <field type="uint8_t" name="channel">PWM channel this snapshot describes, 0-3.</field>
+      <field type="uint8_t" name="f_selector" enum="PWM_FREQUENCY">Frequency selector for the whole channel.</field>
+      <field type="uint16_t" name="frequency">Raw ICRn TOP; meaningful only when f_selector == PWM_FREQUENCY_VARIABLE.</field>
+      <field type="uint8_t" name="out1_enabled">Output A: 1 = driving the pin, 0 = disconnected.</field>
+      <field type="uint8_t" name="out1_inverting">Output A: 0 = non-inverting, 1 = inverting.</field>
+      <field type="uint8_t" name="out1_duty_percent">Output A duty cycle, 0-100.</field>
+      <field type="uint8_t" name="out2_enabled">Output B enable. Unused by channels 0 and 1.</field>
+      <field type="uint8_t" name="out2_inverting">Output B edge polarity. Unused by channels 0 and 1.</field>
+      <field type="uint8_t" name="out2_duty_percent">Output B duty cycle, 0-100. Unused by channels 0 and 1.</field>
+      <field type="uint8_t" name="out3_enabled">Output C enable. Unused by channels 0 and 1.</field>
+      <field type="uint8_t" name="out3_inverting">Output C edge polarity. Unused by channels 0 and 1.</field>
+      <field type="uint8_t" name="out3_duty_percent">Output C duty cycle, 0-100. Unused by channels 0 and 1.</field>
+    </message>
   </messages>
 </mavlink>

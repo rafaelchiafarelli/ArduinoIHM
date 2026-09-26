@@ -40,6 +40,7 @@ that class is unrelated and untouched by this).
 | `IHM_RELAY_STATE` | board -> PC | 1 | Bitmask of all 8 relay outputs, read-only telemetry -- mirrors `main.cpp`'s `relayState[]`; no PC -> board relay command exists yet |
 | `IHM_SIMULATE_ENCODER` | PC -> board | 2 | Inject one simulated CW/CCW rotation step on the given encoder; only applied when that encoder's real hardware read was idle the same pass -- real input always wins |
 | `IHM_SIMULATE_BUTTON` | PC -> board | 1 | Press the buttons in `button_mask` (bit layout as `IHM_BOARD_STATE.buttons`) for exactly one superloop pass; OR-ed with the real read, so real input wins |
+| `IHM_PWM_STATE` | board -> PC | 13 | The config currently applied to one PWM channel, same fields as `PWM_CHANNEL_CONFIG`; one channel per ~100 ms tick, round-robin (all 4 every ~400 ms). Mirrors `main.cpp`'s `pwmLast[]`, i.e. the readback `PWM_CHANNEL_CONFIG` has no ack for |
 
 Largest message is 38 bytes, hence the 64-byte cap (some margin for the
 still-undesigned SD-card-status and UI-state messages -- see
@@ -53,11 +54,11 @@ still-undesigned SD-card-status and UI-state messages -- see
 | Simulate an encoder step | `IHM_SIMULATE_ENCODER` (305) | companion app CCW/CW buttons, or `scripts/sim_input.py encoder` |
 | Simulate a button click | `IHM_SIMULATE_BUTTON` (306) | `scripts/sim_input.py button` (companion app has no button UI yet) |
 
-None has an ack; the board's periodic `IHM_BOARD_STATE` is the only proof of
-life. Invalid frames are dropped silently. The companion app
+None has an ack; the board's periodic `IHM_BOARD_STATE` is the proof of
+life, and for PWM the periodic `IHM_PWM_STATE` shows what was actually applied. Invalid frames are dropped silently. The companion app
 (`C:\Users\rafae\source\repos\IHMPCController`, see its `HOW_TO_USE.md`)
 keeps its own copy of `generated/ihm_dialect/`: after regenerating here, copy
-it over (CRC extras were verified identical for ids 300-305 on 2026-09-20).
+it over (last synced 2026-09-26, ids 300-307).
 
 ## Serial port
 
@@ -74,12 +75,14 @@ RX: USART2_RX_vect -> rxRing[64] -> MavlinkComms::fast_handler() (Timer2 tick,
     <= MAVLINK_RX_BYTES_PER_TICK bytes, interrupts re-enabled) -> dispatch()
     -> storage slots -> superloop take*/consume*/get* (atomic copy-outs)
 TX: send*() (superloop) packs -> uart2::writeFrame() whole frame or drop
-    -> txRing[64] -> USART2_UDRE_vect -> UDR2
+    -> txRing[128] -> USART2_UDRE_vect -> UDR2
 ```
 
 The ISRs only move bytes. Telemetry is best-effort: a frame that doesn't
 fit in the TX ring is dropped and counted (`uart2::txDroppedCount()`), and
-the next ~100 ms frame replaces it. RX ring overflow and UART
+the next ~100 ms frame replaces it. Per ~100 ms tick the board queues
+`IHM_BOARD_STATE` (31 B on the wire) + `IHM_RELAY_STATE` (13 B) +
+`IHM_PWM_STATE` (25 B) = 69 B, which is why the TX ring is 128, not 64. RX ring overflow and UART
 overrun/framing errors are counted too (`rxDroppedCount()`,
 `rxLineErrorCount()`). None of these counters are in telemetry yet.
 
