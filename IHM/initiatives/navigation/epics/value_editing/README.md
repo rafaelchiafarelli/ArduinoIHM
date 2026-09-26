@@ -13,7 +13,8 @@ open question 4 (duty step).
 1-toggle-settings     Enabled / Inverting / Relay N flip          (deps: nav_state_machine/3)
 2-pwm-duty-edit       duty ±step per RE0 detent, applied to the   (deps: nav_state_machine/3)
                       timer via the same path as PWM_CHANNEL_CONFIG
-3-pwm-frequency-edit  step through PWMFrequency's fixed entries   (deps: 2)
+3-pwm-frequency-edit  step through PWMFrequency's fixed entries   (deps: nav_state_machine/3)
+                      -- partly delivered by fixes/000006, see the task
 ```
 
 ## Acceptance gate

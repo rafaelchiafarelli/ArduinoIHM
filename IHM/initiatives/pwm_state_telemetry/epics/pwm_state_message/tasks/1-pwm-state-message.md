@@ -2,8 +2,13 @@
 
 **Status:** done 2026-09-26 -- on `fixes/000005/pwm-state-telemetry` (off
 `dev`), not the `1-pwm-state-message` task branch: Rafael chose a fix
-branch. Board-side acceptance (listener sees `IHM_PWM_STATE` matching the
-PWM tab) is Rafael's bench step.
+branch. Epic acceptance gate passed 2026-09-26 on the old board revision
+(f70bcca), using a pymavlink listener on COM3 at 250000 baud:
+`IHM_BOARD_STATE` / `IHM_RELAY_STATE` / `IHM_PWM_STATE` each at 10 Hz, 0 bad
+frames. A `PWM_CHANNEL_CONFIG` for ch0 (7812 Hz, A on, inverting, 30 %) and
+ch2 (976 Hz, A 25 %, C 75 % inverting) read back field for field. Rafael
+confirmed the PWM outputs on a scope. Not checked: the post-reboot default
+readback.
 **Depends on:** nothing
 
 ## As delivered (supersedes the contract below where they differ)
