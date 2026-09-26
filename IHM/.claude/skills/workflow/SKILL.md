@@ -72,6 +72,27 @@ merges.
 
 **Fix branches** are the one exception to flat names: `fixes/<id>/<name_of_the_bug>`, where `<id>` is an incrementing hex counter starting at `000000` (go to `ffffff`, then widen to 7 hex digits if that's ever exhausted — there's no ticket tracker yet, so this counter is the only ID). The `fixes/` prefix is slash-namespaced precisely because a fix is *not* part of an initiative chain and never nests under one; correspondingly, never create a flat branch literally named `fixes`, `features`, `epics`, or `tasks` outside the scheme above. Fixes normally branch off `dev` and merge back into `dev`. A fix can branch off `main` instead when it's urgent enough to need a beta/release-line patch — in that case merge it back to `main`, and also bring it into `dev` so the branches don't silently diverge (flag this to Rafael rather than assuming — confirm before merging a main-line fix back into dev if there's any conflict risk).
 
+**A fix branch is for bugs only, never for features — however small.** New
+behaviour (a new control, message or screen interaction) goes through the
+initiative chain, even when it's small enough to "just do". Before creating
+or proposing a `fixes/` branch, search `initiatives/` for a task that
+already covers the work (this includes Defect initiatives). If one exists,
+the work is that task: implement it on its task branch, under its contract
+and blocking questions. Never propose a fix branch for feature or
+already-planned work yourself. If Rafael explicitly asks for a fix branch
+anyway, that's his call. Do it, but:
+- record it in the covering task file, in the same commit as the work:
+  what shipped, the fix id, and which of its open questions Rafael
+  answered;
+- don't treat those answers as settling the initiative's open questions
+  more broadly. Ask whether they do;
+- don't rewrite *other* tasks' contracts to match. Add at most a pointer
+  note, and ask before changing anything else.
+
+(Learned 2026-09-26: `fixes/000006` built navigation's planned
+`value_editing/3` outside its task and quietly worked around a blocked open
+question, so the navigation plan no longer matched `dev`.)
+
 **Merge direction:** `<task> → tasks → <epic> → epics → <initiative> → features → dev → main`, every hop a `--no-ff` merge. A level only merges up once its own DoD is satisfied:
 
 - **`<task>`** — its contract is delivered and the full test suite passes.
