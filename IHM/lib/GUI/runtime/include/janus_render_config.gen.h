@@ -6,5 +6,7 @@
 /* panel size — for janus_clear_screen's full-panel erase and/or the nav bar */
 #define JANUS_DISPLAY_PANEL_W 320
 #define JANUS_DISPLAY_PANEL_H 480
+/* app.yaml: display.background — full-panel erase colour for janus_clear_screen */
+#define JANUS_DISPLAY_BACKGROUND 0x0000
 
 #endif  /* JANUS_GEN_RENDER_CONFIG_H */

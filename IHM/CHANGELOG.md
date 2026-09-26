@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-09-25 -- PWM switches back, black canvas, RE1 stays on screen
+
+- CH0/CH1: the Enabled and Inverting switches are back, unlabeled, next to
+  the frequency. Each sits in its own `focus_ring: true` row, because
+  Janus toggles draw no focus ring of their own (without the row, focus
+  landed on them invisibly). The inverted/non-inverted text stays.
+- `app.yaml` now declares `display.background: "#000000"`. Without it,
+  every tab switch erased the screen, and every ring erase used the
+  widgets' default bg, which is white.
+- SERIAL's three headerless boxes get `bg: "#000000"`. Unfocusing one
+  repaints its body in its own bg, which used to be white.
+- RE1 wraps within the active screen only; rot0 owns the tabs. main.cpp
+  passes `janus_focus_move` a copy of the app with no nav strip.
+- The UI was regenerated with Janus as a black box. Bench-checked on the
+  board.
+
 ## 2026-09-25 -- PWM tab: CH0/CH1 rows simplified
 
 - CH0/CH1 lose their Enabled/Inverting switches. Each row is now the LED

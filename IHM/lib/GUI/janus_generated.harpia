@@ -1,10 +1,12 @@
 message pwm{
     int ch0_enabled;
     string ch0_state_label;
+    int ch0_inverting;
     int ch0_duty_percent;
     string ch0_inverting_label;
     int ch1_enabled;
     string ch1_state_label;
+    int ch1_inverting;
     int ch1_duty_percent;
     string ch1_inverting_label;
     string ch2_state_label;

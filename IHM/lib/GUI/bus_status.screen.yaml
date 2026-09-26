@@ -17,6 +17,7 @@ layout: column
 children:
   - kind: box
     id: can0_box
+    bg: "#000000"   # unfocusing a headerless box repaints it in its bg (default white)
     layout: row
     collapsible: false
     default_expanded: true
@@ -30,6 +31,7 @@ children:
 
   - kind: box
     id: can1_box
+    bg: "#000000"   # unfocusing a headerless box repaints it in its bg (default white)
     layout: row
     collapsible: false
     default_expanded: true
@@ -43,6 +45,7 @@ children:
 
   - kind: box
     id: rs485_box
+    bg: "#000000"   # unfocusing a headerless box repaints it in its bg (default white)
     layout: row
     collapsible: false
     default_expanded: true
