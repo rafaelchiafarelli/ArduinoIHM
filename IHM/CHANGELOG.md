@@ -1,5 +1,67 @@
 # Changelog
 
+## 2026-09-25 -- Timer2 tick preemptible (Serial2 RX overrun fix)
+
+- Bench found ~60 % of PC -> board MAVLink frames lost. A debug build tied
+  every loss to a USART2 line error: the Timer2 tick kept interrupts off for
+  up to ~216 us (the output/input handlers ~116 us every tick, plus
+  relay/encoder/comms work every 25 ms), past USART2's ~120 us of buffering
+  at 250000 baud.
+- `ISR(TIMER2_COMPA_vect)` now calls `sei()` first; task 4's busy flag
+  around `mavlinkComms.fast_handler()` is gone. Rule: the tick must finish
+  inside its ~1 ms slot. Bench: 10/10 simulated presses applied, 0 overrun
+  and 0 framing errors, 0 bad telemetry frames in a 10 s command stream.
+- Known, not fixed here: a full-screen redraw after an on-screen action
+  blocks the superloop for > 0.7 s, so two presses inside that window merge
+  into one (same as a real button).
+
+## 2026-09-23 -- MAVLink on Serial2, interrupt-driven
+
+- MAVLink moved off the debug port onto **Serial2 (USART2, D16/D17) at
+  250000 baud**. `Serial` is debug-only again.
+- New `lib/Uart2`: its own `USART2_RX_vect` / `USART2_UDRE_vect` that only
+  move bytes to/from 64-byte SPSC rings (`ByteRing`, natively tested), plus
+  saturating drop/line-error counters. Firmware must not reference
+  `Serial2`, which would link the core's duplicate ISRs.
+- `MavlinkComms::poll()` (unbounded superloop drain) replaced by
+  `fast_handler()`, which runs last in the Timer2 tick with interrupts
+  re-enabled and parses at most 32 bytes per tick. Superloop accessors are
+  atomic copy-outs; `getCanSignalConfig` / `getRs485SignalConfig` now copy
+  out instead of returning pointers. TX is drop-not-block, whole frames only.
+- `serial_transport` epic re-planned (tasks 3-4; 1-2 superseded). AVR
+  build: RAM 4611 B (56.3%, +134), Flash 71260 B (28.1%); native tests
+  117/117. Not bench-tested.
+
+## 2026-09-20 (later) -- PC input injection: buttons
+
+- New `IHM_SIMULATE_BUTTON` (id 306, PC -> board): pressed-for-one-pass pulse
+  per set bit, applied to `btnMap` right after `buildButtonMap()` in
+  `main.cpp` so edge detection and telemetry both see it. Encoders already
+  had `IHM_SIMULATE_ENCODER`; with this, the PC can drive every physical
+  input. `mavlink/scripts/sim_input.py` sends either. Still on `Serial`
+  (stopgap, see above). Not bench-tested; companion app has no button UI.
+
+## 2026-09-20 -- PWM-over-MAVLink message; plan corrections; serial_transport reverted
+
+- **Reverted the `serial_transport` epic** (Timer2-tick `MavlinkComms::tick()`
+  RX and drop-not-block TX): it was built on the wrong premise that MAVLink
+  lives on the debug `Serial` port. `MavlinkComms::poll()` (superloop) and
+  plain `serial->write()` are back. MAVLink/protocol traffic must move to a
+  serial other than Serial0 -- see `NEXT-SESSION.md`.
+- `PWM_CHANNEL_CONFIG` (id 303) + `PWM_FREQUENCY` enum added to the dialect;
+  `epics` (input_simulation, relay_control: ids 304/305) merged in, so the
+  dialect is now 300-305 and CRC-identical to the PC companion's copy.
+- `.gitattributes` added (LF in repo) -- ~80 files were CRLF-only noise.
+- PC companion (`IHMPCController`, outside this repo, not version-controlled):
+  new PWM command panel (`SendPwmChannelConfig` in `MavlinkLink.h`) and a
+  `HOW_TO_USE.md`. Compiles (VS 2022, x64 Debug); layout not visually checked.
+- `pwm_control` complete through task 5 (PWM tab mirrors PC configs); new
+  `mavlink/generated_py/` + `scripts/pwm_config.py`. AVR build after all of
+  it: RAM 4467 B (54.5%), Flash 70842 B (27.9%); native tests 110/110.
+- Planning fix: `PWM::setupPWMChannelN`'s duty argument is a **raw OCR
+  count**, not a percent; `pwm_control` tasks 2/3 now reuse
+  `computeSimplex/ComplexCallArgs` instead of scaling twice.
+
 ## 2026-08-23 -- Bring up the Janus-generated UI on real hardware; fix two AVR PROGMEM bugs
 
 The on-board TFT UI (`lib/Elements`, the old `lib/GUI/GUI.cpp`/`.h`) is
