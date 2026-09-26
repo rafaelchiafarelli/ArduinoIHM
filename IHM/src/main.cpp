@@ -115,6 +115,8 @@ static char pwmInvertedText[] = "inverted";
 static char pwmNonInvertedText[] = "non-inverted";
 static const char* pwmInvertingText(bool inverting) { return inverting ? pwmInvertedText : pwmNonInvertedText; }
 
+static void initPwmDefaults(); // below mirrorPwmToUi -- seeds pwmLast[] and the PWM tab
+
 void setup()
 {
     Serial.begin(250000);   // debug port only
@@ -146,9 +148,7 @@ void setup()
 
     display_driver_init();
     
-    // Nothing has configured CH0/CH1 yet -- the timers start non-inverting.
-    pwm_instance.ch0_inverting_label = pwmInvertingText(false);
-    pwm_instance.ch1_inverting_label = pwmInvertingText(false);
+    initPwmDefaults();
 
     const janus_screen_desc_t *screen = janus_app_get_screen(&janus_app, janus_app.active_screen);
 
@@ -209,6 +209,63 @@ static void mirrorPwmToUi(uint8_t ch, const PWMChannelConfig* simplex, const PWM
             pwm_dirty.ch3_c_enabled = pwm_dirty.ch3_c_duty_percent = pwm_dirty.ch3_state_label = true;
             break;
     }
+}
+
+// Last config applied to each channel, from the PC (PWM_CHANNEL_CONFIG) or an
+// on-screen switch. A switch press flips one bit of this and re-applies it.
+static PwmWireConfig pwmLast[4];
+
+// Applies one validated config to the timers and mirrors it onto the PWM
+// tab (marks the widgets dirty; the caller decides when to repaint). Duty
+// goes through compute*CallArgs because setupPWMChannelN takes RAW OCR
+// counts, not percent.
+static void applyPwmChannel(const PwmWireConfig& w)
+{
+    uint8_t ch = w.channel;
+    if (ch < 2) {
+        PWMChannelConfig sc = pwmWireToSimplex(w);
+        SimplexPWMCallArgs a = computeSimplexCallArgs(sc);
+        if (ch == 0) pwm.setupPWMChannel0(a.frequency, a.inverting, a.enabled, a.rawFrequency, a.rawDutyCycle);
+        else         pwm.setupPWMChannel1(a.frequency, a.inverting, a.enabled, a.rawFrequency, a.rawDutyCycle);
+        mirrorPwmToUi(ch, &sc, NULL);
+    } else {
+        PWMComplexChannelConfig cc = pwmWireToComplex(w);
+        ComplexPWMCallArgs a = computeComplexCallArgs(cc);
+        if (ch == 2) pwm.setupPWMChannel2(a.frequency, a.rawFrequency,
+                         a.invertingA, a.enabledA, a.invertingB, a.enabledB, a.invertingC, a.enabledC,
+                         a.rawDutyCycleA, a.rawDutyCycleB, a.rawDutyCycleC);
+        else         pwm.setupPWMChannel3(a.frequency, a.rawFrequency,
+                         a.invertingA, a.enabledA, a.invertingB, a.enabledB, a.invertingC, a.enabledC,
+                         a.rawDutyCycleA, a.rawDutyCycleB, a.rawDutyCycleC);
+        mirrorPwmToUi(ch, NULL, &cc);
+    }
+    pwmLast[ch] = w;
+}
+
+// Boot state (Rafael, 2026-09-25): 62500 Hz, 50 % duty, every output off and
+// non-inverting, so a first Enabled press gives a visible square wave.
+// Only mirrored onto the PWM tab here; the timers are untouched until a
+// switch press or a PWM_CHANNEL_CONFIG applies a channel.
+static void initPwmDefaults()
+{
+    for (uint8_t ch = 0; ch < 4; ch++) {
+        PwmWireConfig w = { ch, (uint8_t)frequency_62_500HZ, 0, { { 0, 0, 50 }, { 0, 0, 50 }, { 0, 0, 50 } } };
+        pwmLast[ch] = w;
+        if (ch < 2) { PWMChannelConfig sc = pwmWireToSimplex(w); mirrorPwmToUi(ch, &sc, NULL); }
+        else        { PWMComplexChannelConfig cc = pwmWireToComplex(w); mirrorPwmToUi(ch, NULL, &cc); }
+    }
+}
+
+// On-screen PWM switch (pbRE1 on a focused toggle, via janus_actions.cpp):
+// flip output `out` (0-2 = A-C)'s enable or inverting bit and re-apply the
+// channel immediately.
+void pwmToggleOutput(uint8_t ch, uint8_t out, bool inverting)
+{
+    if (ch > 3 || out > 2) return;
+    PwmWireConfig w = pwmLast[ch];
+    uint8_t& bit = inverting ? w.out[out].inverting : w.out[out].enabled;
+    bit = bit ? 0 : 1;
+    applyPwmChannel(w);
 }
 
 ISR(TIMER2_COMPA_vect){ /*~1.008ms system tick*/
@@ -383,11 +440,9 @@ int main()
         }
         prevBtnMap = btnMap;
 
-        // PC-driven PWM (PWM_CHANNEL_CONFIG). Same registers as the
-        // on-screen PWM tab -- last writer wins. Invalid frames are dropped
-        // silently (no ack in the protocol). Duty goes through
-        // compute*CallArgs because setupPWMChannelN takes RAW OCR counts,
-        // not percent.
+        // PC-driven PWM (PWM_CHANNEL_CONFIG). Same apply path as the
+        // on-screen switches -- last writer wins. Invalid frames are dropped
+        // silently (no ack in the protocol).
         bool pwmUiChanged = false;
         for (uint8_t ch = 0; ch < 4; ch++) {
             mavlink_pwm_channel_config_t m;
@@ -399,23 +454,7 @@ int main()
                   { m.out3_enabled, m.out3_inverting, m.out3_duty_percent } }
             };
             if (!pwmWireConfigValid(w)) continue;
-            if (ch < 2) {
-                PWMChannelConfig sc = pwmWireToSimplex(w);
-                SimplexPWMCallArgs a = computeSimplexCallArgs(sc);
-                if (ch == 0) pwm.setupPWMChannel0(a.frequency, a.inverting, a.enabled, a.rawFrequency, a.rawDutyCycle);
-                else         pwm.setupPWMChannel1(a.frequency, a.inverting, a.enabled, a.rawFrequency, a.rawDutyCycle);
-                mirrorPwmToUi(ch, &sc, NULL);
-            } else {
-                PWMComplexChannelConfig cc = pwmWireToComplex(w);
-                ComplexPWMCallArgs a = computeComplexCallArgs(cc);
-                if (ch == 2) pwm.setupPWMChannel2(a.frequency, a.rawFrequency,
-                                 a.invertingA, a.enabledA, a.invertingB, a.enabledB, a.invertingC, a.enabledC,
-                                 a.rawDutyCycleA, a.rawDutyCycleB, a.rawDutyCycleC);
-                else         pwm.setupPWMChannel3(a.frequency, a.rawFrequency,
-                                 a.invertingA, a.enabledA, a.invertingB, a.enabledB, a.invertingC, a.enabledC,
-                                 a.rawDutyCycleA, a.rawDutyCycleB, a.rawDutyCycleC);
-                mirrorPwmToUi(ch, NULL, &cc);
-            }
+            applyPwmChannel(w);
             pwmUiChanged = true;
         }
         // Repaint only when the PWM tab is the one showing, and only the

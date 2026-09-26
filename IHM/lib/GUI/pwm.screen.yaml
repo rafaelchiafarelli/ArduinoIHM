@@ -57,7 +57,7 @@ children:
         children:
           - kind: row
             children:
-              - { kind: led, id: pwm_ch0_led, bind: { message: pwm, field: ch0_enabled, type: int }, states: [off, on], size: { w: 16, h: 16 } }
+              - { kind: led, id: pwm_ch0_led, bind: { message: pwm, field: ch0_enabled, type: int }, states: [off, on], size: { w: 16, h: 16 }, color: "#00FF00", bg: "#FF0000" }
               - { kind: label, id: pwm_ch0_state, bind: { message: pwm, field: ch0_state_label, type: string }, font_size: medium, size: { w: 90, h: 18 } }
               - kind: row
                 focus_ring: true   # toggles draw no ring of their own; this row carries it
@@ -82,7 +82,7 @@ children:
         children:
           - kind: row
             children:
-              - { kind: led, id: pwm_ch1_led, bind: { message: pwm, field: ch1_enabled, type: int }, states: [off, on], size: { w: 16, h: 16 } }
+              - { kind: led, id: pwm_ch1_led, bind: { message: pwm, field: ch1_enabled, type: int }, states: [off, on], size: { w: 16, h: 16 }, color: "#00FF00", bg: "#FF0000" }
               - { kind: label, id: pwm_ch1_state, bind: { message: pwm, field: ch1_state_label, type: string }, font_size: medium, size: { w: 90, h: 18 } }
               - kind: row
                 focus_ring: true   # toggles draw no ring of their own; this row carries it
@@ -113,18 +113,21 @@ children:
             focus_ring: true
             children:
               - { kind: toggle, id: pwm_ch2_a_enabled_toggle, bind: { message: pwm, field: ch2_a_enabled, type: int }, on_press: toggle_pwm_ch2_a_enabled, size: { w: 28, h: 18 } }
+              - { kind: led, id: pwm_ch2_a_led, bind: { message: pwm, field: ch2_a_enabled, type: int }, states: [off, on], size: { w: 14, h: 14 }, color: "#00FF00", bg: "#FF0000" }
               - { kind: label, id: pwm_ch2_a_label, text: "A", font_size: medium, size: { w: 18, h: 18 } }
               - { kind: progress, id: pwm_ch2_a_duty, bind: { message: pwm, field: ch2_a_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 90, h: 14 } }
           - kind: row
             focus_ring: true
             children:
               - { kind: toggle, id: pwm_ch2_b_enabled_toggle, bind: { message: pwm, field: ch2_b_enabled, type: int }, on_press: toggle_pwm_ch2_b_enabled, size: { w: 28, h: 18 } }
+              - { kind: led, id: pwm_ch2_b_led, bind: { message: pwm, field: ch2_b_enabled, type: int }, states: [off, on], size: { w: 14, h: 14 }, color: "#00FF00", bg: "#FF0000" }
               - { kind: label, id: pwm_ch2_b_label, text: "B", font_size: medium, size: { w: 18, h: 18 } }
               - { kind: progress, id: pwm_ch2_b_duty, bind: { message: pwm, field: ch2_b_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 90, h: 14 } }
           - kind: row
             focus_ring: true
             children:
               - { kind: toggle, id: pwm_ch2_c_enabled_toggle, bind: { message: pwm, field: ch2_c_enabled, type: int }, on_press: toggle_pwm_ch2_c_enabled, size: { w: 28, h: 18 } }
+              - { kind: led, id: pwm_ch2_c_led, bind: { message: pwm, field: ch2_c_enabled, type: int }, states: [off, on], size: { w: 14, h: 14 }, color: "#00FF00", bg: "#FF0000" }
               - { kind: label, id: pwm_ch2_c_label, text: "C", font_size: medium, size: { w: 18, h: 18 } }
               - { kind: progress, id: pwm_ch2_c_duty, bind: { message: pwm, field: ch2_c_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 90, h: 14 } }
       
@@ -146,18 +149,21 @@ children:
             focus_ring: true
             children:
               - { kind: toggle, id: pwm_ch3_a_enabled_toggle, bind: { message: pwm, field: ch3_a_enabled, type: int }, on_press: toggle_pwm_ch3_a_enabled, size: { w: 28, h: 18 } }
+              - { kind: led, id: pwm_ch3_a_led, bind: { message: pwm, field: ch3_a_enabled, type: int }, states: [off, on], size: { w: 14, h: 14 }, color: "#00FF00", bg: "#FF0000" }
               - { kind: label, id: pwm_ch3_a_label, text: "A", font_size: medium, size: { w: 18, h: 18 } }
               - { kind: progress, id: pwm_ch3_a_duty, bind: { message: pwm, field: ch3_a_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 90, h: 14 } }
           - kind: row
             focus_ring: true
             children:
               - { kind: toggle, id: pwm_ch3_b_enabled_toggle, bind: { message: pwm, field: ch3_b_enabled, type: int }, on_press: toggle_pwm_ch3_b_enabled, size: { w: 28, h: 18 } }
+              - { kind: led, id: pwm_ch3_b_led, bind: { message: pwm, field: ch3_b_enabled, type: int }, states: [off, on], size: { w: 14, h: 14 }, color: "#00FF00", bg: "#FF0000" }
               - { kind: label, id: pwm_ch3_b_label, text: "B", font_size: medium, size: { w: 18, h: 18 } }
               - { kind: progress, id: pwm_ch3_b_duty, bind: { message: pwm, field: ch3_b_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 90, h: 14 } }
           - kind: row
             focus_ring: true
             children:
               - { kind: toggle, id: pwm_ch3_c_enabled_toggle, bind: { message: pwm, field: ch3_c_enabled, type: int }, on_press: toggle_pwm_ch3_c_enabled, size: { w: 28, h: 18 } }
+              - { kind: led, id: pwm_ch3_c_led, bind: { message: pwm, field: ch3_c_enabled, type: int }, states: [off, on], size: { w: 14, h: 14 }, color: "#00FF00", bg: "#FF0000" }
               - { kind: label, id: pwm_ch3_c_label, text: "C", font_size: medium, size: { w: 18, h: 18 } }
               - { kind: progress, id: pwm_ch3_c_duty, bind: { message: pwm, field: ch3_c_duty_percent, type: int }, range: { min: 0, max: 100 }, size: { w: 90, h: 14 } }
       
