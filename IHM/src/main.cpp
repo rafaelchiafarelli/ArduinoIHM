@@ -109,6 +109,12 @@ extern "C" bool display_busy(void){
     return false;
 }
 
+// RAM-resident text for the CH0/CH1 inverting indicator (chN_inverting_label):
+// the runtime reads bound strings through a plain RAM pointer, never PROGMEM.
+static char pwmInvertedText[] = "inverted";
+static char pwmNonInvertedText[] = "non-inverted";
+static const char* pwmInvertingText(bool inverting) { return inverting ? pwmInvertedText : pwmNonInvertedText; }
+
 void setup()
 {
     Serial.begin(250000);   // debug port only
@@ -140,6 +146,10 @@ void setup()
 
     display_driver_init();
     
+    // Nothing has configured CH0/CH1 yet -- the timers start non-inverting.
+    pwm_instance.ch0_inverting_label = pwmInvertingText(false);
+    pwm_instance.ch1_inverting_label = pwmInvertingText(false);
+
     const janus_screen_desc_t *screen = janus_app_get_screen(&janus_app, janus_app.active_screen);
 
     janus_render_screen(screen);
@@ -169,16 +179,16 @@ static void mirrorPwmToUi(uint8_t ch, const PWMChannelConfig* simplex, const PWM
         case 0:
             pwm_instance.ch0_enabled = simplex->enabled;
             pwm_instance.ch0_duty_percent = simplex->dutyCyclePercent;
-            pwm_instance.ch0_inverting = simplex->inverting;
+            pwm_instance.ch0_inverting_label = pwmInvertingText(simplex->inverting);
             pwm_instance.ch0_state_label = pwmStateLabel[0];
-            pwm_dirty.ch0_enabled = pwm_dirty.ch0_duty_percent = pwm_dirty.ch0_inverting = pwm_dirty.ch0_state_label = true;
+            pwm_dirty.ch0_enabled = pwm_dirty.ch0_duty_percent = pwm_dirty.ch0_inverting_label = pwm_dirty.ch0_state_label = true;
             break;
         case 1:
             pwm_instance.ch1_enabled = simplex->enabled;
             pwm_instance.ch1_duty_percent = simplex->dutyCyclePercent;
-            pwm_instance.ch1_inverting = simplex->inverting;
+            pwm_instance.ch1_inverting_label = pwmInvertingText(simplex->inverting);
             pwm_instance.ch1_state_label = pwmStateLabel[1];
-            pwm_dirty.ch1_enabled = pwm_dirty.ch1_duty_percent = pwm_dirty.ch1_inverting = pwm_dirty.ch1_state_label = true;
+            pwm_dirty.ch1_enabled = pwm_dirty.ch1_duty_percent = pwm_dirty.ch1_inverting_label = pwm_dirty.ch1_state_label = true;
             break;
         case 2:
             pwm_instance.ch2_a_enabled = complex->outputA.enabled; pwm_instance.ch2_a_duty_percent = complex->outputA.dutyCyclePercent;

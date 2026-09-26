@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-25 -- PWM tab: CH0/CH1 rows simplified
+
+- CH0/CH1 lose their Enabled/Inverting switches. Each row is now the LED
+  plus the live frequency, then the duty bar under it, then an
+  "inverted" / "non-inverted" label (new string binding
+  `chN_inverting_label`, RAM strings in main.cpp, default "non-inverted" at
+  boot). These channels are configured from the PC only; they have no
+  focusable widget until the navigation initiative decides row focus.
+- The UI was regenerated with Janus as a black box (yaml + main.cpp changes
+  only). RAM 4640 B (56.6%).
+
 ## 2026-09-25 -- PWM tab: stale frequency placeholders removed
 
 - Every PWM channel row showed two frequencies: the live one in

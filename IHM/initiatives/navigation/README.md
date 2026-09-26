@@ -73,7 +73,10 @@ nav_state_machine/1-navigator ─> 2-ihm-nav-table ─┘
    focusable Janus widgets. Pick one: wrap each channel row in a `box`
    (yaml change, like `bus_status`), ring the option's first setting
    instead, or ask Janus for row focus (a handoff). Blocks
-   `nav_state_machine/2`.
+   `nav_state_machine/2`. Since 2026-09-25, CH0/CH1 have **no focusable
+   widget at all** (their switches were removed; the rows are read-only
+   LED, frequency, duty bar and inverted/non-inverted text), so "ring the
+   first setting" no longer works for them.
 2. **Single-setting options** (Relay N has only on/off). Should pbRE0 at L1
    go through L2 with one entry, skip to L3, or flip the relay right
    away? Blocks `nav_state_machine/2`.
