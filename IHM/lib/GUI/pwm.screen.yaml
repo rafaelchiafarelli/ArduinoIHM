@@ -48,7 +48,7 @@
 # next to the live label and showed a fixed, wrong value.
 #
 # font_size: every in-row label renders at `medium` (10x14).
-# CH0/CH1 (fixes/000009, 2026-09-27): the frequency label is 110 px (11
+# CH0/CH1 (fixes/00000a, 2026-09-27): the frequency label is 110 px (11
 # characters, enough for "F:8000000Hz" at VARIABLE's 8 MHz), and a static
 # "Duty:" caption sits in front of the duty bar. CH2/CH3 are unchanged.
 # The PWM/SERIAL/Output tab switcher is Janus's own generated nav strip
