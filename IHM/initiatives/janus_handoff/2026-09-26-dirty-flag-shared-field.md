@@ -1,5 +1,11 @@
 # Handoff to Janus: a dirty flag is consumed by the first widget bound to it
 
+**Resolved 2026-09-26.** Janus initiative `shared_field_dirty` (Janus `dev`
+c56f14c): `janus_render_screen_if_dirty` now tests the flags in one pass and
+clears them in a second, and `janus_render_widget_if_dirty` is deprecated.
+Regenerated here on navigation `value_editing/1`, and the workaround below is
+removed. The PC path is fixed by the same regeneration.
+
 Written 2026-09-26. Same purpose as [README.md](README.md): an item for a
 session working in Janus directly (WSL `~/workspace/janus`, dev 36adb5a at
 the time). Nothing here changes Janus from this repo.

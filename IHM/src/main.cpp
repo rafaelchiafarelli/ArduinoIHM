@@ -533,17 +533,7 @@ int main()
                 janus_action_t action = (janus_action_t)hit.action;
                 int8_t ch = pwmFrequencyActionChannel(action);
                 uint8_t dutyCh, dutyOut;
-                if (janusSetSwitch(action, step > 0)) {
-                    // Full repaint, as the pbRE1 press path does: each switch
-                    // shares its bound field with an LED, and
-                    // janus_render_screen_if_dirty clears a field's dirty
-                    // flag at the *first* widget bound to it -- so only one
-                    // of the pair would repaint (CH0/CH1: the LED, leaving
-                    // the switch stale until focus moved; CH2/CH3 and
-                    // relays: the switch, leaving the LED stale). Janus
-                    // runtime bug, see initiatives/janus_handoff/.
-                    janus_render_screen(screen);
-                } else {
+                if (!janusSetSwitch(action, step > 0)) {
                     if (ch >= 0) {
                         PWMFrequency f = (PWMFrequency)pwmLast[ch].f_selector;
                         pwmSetFrequency((uint8_t)ch, pwmStepFrequency(f, step));
@@ -551,10 +541,12 @@ int main()
                         uint8_t duty = pwmLast[dutyCh].out[dutyOut].duty_percent;
                         pwmSetDuty(dutyCh, dutyOut, pwmStepDuty(duty, step));
                     }
-                    // Frequency labels and duty bars each own their field,
-                    // so the cheap dirty-only repaint is enough here.
-                    janus_render_screen_if_dirty(screen);
                 }
+                // Dirty-only repaint. Since Janus shared_field_dirty
+                // (c56f14c) it repaints every widget bound to a changed
+                // field, so a switch and the LED sharing its field both
+                // follow; no full redraw needed any more.
+                janus_render_screen_if_dirty(screen);
             }
         }
 
