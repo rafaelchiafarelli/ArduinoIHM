@@ -200,6 +200,17 @@ public:
         sendMessage(&msg);
     }
 
+    // Packs and queues one IHM_UI_STATE message: Janus's remote UI state
+    // (janus_remote_state_t) as four scalars, so this class stays free of
+    // Janus headers. Caller (main.cpp) fills them from
+    // janus_remote_state_get() -- same split as sendRelayState().
+    void sendUiState(uint16_t screen, int16_t focus, int16_t navFocus, uint16_t boxesExpanded)
+    {
+        mavlink_message_t msg;
+        mavlink_msg_ihm_ui_state_pack(1, 1, &msg, screen, focus, navFocus, boxesExpanded);
+        sendMessage(&msg);
+    }
+
     // Superloop-side hand-off of the latest PWM_CHANNEL_CONFIG for channel
     // `ch` that fast_handler() stored. Returns false if ch >= 4 or nothing
     // new has arrived for it; otherwise copies it to *out, clears the

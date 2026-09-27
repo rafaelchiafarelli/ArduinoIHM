@@ -30,6 +30,7 @@
 extern "C" {
 #include "janus_runtime.h"
 #include "janus_input_focus.h"
+#include "janus_remote.h"
 #include "janus_bindings.gen.h"
 #include "janus_actions.gen.h"
 #include "pwm_screen.gen.h"
@@ -644,6 +645,22 @@ int main()
             s.out3_enabled = p.out[2].enabled; s.out3_inverting = p.out[2].inverting; s.out3_duty_percent = min(p.out[2].duty_percent, (uint8_t)100);
             mavlinkComms.sendPwmState(s);
             pwmStateCh = (pwmStateCh + 1) & 0x03;
+
+            // Janus UI state (screen / focus / open boxes) for the PC's
+            // screen mirror: on change, else every 5 ticks (~500 ms) as a
+            // heartbeat. Reads the real janus_app -- focus is a runtime
+            // global indexed within the active screen, so the nav-less copy
+            // RE1 moves focus on reports the same index.
+            static janus_remote_state_t uiSent;
+            static uint8_t uiTicksSinceSend = 4;   // first tick sends
+            janus_remote_state_t ui;
+            janus_remote_state_get(&janus_app, &ui);
+            if (++uiTicksSinceSend >= 5 || ui.screen != uiSent.screen || ui.focus != uiSent.focus ||
+                ui.nav_focus != uiSent.nav_focus || ui.boxes_expanded != uiSent.boxes_expanded) {
+                mavlinkComms.sendUiState(ui.screen, ui.focus, ui.nav_focus, ui.boxes_expanded);
+                uiSent = ui;
+                uiTicksSinceSend = 0;
+            }
 
             refreshBusStatusInstance();
 

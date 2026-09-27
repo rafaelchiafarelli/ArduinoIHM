@@ -78,6 +78,7 @@ $libAllowlist = @(
     "lib/MultiOutput/src",
     "lib/RotaryEncoder",
     "lib/Uart2/src",
+    "mavlink/generated/ihm_dialect",
     "src"
 )
 $includeDirs = @($root) + ($libAllowlist | ForEach-Object { Join-Path $repoRoot $_ })
