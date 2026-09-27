@@ -48,6 +48,9 @@
 # next to the live label and showed a fixed, wrong value.
 #
 # font_size: every in-row label renders at `medium` (10x14).
+# CH0/CH1 (fixes/000009, 2026-09-27): the frequency label is 110 px (11
+# characters, enough for "F:8000000Hz" at VARIABLE's 8 MHz), and a static
+# "Duty:" caption sits in front of the duty bar. CH2/CH3 are unchanged.
 # The PWM/SERIAL/Output tab switcher is Janus's own generated nav strip
 # (app.yaml's `nav: { kind: tabs }`) -- no hand-authored tab_bar row here
 # any more; a manual one used to duplicate it before that strip existed.
@@ -74,7 +77,7 @@ children:
               - kind: row
                 focus_ring: true   # frequency: RE1 focuses it, RE2 steps it, pbRE1 cycles it
                 children:
-                  - { kind: label, id: pwm_ch0_state, bind: { message: pwm, field: ch0_state_label, type: string }, on_press: cycle_pwm_ch0_frequency, font_size: medium, size: { w: 90, h: 18 } }
+                  - { kind: label, id: pwm_ch0_state, bind: { message: pwm, field: ch0_state_label, type: string }, on_press: cycle_pwm_ch0_frequency, font_size: medium, size: { w: 110, h: 18 } }
               - kind: row
                 focus_ring: true   # toggles draw no ring of their own; this row carries it
                 children:
@@ -84,9 +87,12 @@ children:
                 children:
                   - { kind: toggle, id: pwm_ch0_inverting_toggle, bind: { message: pwm, field: ch0_inverting, type: int }, on_press: toggle_pwm_ch0_inverting, size: { w: 28, h: 18 } }
           - kind: row
-            focus_ring: true   # duty: RE1 selects it, RE2 changes it 1 % per detent
             children:
-              - { kind: progress, id: pwm_ch0_duty, bind: { message: pwm, field: ch0_duty_percent, type: int }, range: { min: 0, max: 100 }, on_press: edit_pwm_ch0_duty, size: { w: 110, h: 14 } }
+              - { kind: label, id: pwm_ch0_duty_caption, text: "Duty:", font_size: medium, size: { w: 50, h: 18 } }
+              - kind: row
+                focus_ring: true   # duty: RE1 selects it, RE2 changes it 1 % per detent
+                children:
+                  - { kind: progress, id: pwm_ch0_duty, bind: { message: pwm, field: ch0_duty_percent, type: int }, range: { min: 0, max: 100 }, on_press: edit_pwm_ch0_duty, size: { w: 110, h: 14 } }
           - { kind: label, id: pwm_ch0_inverting, bind: { message: pwm, field: ch0_inverting_label, type: string }, font_size: medium, size: { w: 130, h: 18 } }
       
 
@@ -105,7 +111,7 @@ children:
               - kind: row
                 focus_ring: true   # frequency: RE1 focuses it, RE2 steps it, pbRE1 cycles it
                 children:
-                  - { kind: label, id: pwm_ch1_state, bind: { message: pwm, field: ch1_state_label, type: string }, on_press: cycle_pwm_ch1_frequency, font_size: medium, size: { w: 90, h: 18 } }
+                  - { kind: label, id: pwm_ch1_state, bind: { message: pwm, field: ch1_state_label, type: string }, on_press: cycle_pwm_ch1_frequency, font_size: medium, size: { w: 110, h: 18 } }
               - kind: row
                 focus_ring: true   # toggles draw no ring of their own; this row carries it
                 children:
@@ -115,9 +121,12 @@ children:
                 children:
                   - { kind: toggle, id: pwm_ch1_inverting_toggle, bind: { message: pwm, field: ch1_inverting, type: int }, on_press: toggle_pwm_ch1_inverting, size: { w: 28, h: 18 } }
           - kind: row
-            focus_ring: true   # duty: RE1 selects it, RE2 changes it 1 % per detent
             children:
-              - { kind: progress, id: pwm_ch1_duty, bind: { message: pwm, field: ch1_duty_percent, type: int }, range: { min: 0, max: 100 }, on_press: edit_pwm_ch1_duty, size: { w: 110, h: 14 } }
+              - { kind: label, id: pwm_ch1_duty_caption, text: "Duty:", font_size: medium, size: { w: 50, h: 18 } }
+              - kind: row
+                focus_ring: true   # duty: RE1 selects it, RE2 changes it 1 % per detent
+                children:
+                  - { kind: progress, id: pwm_ch1_duty, bind: { message: pwm, field: ch1_duty_percent, type: int }, range: { min: 0, max: 100 }, on_press: edit_pwm_ch1_duty, size: { w: 110, h: 14 } }
           - { kind: label, id: pwm_ch1_inverting, bind: { message: pwm, field: ch1_inverting_label, type: string }, font_size: medium, size: { w: 130, h: 18 } }
       
 
