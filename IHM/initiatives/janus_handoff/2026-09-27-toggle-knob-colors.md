@@ -73,3 +73,24 @@ off knob, green on knob; the exact gray can be tuned on the TFT). Then
 regen `lib/GUI` with that Janus commit, re-vendor the companion's
 `include/` from the same commit (desktop_mirror, see
 `initiatives/desktop_mirror`), and check it on the TFT and in the mirror.
+
+## Done 2026-09-27
+
+- Janus delivered `knob_off` / `knob_on` (Janus dev 125eef4,
+  its `fixes/000007/toggle-knob-colors`).
+- Firmware: `e11021d` sets them on all 18 toggles (track `#D0D0D0` as
+  both `color` and `bg`, knob `#FF0000` off, `#00FF00` on) and regenerates
+  `lib/GUI`. Synced down to `mirror_transport` (so the board keeps sending
+  IHM_UI_STATE). Build and native suite are green (135 tests; flash
+  78168 B, +754 B). Flashed to the COM7 board, which is still the OLD
+  hardware revision.
+- Companion: `include/` re-vendored from the same Janus commit and
+  `lib/GUI` (byte-identical to the firmware's generated screens and
+  runtime; the previous vendor is kept as `include.2026-09-27-c56f14c.bak/`,
+  and `include/JANUS_COMMIT` is updated). Debug x64/Win32 rebuilt;
+  `tests/run_mirror_bindings_test.cmd` passes.
+- Mirror, connected to the board: `2026-09-27-toggle-mirror-off.png`
+  (Output tab, every relay off: red knob left on the gray track) and
+  `2026-09-27-toggle-mirror-on.png` (CH0 enabled from the PWM panel:
+  green knob right). The TFT itself is Rafael's check (gray shade to be
+  tuned there if needed).
