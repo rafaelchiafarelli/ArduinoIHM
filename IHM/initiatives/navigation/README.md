@@ -1,156 +1,96 @@
 # Initiative: navigation
 
-Drill-down navigation of the on-screen UI: **RE0 selects** (tab, then
-option, then setting), with a dedicated back button (B0) and an inactivity
-timeout. **RE2 changes whatever is selected**, live. Replaces today's split
-where RE0 switches tabs and RE1 walks focus inside a tab.
+**Status: closed 2026-09-27.** `value_editing` is done. `input_map` and
+`nav_state_machine` were dropped without being built (see "Closing
+decisions" below). The on-screen controls on `dev` are the final design.
 
-**Editing rule (Rafael, 2026-09-26):** "when something is selected and you
-turn RE2, that thing changes." Every RE2 detent applies to the hardware
-immediately. There's no edit mode, no confirm and nothing to discard. Until
-`nav_state_machine/3` lands, RE1 does the selecting (today's focus ring)
-and RE2 already edits PWM frequency (fixes/000006) and duty
-(`value_editing/2`).
+## Final controls
+
+What was planned as a drill-down (RE0 selects tab, option, then setting;
+pbRE0 enters, B0 goes back, 4 s timeout) was replaced by what the board
+already did once `value_editing` landed. Rafael, 2026-09-27: "pwm is
+working fine now, we will take it as the standard... once user select the
+nav with RE0, RE1 will surf the selectables in that nav, one after the
+other and circle back to the first."
+
+| Input | Role |
+|---|---|
+| RE0 | cycle tabs PWM / SERIAL / Output (screen switches live) |
+| RE1 | move the focus ring through the current tab's selectables, wrapping at both ends; never onto the tab strip |
+| pbRE1 | press the focused control: a switch flips, a frequency label steps one lower (15 Hz wraps to 62500 Hz), a duty bar does nothing |
+| RE2 | change the focused control, live, no confirm: frequency ±1 fixed step (clamped), duty ±1 % (clamped 0-100), switch CW = on / inverting, CCW = off / non-inverting |
+| pbRE0, pbRE2, B0-B3 | no UI role (still read, and reported in `IHM_BOARD_STATE`) |
+
+Every tab follows the same rule: RE1 selects whatever is editable, RE2
+changes it. The SERIAL tab has nothing focusable yet; its fields become
+editable in the `serial_config` initiative, with this same pattern.
+`demo/HARDWARE_RUNBOOK.md` "UI navigation" is the user-facing description.
 
 ## Input enumeration
 
-The board has 3 rotary encoders, each with its own push-button, plus 4
-standalone push-buttons. Names below are the names used everywhere from
-now on (code constants, docs, telemetry labels). Hardware is not fully
-built yet; this is the set the firmware already reads.
+Names for the board's inputs. `input_map` would have turned them into
+code constants. It was dropped, so the code still says `dir[0..2]` and
+`BTN_MASK_ROT0..2`.
 
-| Name | Kind | MCU pin | Mega pin | `BinaryInputs` index | `btnMap` bit | Role in this initiative |
-|---|---|---|---|---|---|---|
-| RE0 | encoder A/B | PL6 / PL5 | D43 / D44 | 6 / 7 | -- | **main navigation** |
-| pbRE0 | push-button | PL4 | D45 | 8 | 6 | **enter / confirm** |
-| RE1 | encoder A/B | PL2 / PL1 | D47 / D48 | 9 / 10 | -- | unassigned |
-| pbRE1 | push-button | PL0 | D49 | 11 | 5 | unassigned |
-| RE2 | encoder A/B | PC4 / PC5 | D33 / D32 | 12 / 13 | -- | unassigned here; today steps a focused PWM frequency label (fixes/000006, see below) |
-| pbRE2 | push-button | PC7 | D30 | 14 | 4 | unassigned |
-| B0 | push-button | PA4 | D26 | 0 | 0 | **back** |
-| B1 | push-button | PE4 | D2 | 1 | 1 | unassigned |
-| B2 | push-button | PF5 | A5 | 2 | 2 | unassigned |
-| B3 | push-button | PF6 | A6 | 3 | 3 | unassigned |
+| Name | Kind | MCU pin | Mega pin | `BinaryInputs` index | `btnMap` bit |
+|---|---|---|---|---|---|
+| RE0 | encoder A/B | PL6 / PL5 | D43 / D44 | 6 / 7 | -- |
+| pbRE0 | push-button | PL4 | D45 | 8 | 6 |
+| RE1 | encoder A/B | PL2 / PL1 | D47 / D48 | 9 / 10 | -- |
+| pbRE1 | push-button | PL0 | D49 | 11 | 5 |
+| RE2 | encoder A/B | PC4 / PC5 | D33 / D32 | 12 / 13 | -- |
+| pbRE2 | push-button | PC7 | D30 | 14 | 4 |
+| B0 | push-button | PA4 | D26 | 0 | 0 |
+| B1 | push-button | PE4 | D2 | 1 | 1 |
+| B2 | push-button | PF5 | A5 | 2 | 2 |
+| B3 | push-button | PF6 | A6 | 3 | 3 |
 
 `btnMap` is `buildButtonMap()`'s output (`lib/RotaryEncoder/ButtonMap.h`),
 active-low. Indices 4/5 (PA0/PA2) are housekeeping inputs, not buttons.
-"Unassigned" means no navigation role: RE1/pbRE1 lose their current
-focus/activate role once this initiative lands. Roles for them are a
-later initiative.
-
-## Navigation model
-
-Three levels. RE0 always moves within the current level. pbRE0 goes one
-level deeper. B0 always goes one level up. RE2 edits the selected setting at
-L2. There is no separate value level (the earlier L3 VALUE was dropped
-2026-09-26, see the editing rule above).
-
-| Level | RE0 turns | pbRE0 click | B0 click | RE2 turns |
-|---|---|---|---|---|
-| L0 TAB | cycle tabs PWM / SERIAL / Output (screen switches live) | enter L1 on this tab | no-op | nothing |
-| L1 OPTION | next/prev option of the tab (e.g. PWM: CH0..CH3; Output: Relay 0..7) | enter L2 on this option | back to L0 | nothing |
-| L2 SETTING | next/prev setting of the option (e.g. CH0: Enabled, Inverting, Frequency, Duty) | open question 7 | back to L1 | change the selected setting, live: toggle flips, frequency ±1 fixed step (clamped), duty ±1 % (clamped 0-100) |
-
-**Not yet re-planned:** the `nav_state_machine` task files still describe
-the four-level model with L3. Update them to this table when that epic is
-picked up.
-
-**Inactivity timeout:** 4 s with no navigation input returns straight to
-L0, with the currently active tab kept.
-
-The hierarchy (which options each tab has, which settings each option
-has, which Janus widget each maps to) is an **IHM-side table** driven by
-an IHM-side state machine in a new `lib/Navigation`. It calls Janus's
-existing focus/screen API. It is not declared in the Janus yaml, and
-this initiative requests no Janus runtime change.
 
 ## Epics
 
-| Epic | Status (checked against `dev` 2026-09-27) | Scope |
+| Epic | Status | Scope |
 |---|---|---|
-| `input_map` | not started (0/2) | Named constants for the enumeration above; a pure click-edge detector. |
-| `nav_state_machine` | not started (0/3) | Pure `Navigator` (levels, timeout), the IHM nav table, wiring into `main.cpp`. |
-| `value_editing` | 3/4 done; task 3 partial (waits on `nav_state_machine/3`) | What RE2 does to the selected setting, per kind: toggles, PWM duty, PWM frequency. |
+| `value_editing` | **done** (4/4) | What RE2 does to the focused control, per kind: toggles, PWM duty, PWM frequency. |
+| `input_map` | **dropped** 2026-09-27 | Named input constants; a click-edge helper. |
+| `nav_state_machine` | **dropped** 2026-09-27 | Pure `Navigator` (levels, timeout), IHM nav table, wiring into `main.cpp`. |
 
-Task order across epics:
+The dropped epics' task files are kept, marked dropped, as the record of
+what was planned.
 
-```
-input_map/1-input-names ─┐
-input_map/2-click-edges ─┼─> nav_state_machine/3-wire-into-main ─> value_editing/*
-nav_state_machine/1-navigator ─> 2-ihm-nav-table ─┘
-```
+## Closing decisions (Rafael, 2026-09-27)
 
-## Open questions -- each must be decided before the task it blocks is ready
+The open questions of the drill-down plan, as closed:
 
-1. **L1 highlight on the PWM tab.** Options there are `row`s, which are not
-   focusable Janus widgets. Pick one: wrap each channel row in a `box`
-   (yaml change, like `bus_status`), ring the option's first setting
-   instead, or ask Janus for row focus (a handoff). Blocks
-   `nav_state_machine/2`. CH0/CH1's Enabled/Inverting switches sit
-   unlabeled beside the frequency, each in its own `focus_ring` row
-   (toggles draw no ring of their own). As of 2026-09-25, RE1 wraps within
-   the screen and never reaches the tab strip (main.cpp passes Janus a
-   nav-less copy of the app).
-2. **Single-setting options** (Relay N has only on/off). Should pbRE0 at L1
-   go through L2 with one entry, or should selecting the relay at L1 already
-   let RE2 flip it? Blocks `nav_state_machine/2`.
-3. ~~Apply and commit in L3.~~ **Answered 2026-09-26: live.** Each RE2
-   detent applies to the hardware immediately. With no edit level, there's
-   no confirm step and nothing for B0 or the timeout to discard.
-4. ~~Duty step size.~~ **Answered 2026-09-26: 1 % per RE2 detent**, clamped
-   at 0 and 100.
-5. **SERIAL tab.** Should its options (CAN0, CAN1, RS485) be read-only in v1
-   (L1 only, pbRE0 does nothing), or editable? Their configs are stored
-   but no bus driver consumes them yet. Blocks `nav_state_machine/2`.
-   *Pointer (2026-09-27):* Rafael chose board-side editing of the SERIAL
-   settings in `serial_config` (decision 2), i.e. **editable**. How it
-   maps onto the L1/L2 levels is still this initiative's to settle.
-6. **What resets the 4 s timer?** Only RE0/pbRE0/B0, or any input
-   including the unassigned ones? Blocks `nav_state_machine/1`.
-7. **pbRE0 at L2 (SETTING).** With editing on RE2, should pbRE0 on a
-   selected setting press it (the way pbRE1 does today: a switch flips, a
-   frequency label cycles, a duty bar does nothing), or do nothing? Blocks
-   `nav_state_machine/2`.
+1. **L1 highlight on the PWM tab.** Moot. There is no L1; the PWM tab as
+   it is (one focus ring per selectable) is the standard.
+2. **Single-setting options (relays).** Moot. The Output tab stays exactly
+   as it is.
+3. Apply and commit: **live** (answered 2026-09-26).
+4. Duty step: **1 % per RE2 detent**, clamped 0-100 (answered 2026-09-26).
+5. **SERIAL tab.** Same logic as the PWM tab: RE1 focuses whatever is
+   editable, RE2 changes it. Making the fields editable is
+   `serial_config`'s job (its decision 2).
+6. **Inactivity timeout.** None. Focus stays where RE1 left it.
+7. **pbRE0 at L2.** Moot. pbRE0 has no UI role; pbRE1 keeps today's press.
 
-## Since planned: RE2 frequency step (fixes/000006, 2026-09-26)
+Also dropped with `input_map`: renaming `dir[i]` / `BTN_MASK_ROT*` in the
+code, `sim_input.py` name aliases, and the `ButtonClicks` edge detector
+(`main.cpp` keeps its inline `prevBtnMap` edge for pbRE1).
 
-Outside this initiative, Rafael had RE2 wired to PWM frequency: RE1
-focuses a channel's frequency label (now a focusable `focus_ring` row with
-`on_press: cycle_pwm_chN_frequency`), RE2 steps it live (clamped), and
-pbRE1 cycles it. It relies on RE1 focus, which `nav_state_machine/3`
-removes. **Resolved 2026-09-26:** RE2 *is* the editing knob (see the
-editing rule at the top). When the navigator lands, RE2 keeps its role and
-only "what is selected" moves from RE1 focus to the navigator's L2
-setting. `pwmStepFrequency`/`pwmCycleFrequency` (`PWMTiming.h`, unit-tested)
-already exist either way.
+## Not carried over
 
-## Dependency on serial_commands
+- **Full-screen redraw blocks the superloop > 0.7 s** after an on-screen
+  action (`NEXT-SESSION.md`). It was flagged for this initiative, but none
+  of its tasks addressed it. It is still an open item there, not owned by
+  any initiative.
 
-This initiative builds on code that exists only on the `serial_commands`
-chain today, not on `dev`: the app-level `janus_focus_move(&janus_app, …)`
-API, `mirrorPwmToUi`, and `IHM_SIMULATE_BUTTON` (the PC can press pbRE0
-and B0, which is the bench path for testing without the knobs). The
-navigation branch chain must be created from `dev` **after** serial_commands
-has merged into `dev`.
+## History
 
-## Bench testing
-
-`mavlink/scripts/sim_input.py --port COM3` (or the companion app) can
-turn RE0 and press pbRE0/B0 over MAVLink on Serial2. Every navigation
-task's bench step can run from the PC.
-
-## Branch chain
-
-```
-dev -> features -> navigation -> epics -> <epic> -> tasks -> <task>
-```
-
-## Parked 2026-09-27 (partial merge to `dev`)
-
-Rafael chose to merge the finished work up to `dev` before the initiative
-is complete, so this clone can start the `desktop_mirror` chain. That skips
-the normal DoD on purpose: `value_editing` merged up with task 3 still only
-partly delivered, and `input_map`/`nav_state_machine` have no code yet.
-Open questions 1, 2, 5, 6 and 7 are still open. To resume, build a new
-`features -> navigation -> epics -> <epic> -> tasks` chain from `dev` and
-pick up from the task files, which are unchanged.
+- 2026-09-26: Rafael made RE2 the editing knob ("when something is
+  selected and you turn RE2, that thing changes"), live, with no edit
+  level. `fixes/000006` shipped RE2 frequency stepping outside the plan
+  (recorded in `value_editing/3`).
+- 2026-09-27: parked with a partial merge to `dev` so this clone could
+  start `desktop_mirror`; later that day, closed with the decisions above.

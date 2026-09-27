@@ -1,6 +1,6 @@
 # Task 2: ihm-nav-table
 
-**Status:** planned -- blocked on initiative open questions 1, 2, 5
+**Status:** dropped 2026-09-27, never built. Rafael kept the controls already on `dev` as the final design; see the initiative README, "Closing decisions". The contract below is kept as the record of what was planned.
 **Branch:** `2-ihm-nav-table` (from `tasks`)
 **Depends on:** `nav_state_machine/1-navigator`
 

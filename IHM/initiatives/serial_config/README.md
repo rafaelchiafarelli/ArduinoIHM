@@ -39,8 +39,8 @@ The MAVLink link itself (301/302 and the new messages) is exempt.
   reported only**. Nothing in this initiative drives a CAN controller.
   The RS-485 generator needs a Serial3 driver, which neither initiative
   covers yet (see "Not yet scoped").
-- `navigation` (parked): until its navigator lands, "selected" means the
-  RE1 focus ring, as on the PWM tab.
+- `navigation` (closed 2026-09-27): "selected" means the RE1 focus ring,
+  as on the PWM tab. That is final; no navigator is coming.
 
 ## Epics
 
