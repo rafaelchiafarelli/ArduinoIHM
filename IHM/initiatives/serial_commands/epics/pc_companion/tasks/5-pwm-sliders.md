@@ -1,6 +1,13 @@
 # Task 5: pwm-sliders
 
-**Status:** ready (planned 2026-09-27)
+**Status:** done 2026-09-27. Builds x64 + x86 Debug and is installed in
+x64\Debug. Bench, with the real UI driven by script on COM3 (channel 0,
+VARIABLE, A enabled at 30 %): slider positions 0/250/500/750/1000 gave TOP
+65535/4870/361/26/1 (244.14 Hz / 3.285 kHz / 44.199 kHz / 592.593 kHz /
+8 MHz), each "Board applied" with a matching readback. Sweeping to 8 MHz and
+back kept the slider at 30 % (the readout showed 0 % -> 50.0 % at TOP 1).
+Fixed 976 Hz moved the disabled slider to match. CH0 was left disabled
+afterwards. Rafael's on-screen label check is still to do.
 **Depends on:** nothing. Companion only: no firmware and no dialect change.
 
 Reported by Rafael 2026-09-27: VARIABLE frequency "shows a strange
@@ -41,9 +48,15 @@ timer count ("Raw TOP (ICRn)") where a person thinks in Hz.
    distinct output. The readout shows the percent sent and the resulting
    duty: (raw + 1) / (TOP + 1) in Fast PWM non-inverting (datasheet: raw 0
    still gives a one-count spike), and 100 % at raw = TOP.
-3. **Frequency changes re-snap the duty sliders** and refresh their
-   readouts (combo selection or frequency slider), so they always show what
-   the board would produce.
+3. **Frequency changes refresh the duty readouts** (combo selection or
+   frequency slider), so they always show what the board would produce. The
+   duty sliders themselves stay put: the first build re-snapped them, which
+   lost the user's duty for good on a sweep to 8 MHz (30 % -> 0 %). Snapping
+   happens only when the user moves a duty slider, and at Send.
+   Also as built: the Outputs lines and the Send/readback result show
+   VARIABLE in Hz, not TOP, and the combo entry is renamed
+   "VARIABLE (slider)". Trackbars get a window-coloured background (they
+   painted black without a brush in `WM_CTLCOLORSTATIC`).
 4. The rows and the TOP check in `OnPwmSendClicked` are adapted (the
    slider can't produce an invalid TOP). The readback comparison is
    unchanged, because it still compares TOP.
