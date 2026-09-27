@@ -31,21 +31,31 @@ drive it.
 - RAM: 59 % used (about 3.3 KB free), shared with `can_bus`'s plans
   (proposed ceiling 80 %). A Modbus RTU frame is at most 256 B.
 
-## How it fits the existing architecture
+## Rule: strictly event-driven (Rafael, 2026-09-27)
 
-`MavlinkComms::fast_handler()` already parses Serial2 inside the
-preemptible Timer2 tick (~1 ms), so the protocol keeps running while the
-superloop is blocked by a ~1 s screen redraw. **Proposal:** the Modbus
-slave does the same. It frames, parses and answers from the tick, reading
-state snapshots; writes are queued and applied by the superloop (the
-same split as `PWM_CHANNEL_CONFIG`). Response time then doesn't depend
-on the UI. Modbus masters typically time out after 100-1000 ms.
+**No polling in the serial part.** Nothing scans the RX ring on a tick,
+and nothing checks serial state from the superloop. The chain is:
+
+1. **USART3 RX ISR** stores the byte and re-arms a one-shot **silence
+   timer** (`can_bus`'s `event_timer`) for 3.5 character times.
+2. **Silence-timer expiry** = end of frame. The expiry ISR (interrupts
+   re-enabled first) checks the CRC and address, runs the slave engine
+   on state snapshots, and queues the response.
+3. **UDRE ISR** sends it; the **TXC ISR** releases DE/RE after the last
+   stop bit.
+4. Writes are queued; the superloop gets a "work pending" event and
+   applies them through the same functions as MAVLink.
+
+Response time therefore doesn't depend on the ~1 s screen redraws.
+Modbus masters typically time out after 100-1000 ms. The MAVLink link on
+Serial2 is exempt from the rule and stays as it is; its handler is
+always the first call after `sei()` in the Timer2 ISR (`fixes/000011`).
 
 ## Epics
 
 | Epic | Scope |
 |---|---|
-| `uart3_driver` | Interrupt-driven USART3: RX/TX rings, direction control (DE/RE or auto), transmit-complete handling, byte timestamps for frame gaps. |
+| `uart3_driver` | Interrupt-driven USART3: RX ISR re-arms the silence timer per byte, UDRE sends, TXC releases DE/RE. No ring is ever polled. |
 | `rtu_framing` | Pure RTU layer: CRC-16/MODBUS, frame end by 3.5-character silence, address filter, request parse, response and exception building. Host-tested. |
 | `slave_register_map` | The register map, function codes 01/02/03/04/05/06/15/16, applying writes with the same validation as MAVLink, and an integrator-facing map document. |
 | `rs485_modes` | Mode switch (off / raw generator / Modbus slave) driven by `serial_config`; the raw generator implemented on Serial3; slave address, baud and parity applied from the config. |
@@ -59,17 +69,21 @@ Order: `uart3_driver` and `rtu_framing` (in parallel) ->
   address live in its `SerialConfig`, so its open question 5 (value
   lists) must include them (pointer added there). The bus-config
   registers write through the same model.
-- **`can_bus`** only for the shared RAM budget (its open question 7). The
-  timing concern is avoided by the Timer2-tick proposal above.
+- **`can_bus`'s `event_timer` epic** (one-shot compare + software queue)
+  for the silence timer, and its RAM budget (its open question 7).
+  `event_timer` must land before `uart3_driver`'s frame timing.
 
 ## Open questions (each blocks the task named in brackets)
 
 1. **RS-485 module and direction control:** an auto-direction module, or
    MAX485-type with DE/RE on which GPIO? Termination and bias resistors:
    on the module or external? [uart3_driver/1]
-2. **Where the slave runs:** in the Timer2 tick, as proposed above, or in
-   the superloop (simpler, but replies stall during redraws)?
-   [rtu_framing/2, slave_register_map/2]
+2. ~~Where the slave runs~~ **Answered 2026-09-27: strictly
+   event-driven** (the rule above). Remaining: **ISR budget.** Answering
+   an FC 03 read of 125 registers inside the silence-timer ISR means
+   building ~255 bytes of response. Proposal: the ISR builds from
+   snapshots with a bounded copy (~200 us) and interrupts enabled, so
+   USART2 at 250000 baud never overruns. [rtu_framing/2]
 3. **Register map details:** addresses; 0- or 1-based documentation;
    analog as raw ADC counts or scaled; 32-bit values (CAN IDs) as two
    registers and their word order; PWM frequency as the selector enum or
