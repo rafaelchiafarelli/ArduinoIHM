@@ -87,8 +87,10 @@ children:
                 children:
                   - { kind: toggle, id: pwm_ch0_inverting_toggle, bind: { message: pwm, field: ch0_inverting, type: int }, on_press: toggle_pwm_ch0_inverting, size: { w: 28, h: 18 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
           - kind: row
+            align: center   # caption, % and bar on one line
             children:
               - { kind: label, id: pwm_ch0_duty_caption, text: "Duty:", font_size: medium, size: { w: 50, h: 18 } }
+              - { kind: label, id: pwm_ch0_duty_pct, text: "%d%%", bind: { message: pwm, field: ch0_duty_percent, type: int }, font_size: medium, size: { w: 44, h: 18 } }
               - kind: row
                 focus_ring: true   # duty: RE1 selects it, RE2 changes it 1 % per detent
                 children:
@@ -120,8 +122,10 @@ children:
                 children:
                   - { kind: toggle, id: pwm_ch1_inverting_toggle, bind: { message: pwm, field: ch1_inverting, type: int }, on_press: toggle_pwm_ch1_inverting, size: { w: 28, h: 18 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
           - kind: row
+            align: center   # caption, % and bar on one line
             children:
               - { kind: label, id: pwm_ch1_duty_caption, text: "Duty:", font_size: medium, size: { w: 50, h: 18 } }
+              - { kind: label, id: pwm_ch1_duty_pct, text: "%d%%", bind: { message: pwm, field: ch1_duty_percent, type: int }, font_size: medium, size: { w: 44, h: 18 } }
               - kind: row
                 focus_ring: true   # duty: RE1 selects it, RE2 changes it 1 % per detent
                 children:
@@ -133,6 +137,7 @@ children:
   - kind: row
     id: pwm_ch2_row
     fill: true
+    align: center   # left column (freq + A/B/C, 114 px) centred on the 126 px picture
     children:
       - { kind: image, id: pwm_ch2_icon, file: "variable_multiple.jpg", size: { w: 126, h: 126 } }
       - { kind: image, id: pwm_ch2_icon, file: "variable_multiple_disabled.jpg", hidden: true, size: { w: 126, h: 126 }  }
@@ -151,42 +156,46 @@ children:
               - kind: row
                 focus_ring: true
                 children:
-                  - { kind: toggle, id: pwm_ch2_a_enabled_toggle, bind: { message: pwm, field: ch2_a_enabled, type: int }, on_press: toggle_pwm_ch2_a_enabled, size: { w: 28, h: 18 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
+                  - { kind: toggle, id: pwm_ch2_a_enabled_toggle, bind: { message: pwm, field: ch2_a_enabled, type: int }, on_press: toggle_pwm_ch2_a_enabled, size: { w: 24, h: 12 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
               - { kind: label, id: pwm_ch2_a_label, text: "A", font_size: medium, size: { w: 18, h: 18 } }
+              - { kind: label, id: pwm_ch2_a_duty_pct, text: "%d%%", bind: { message: pwm, field: ch2_a_duty_percent, type: int }, font_size: medium, size: { w: 44, h: 18 } }
               - kind: row
                 focus_ring: true   # duty: RE1 selects it, RE2 changes it 1 % per detent
                 children:
-                  - { kind: progress, id: pwm_ch2_a_duty, bind: { message: pwm, field: ch2_a_duty_percent, type: int }, range: { min: 0, max: 100 }, on_press: edit_pwm_ch2_a_duty, size: { w: 90, h: 14 } }
+                  - { kind: progress, id: pwm_ch2_a_duty, bind: { message: pwm, field: ch2_a_duty_percent, type: int }, range: { min: 0, max: 100 }, on_press: edit_pwm_ch2_a_duty, size: { w: 64, h: 12 } }
           - kind: row
             align: center
             children:
               - kind: row
                 focus_ring: true
                 children:
-                  - { kind: toggle, id: pwm_ch2_b_enabled_toggle, bind: { message: pwm, field: ch2_b_enabled, type: int }, on_press: toggle_pwm_ch2_b_enabled, size: { w: 28, h: 18 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
+                  - { kind: toggle, id: pwm_ch2_b_enabled_toggle, bind: { message: pwm, field: ch2_b_enabled, type: int }, on_press: toggle_pwm_ch2_b_enabled, size: { w: 24, h: 12 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
               - { kind: label, id: pwm_ch2_b_label, text: "B", font_size: medium, size: { w: 18, h: 18 } }
+              - { kind: label, id: pwm_ch2_b_duty_pct, text: "%d%%", bind: { message: pwm, field: ch2_b_duty_percent, type: int }, font_size: medium, size: { w: 44, h: 18 } }
               - kind: row
                 focus_ring: true   # duty: RE1 selects it, RE2 changes it 1 % per detent
                 children:
-                  - { kind: progress, id: pwm_ch2_b_duty, bind: { message: pwm, field: ch2_b_duty_percent, type: int }, range: { min: 0, max: 100 }, on_press: edit_pwm_ch2_b_duty, size: { w: 90, h: 14 } }
+                  - { kind: progress, id: pwm_ch2_b_duty, bind: { message: pwm, field: ch2_b_duty_percent, type: int }, range: { min: 0, max: 100 }, on_press: edit_pwm_ch2_b_duty, size: { w: 64, h: 12 } }
           - kind: row
             align: center
             children:
               - kind: row
                 focus_ring: true
                 children:
-                  - { kind: toggle, id: pwm_ch2_c_enabled_toggle, bind: { message: pwm, field: ch2_c_enabled, type: int }, on_press: toggle_pwm_ch2_c_enabled, size: { w: 28, h: 18 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
+                  - { kind: toggle, id: pwm_ch2_c_enabled_toggle, bind: { message: pwm, field: ch2_c_enabled, type: int }, on_press: toggle_pwm_ch2_c_enabled, size: { w: 24, h: 12 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
               - { kind: label, id: pwm_ch2_c_label, text: "C", font_size: medium, size: { w: 18, h: 18 } }
+              - { kind: label, id: pwm_ch2_c_duty_pct, text: "%d%%", bind: { message: pwm, field: ch2_c_duty_percent, type: int }, font_size: medium, size: { w: 44, h: 18 } }
               - kind: row
                 focus_ring: true   # duty: RE1 selects it, RE2 changes it 1 % per detent
                 children:
-                  - { kind: progress, id: pwm_ch2_c_duty, bind: { message: pwm, field: ch2_c_duty_percent, type: int }, range: { min: 0, max: 100 }, on_press: edit_pwm_ch2_c_duty, size: { w: 90, h: 14 } }
+                  - { kind: progress, id: pwm_ch2_c_duty, bind: { message: pwm, field: ch2_c_duty_percent, type: int }, range: { min: 0, max: 100 }, on_press: edit_pwm_ch2_c_duty, size: { w: 64, h: 12 } }
       
 
   # ---- CH3 -- big row (fill -> 126px) --------------------------------
   - kind: row
     id: pwm_ch3_row
     fill: true
+    align: center   # left column (freq + A/B/C, 114 px) centred on the 126 px picture
     children:
       - { kind: image, id: pwm_ch3_icon, file: "variable_multiple.jpg", size: { w: 126, h: 126 } }
       - { kind: image, id: pwm_ch2_icon, file: "variable_multiple_disabled.jpg", hidden: true, size: { w: 126, h: 126 }  }
@@ -205,34 +214,37 @@ children:
               - kind: row
                 focus_ring: true
                 children:
-                  - { kind: toggle, id: pwm_ch3_a_enabled_toggle, bind: { message: pwm, field: ch3_a_enabled, type: int }, on_press: toggle_pwm_ch3_a_enabled, size: { w: 28, h: 18 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
+                  - { kind: toggle, id: pwm_ch3_a_enabled_toggle, bind: { message: pwm, field: ch3_a_enabled, type: int }, on_press: toggle_pwm_ch3_a_enabled, size: { w: 24, h: 12 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
               - { kind: label, id: pwm_ch3_a_label, text: "A", font_size: medium, size: { w: 18, h: 18 } }
+              - { kind: label, id: pwm_ch3_a_duty_pct, text: "%d%%", bind: { message: pwm, field: ch3_a_duty_percent, type: int }, font_size: medium, size: { w: 44, h: 18 } }
               - kind: row
                 focus_ring: true   # duty: RE1 selects it, RE2 changes it 1 % per detent
                 children:
-                  - { kind: progress, id: pwm_ch3_a_duty, bind: { message: pwm, field: ch3_a_duty_percent, type: int }, range: { min: 0, max: 100 }, on_press: edit_pwm_ch3_a_duty, size: { w: 90, h: 14 } }
+                  - { kind: progress, id: pwm_ch3_a_duty, bind: { message: pwm, field: ch3_a_duty_percent, type: int }, range: { min: 0, max: 100 }, on_press: edit_pwm_ch3_a_duty, size: { w: 64, h: 12 } }
           - kind: row
             align: center
             children:
               - kind: row
                 focus_ring: true
                 children:
-                  - { kind: toggle, id: pwm_ch3_b_enabled_toggle, bind: { message: pwm, field: ch3_b_enabled, type: int }, on_press: toggle_pwm_ch3_b_enabled, size: { w: 28, h: 18 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
+                  - { kind: toggle, id: pwm_ch3_b_enabled_toggle, bind: { message: pwm, field: ch3_b_enabled, type: int }, on_press: toggle_pwm_ch3_b_enabled, size: { w: 24, h: 12 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
               - { kind: label, id: pwm_ch3_b_label, text: "B", font_size: medium, size: { w: 18, h: 18 } }
+              - { kind: label, id: pwm_ch3_b_duty_pct, text: "%d%%", bind: { message: pwm, field: ch3_b_duty_percent, type: int }, font_size: medium, size: { w: 44, h: 18 } }
               - kind: row
                 focus_ring: true   # duty: RE1 selects it, RE2 changes it 1 % per detent
                 children:
-                  - { kind: progress, id: pwm_ch3_b_duty, bind: { message: pwm, field: ch3_b_duty_percent, type: int }, range: { min: 0, max: 100 }, on_press: edit_pwm_ch3_b_duty, size: { w: 90, h: 14 } }
+                  - { kind: progress, id: pwm_ch3_b_duty, bind: { message: pwm, field: ch3_b_duty_percent, type: int }, range: { min: 0, max: 100 }, on_press: edit_pwm_ch3_b_duty, size: { w: 64, h: 12 } }
           - kind: row
             align: center
             children:
               - kind: row
                 focus_ring: true
                 children:
-                  - { kind: toggle, id: pwm_ch3_c_enabled_toggle, bind: { message: pwm, field: ch3_c_enabled, type: int }, on_press: toggle_pwm_ch3_c_enabled, size: { w: 28, h: 18 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
+                  - { kind: toggle, id: pwm_ch3_c_enabled_toggle, bind: { message: pwm, field: ch3_c_enabled, type: int }, on_press: toggle_pwm_ch3_c_enabled, size: { w: 24, h: 12 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
               - { kind: label, id: pwm_ch3_c_label, text: "C", font_size: medium, size: { w: 18, h: 18 } }
+              - { kind: label, id: pwm_ch3_c_duty_pct, text: "%d%%", bind: { message: pwm, field: ch3_c_duty_percent, type: int }, font_size: medium, size: { w: 44, h: 18 } }
               - kind: row
                 focus_ring: true   # duty: RE1 selects it, RE2 changes it 1 % per detent
                 children:
-                  - { kind: progress, id: pwm_ch3_c_duty, bind: { message: pwm, field: ch3_c_duty_percent, type: int }, range: { min: 0, max: 100 }, on_press: edit_pwm_ch3_c_duty, size: { w: 90, h: 14 } }
+                  - { kind: progress, id: pwm_ch3_c_duty, bind: { message: pwm, field: ch3_c_duty_percent, type: int }, range: { min: 0, max: 100 }, on_press: edit_pwm_ch3_c_duty, size: { w: 64, h: 12 } }
       
