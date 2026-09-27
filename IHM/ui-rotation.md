@@ -1,5 +1,10 @@
 # UI rotation (portrait/landscape) -- planning notes
 
+**Pointer (2026-09-27):** the incremental-redraw mechanism this doc's
+scheduler question asks for is being built by the `non_blocking_redraw`
+initiative (`initiatives/non_blocking_redraw/`, stepped Janus render, no pass
+blocked > 20 ms). The rotation feature itself stays shelved.
+
 Not started yet. Written 2026-08-15 to seed a future session -- the user
 wants to pick up the design decision (where the buffer/scheduler logic
 lives) fresh, not settle it in the same session this was scoped in.
