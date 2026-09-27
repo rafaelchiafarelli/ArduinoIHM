@@ -10,6 +10,9 @@ focus moved. Cause: a Janus runtime dirty-flag bug with two widgets on one
 field (`initiatives/janus_handoff/2026-09-26-dirty-flag-shared-field.md`).
 Worked around with a full `janus_render_screen()` after an RE2 switch change.
 The readback was never wrong, which is why the 8/8 check missed it.
+**Workaround removed 2026-09-26:** lib/GUI regenerated with Janus dev
+c56f14c (`shared_field_dirty`, runtime files only). RE2 edits use
+`janus_render_screen_if_dirty` again.
 **Branch:** `1-toggle-settings` (from `tasks`)
 **Depends on:** nothing unmerged. It uses today's RE1 focus as "selected".
 It needs `fixes/000008` (no phantom RE2 step at boot, which could otherwise
