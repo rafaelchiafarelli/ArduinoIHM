@@ -50,11 +50,13 @@ build and full functionality -- the display works, DAC output doesn't.
   task 6); before that, ~60 % of PC -> board frames were lost to USART2
   overruns. The UART drop/error counters (`uart2::*Count()`) still aren't
   in telemetry. Add a field if trouble returns.
-- **A full-screen redraw after an on-screen action blocks the superloop
-  > 0.7 s** (`janus_render_screen` in main.cpp's ACTION case). Two presses
-  inside that window merge into one, real or simulated. Fix: redraw only
-  dirty widgets. Not owned by any initiative (`navigation` closed
-  2026-09-27 without it).
+- **Full-screen redraws block the superloop** (`janus_render_screen`):
+  > 0.7 s after an on-screen action (two presses inside that window merge
+  into one), and 1.85 s on a switch to the PWM tab, which stalls
+  `IHM_UI_STATE` past the companion mirror's 1.5 s "no board" timeout, so
+  the overlay flashes (measured 2026-09-27). Owned by the
+  `non_blocking_redraw` initiative (planned 2026-09-27, Rafael's choice
+  over a longer mirror timeout).
 - **BusStatus tab passive refresh.** `bus_status_instance`'s CAN/RS-485
   fields only repaint on tab-switch or box-toggle -- the ~100ms tick
   redraws only the status bar. Live refresh there needs its own trigger
