@@ -4,6 +4,12 @@
 tests pass; RAM 59.0 %. Bench DoD passed on the old board revision over COM3
 with simulated encoders, 8/8: CH0 Enabled CW -> 1, CW again -> 1, CCW -> 0;
 CH0 Inverting CW -> 1, CCW -> 0; relay 0 CW -> 1, CW again -> 1, CCW -> 0.
+**Defect found by Rafael after delivery, fixed on this branch:** the screen
+lagged. Switches (CH0/CH1) or LEDs (CH2/CH3, relays) only repainted once
+focus moved. Cause: a Janus runtime dirty-flag bug with two widgets on one
+field (`initiatives/janus_handoff/2026-09-26-dirty-flag-shared-field.md`).
+Worked around with a full `janus_render_screen()` after an RE2 switch change.
+The readback was never wrong, which is why the 8/8 check missed it.
 **Branch:** `1-toggle-settings` (from `tasks`)
 **Depends on:** nothing unmerged. It uses today's RE1 focus as "selected".
 It needs `fixes/000008` (no phantom RE2 step at boot, which could otherwise
