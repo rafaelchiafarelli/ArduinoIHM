@@ -88,3 +88,11 @@ dev -> features -> desktop_mirror -> epics -> <epic> -> tasks -> <task>
 `companion_mirror` tasks commit only their task-file records here. The
 code lives in `C:\Users\rafae\source\repos\IHMPCController`, with `.bak`
 files next to each edited file.
+
+## Merged to `dev` before done (2026-09-27)
+
+Rafael chose to merge the whole chain up to `dev` with
+`companion_mirror/5-bench-check` still in progress (partial bench on the
+old board). The cross-epic gate has NOT been run. To finish, build a new
+`features -> desktop_mirror -> epics -> companion_mirror -> tasks` chain
+from `dev` and pick up task 5's file.
