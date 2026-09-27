@@ -48,3 +48,22 @@ child on the cross axis, for example:
 (`relay.screen.yaml`) and to the CH2/CH3 A/B/C rows (`pwm.screen.yaml`).
 Then regen `lib/GUI`, flash, re-vendor the companion mirror's `include/`
 from the same Janus commit, and check it on the TFT and in the mirror.
+
+## Done 2026-09-27
+
+- Janus delivered `align: top | center | bottom` on `row` (Janus dev
+  fcc4ed3, its `fixes/000008/row-cross-axis-align`).
+- Firmware: `d8ad29e` sets `align: center` on the 8 relay rows and the 6
+  CH2/CH3 A/B/C rows and regenerates `lib/GUI` (only the two screens
+  change). Synced down to `mirror_transport`: build green, 135 native
+  tests pass, flash 77492 B (unchanged; only geometry moved). Flashed to
+  the COM7 board (still the OLD hardware revision).
+- Companion: a regen from the same yaml, images and Janus commit is
+  byte-identical to `lib/GUI`. Only `pwm_screen.gen.c`,
+  `relay_screen.gen.c` and the harpia file changed in its `include/`
+  (`*.row-align.bak` = before; `include/JANUS_COMMIT` updated). Debug
+  x64/Win32 rebuilt; `tests/run_mirror_bindings_test.cmd` passes.
+- Mirror, connected to the board: `2026-09-27-row-align-mirror-output.png`
+  (switch and LED centred on each "Relay N" label) and
+  `2026-09-27-row-align-mirror-pwm.png` (A/B/C letters level with their
+  switch and duty bar). The TFT itself is Rafael's check.
