@@ -36,7 +36,7 @@ not-yet-scoped goal.
 
 ```
 1-relay-state-message     dialect + regenerate + main.cpp send          (no deps) -- done
-2-relay-command-message   IHM_RELAY_COMMAND (309, mask + state), PC -> board  (deps: 1)
+2-relay-command-message   IHM_RELAY_COMMAND (309, mask + state), PC -> board  -- done
 ```
 
 Sent on the same ~100ms cadence as `IHM_BOARD_STATE` (see the

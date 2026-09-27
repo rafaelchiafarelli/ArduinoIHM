@@ -1,6 +1,18 @@
 # Task 6: relay-switches
 
-**Status:** planned
+**Status:** done 2026-09-27. Builds x64 and x86 Debug (only the existing
+`mavlink_conversions.h` C4244 warnings). Bench on the old board revision, UI
+driven by script (WM_COMMAND on the control ids) on COM3: companion click on
+R0 -> ticked (readback on), click again -> unticked; the board's Output tab,
+RE2 CW / CCW on relay 0 (via the companion's simulated encoders) -> the R0
+tick follows both ways; on disconnect the switches clear and disable. Board
+left on the PWM tab, all relays off.
+Files: `mavlink/ihm_dialect/` re-synced (old copy
+`mavlink/ihm_dialect.relay-switches.bak/`), `MavlinkLink.h`,
+`IHMPCController.cpp`, `HOW_TO_USE.md`, and `mavlink_msg_ihm_relay_command.h`
+listed in `IHMPCController.vcxproj` + `.filters`. Each has a
+`.relay-switches.bak`. Layout: the relay row's "R0".."R7" labels became the
+checkboxes, beside the existing LEDs.
 **Depends on:** `relay_control/2-relay-command-message` (the dialect with
 `IHM_RELAY_COMMAND`, id 309).
 
