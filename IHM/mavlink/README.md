@@ -37,11 +37,12 @@ that class is unrelated and untouched by this).
 | `CAN_SIGNAL_CONFIG` | PC -> board | 20 | Configure/start/stop a generated signal on one of the 2 CAN buses (`bus_id` selects which) -- one active signal per bus, arbitrary bytes, no on-board waveform math |
 | `RS485_SIGNAL_CONFIG` | PC -> board | 38 | Same idea for the single RS-485 connection -- no bus_id needed |
 | `PWM_CHANNEL_CONFIG` | PC -> board | 13 | Configure one of the 4 PWM channels (0/1 simplex: output A only; 2/3 complex: outputs A/B/C) -- frequency selector, raw ICRn TOP for the variable mode, per-output enable/invert/duty. No ack; last writer wins |
-| `IHM_RELAY_STATE` | board -> PC | 1 | Bitmask of all 8 relay outputs, read-only telemetry -- mirrors `main.cpp`'s `relayState[]`; no PC -> board relay command exists yet |
+| `IHM_RELAY_STATE` | board -> PC | 1 | Bitmask of all 8 relay outputs, read-only telemetry -- mirrors `main.cpp`'s `relayState[]`; the readback for `IHM_RELAY_COMMAND` and for on-screen changes |
 | `IHM_SIMULATE_ENCODER` | PC -> board | 2 | Inject one simulated CW/CCW rotation step on the given encoder; only applied when that encoder's real hardware read was idle the same pass -- real input always wins |
 | `IHM_SIMULATE_BUTTON` | PC -> board | 1 | Press the buttons in `button_mask` (bit layout as `IHM_BOARD_STATE.buttons`) for exactly one superloop pass; OR-ed with the real read, so real input wins |
 | `IHM_PWM_STATE` | board -> PC | 13 | The config currently applied to one PWM channel, same fields as `PWM_CHANNEL_CONFIG`; one channel per ~100 ms tick, round-robin (all 4 every ~400 ms). Mirrors `main.cpp`'s `pwmLast[]`, i.e. the readback `PWM_CHANNEL_CONFIG` has no ack for |
 | `IHM_UI_STATE` | board -> PC | 8 | Janus's `janus_remote_state_t` (active screen, widget focus, nav focus, open-box bitmask), sent on change and every 500 ms, for the companion's screen mirror (`janus_remote_state_apply`). Initiative `desktop_mirror` |
+| `IHM_RELAY_COMMAND` | PC -> board | 2 | Set the relays whose `mask` bit is 1 to their `state` bit; others untouched. Sets, never flips; same path as the Output tab, last writer wins. No ack -- `IHM_RELAY_STATE` is the readback |
 
 Largest message is 38 bytes, hence the 64-byte cap (some margin for the
 still-undesigned SD-card-status and UI-state messages -- see
@@ -54,9 +55,10 @@ still-undesigned SD-card-status and UI-state messages -- see
 | Configure a PWM channel | `PWM_CHANNEL_CONFIG` (303) | companion app "PWM command" panel, or `scripts/pwm_config.py` |
 | Simulate an encoder step | `IHM_SIMULATE_ENCODER` (305) | companion app CCW/CW buttons, or `scripts/sim_input.py encoder` |
 | Simulate a button click | `IHM_SIMULATE_BUTTON` (306) | `scripts/sim_input.py button` (companion app has no button UI yet) |
+| Switch relays | `IHM_RELAY_COMMAND` (309) | `scripts/relay_cmd.py --set 0=1 3=0` |
 
 None has an ack; the board's periodic `IHM_BOARD_STATE` is the proof of
-life, and for PWM the periodic `IHM_PWM_STATE` shows what was actually applied. Invalid frames are dropped silently. The companion app
+life, for PWM the periodic `IHM_PWM_STATE` shows what was actually applied, and for relays `IHM_RELAY_STATE`. Invalid frames are dropped silently. The companion app
 (`C:\Users\rafae\source\repos\IHMPCController`, see its `HOW_TO_USE.md`)
 keeps its own copy of `generated/ihm_dialect/`: after regenerating here, copy
 it over (last synced 2026-09-27, ids 300-308).

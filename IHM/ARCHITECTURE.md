@@ -121,10 +121,11 @@ supplies the hardware glue.
 ### The glue (this repo's code, not Janus's)
 
 - **`src/janus_actions.cpp`** -- the real `janus_handle_action()`. Maps
-  each generated action id to a hardware effect. Today: only
-  `JANUS_ACTION_TOGGLE_RELAY_0..7` -> `multiOuput.getRelays()->setRelay()`,
-  with on/off state mirrored in `main.cpp`'s `relayState[]` (the `Relay`
-  class has no getter). The PWM tab's toggles have generated action ids
+  each generated action id to a hardware effect. Relays:
+  `JANUS_ACTION_TOGGLE_RELAY_0..7` -> `relaySet()` ->
+  `multiOuput.getRelays()->setRelay()`, with on/off state mirrored in
+  `main.cpp`'s `relayState[]` (the `Relay` class has no getter).
+  `relaySet()` is also the path for the PC's `IHM_RELAY_COMMAND`. The PWM tab's toggles have generated action ids
   but no hardware effect wired yet.
 - **The Janus block in `src/main.cpp`** -- four jobs:
   1. **Driver contract** (`display_driver_init`, `draw_area_sync` /

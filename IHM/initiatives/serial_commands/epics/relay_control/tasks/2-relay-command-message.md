@@ -1,6 +1,17 @@
 # Task 2: relay-command-message
 
-**Status:** planned
+**Status:** done 2026-09-27. 141 native tests pass (6 new); RAM 59.3 %
+(+12 B). Bench on the old board revision (flashed on COM7, `relay_cmd.py`
+on the Serial2 adapter, COM3): `0=1` -> readback `0b00000001`, repeated
+`0=1` -> unchanged, `0=0` -> `0`, `2=1 5=1` -> `0b00100100`, `2=0 5=0` ->
+`0`. All relays left off. Rafael's on-screen check (the Output tab's
+switch/LED follow) is still to do.
+**Deviation from item 4, same session:** the merge rule lives in
+`lib/MavlinkComms/src/RelayCommand.h` (tests in
+`test_native/test_relay_command.cpp`), not `RelayConfig.h`. `MavlinkComms`
+uses it, and the initiative's layering rule forbids that class from
+depending on `MultiOutput`. `lib/MavlinkComms/src` joins the native include
+allowlist for that header only.
 **Branch:** `2-relay-command-message` (from `tasks`, off `relay_control`)
 **Depends on:** `relay_control/1` (done: `IHM_RELAY_STATE`, the readback).
 
