@@ -430,6 +430,7 @@ MAVLINK_MSG_ID_IHM_SIMULATE_ENCODER = 305
 MAVLINK_MSG_ID_IHM_SIMULATE_BUTTON = 306
 MAVLINK_MSG_ID_IHM_PWM_STATE = 307
 MAVLINK_MSG_ID_IHM_UI_STATE = 308
+MAVLINK_MSG_ID_IHM_RELAY_COMMAND = 309
 
 
 class MAVLink_ihm_board_state_message(MAVLink_message):
@@ -648,10 +649,11 @@ setattr(MAVLink_pwm_channel_config_message, "name", mavlink_msg_deprecated_name_
 class MAVLink_ihm_relay_state_message(MAVLink_message):
     """
     Periodic snapshot of all 8 relay outputs. Board -> PC, telemetry,
-    read-only -- there is no PC -> board relay command yet (relays are
-    only toggled locally, by the physical buttons or the on-screen
-    Relay tab). Mirrors main.cpp's relayState[NUMBER_OF_RELAYS] the
-    same way IHM_BOARD_STATE.buttons mirrors the button bitmap.
+    read-only. Relays change from the on-screen Output tab (RE1 focus
+    +         pbRE1 or RE2) or from the PC's IHM_RELAY_COMMAND (309);
+    this is the         readback for both. Mirrors main.cpp's
+    relayState[NUMBER_OF_RELAYS]         the same way
+    IHM_BOARD_STATE.buttons mirrors the button bitmap.
     """
 
     id = MAVLINK_MSG_ID_IHM_RELAY_STATE
@@ -887,6 +889,51 @@ class MAVLink_ihm_ui_state_message(MAVLink_message):
 setattr(MAVLink_ihm_ui_state_message, "name", mavlink_msg_deprecated_name_property())
 
 
+class MAVLink_ihm_relay_command_message(MAVLink_message):
+    """
+    PC switches relays. Relay i is set to state bit i when mask bit i
+    is         1; relays whose mask bit is 0 are left as they are, so
+    one frame can         switch a single relay or all 8. Sets, never
+    flips: repeating a frame         changes nothing. Same path as the
+    on-screen Output tab, last writer         wins. No ack --
+    IHM_RELAY_STATE (304) is the readback. PC -> board,
+    command.
+    """
+
+    id = MAVLINK_MSG_ID_IHM_RELAY_COMMAND
+    msgname = "IHM_RELAY_COMMAND"
+    fieldnames = ["mask", "state"]
+    ordered_fieldnames = ["mask", "state"]
+    fieldtypes = ["uint8_t", "uint8_t"]
+    fielddisplays_by_name: Dict[str, str] = {}
+    fieldenums_by_name: Dict[str, str] = {}
+    fieldunits_by_name: Dict[str, str] = {}
+    native_format = bytearray(b"<BB")
+    orders = [0, 1]
+    lengths = [1, 1]
+    array_lengths = [0, 0]
+    crc_extra = 171
+    unpacker = struct.Struct("<BB")
+    instance_field = None
+    instance_offset = -1
+
+    def __init__(self, mask: int, state: int):
+        MAVLink_message.__init__(self, MAVLink_ihm_relay_command_message.id, MAVLink_ihm_relay_command_message.msgname)
+        self._fieldnames = MAVLink_ihm_relay_command_message.fieldnames
+        self._instance_field = MAVLink_ihm_relay_command_message.instance_field
+        self._instance_offset = MAVLink_ihm_relay_command_message.instance_offset
+        self.mask = mask
+        self.state = state
+
+    def pack(self, mav: "MAVLink", force_mavlink1: bool = False) -> bytes:
+        return self._pack(mav, self.crc_extra, self.unpacker.pack(self.mask, self.state), force_mavlink1=force_mavlink1)
+
+
+# Define name on the class for backwards compatibility (it is now msgname).
+# Done with setattr to hide the class variable from mypy.
+setattr(MAVLink_ihm_relay_command_message, "name", mavlink_msg_deprecated_name_property())
+
+
 mavlink_map: Dict[int, Type[MAVLink_message]] = {
     MAVLINK_MSG_ID_IHM_BOARD_STATE: MAVLink_ihm_board_state_message,
     MAVLINK_MSG_ID_CAN_SIGNAL_CONFIG: MAVLink_can_signal_config_message,
@@ -897,6 +944,7 @@ mavlink_map: Dict[int, Type[MAVLink_message]] = {
     MAVLINK_MSG_ID_IHM_SIMULATE_BUTTON: MAVLink_ihm_simulate_button_message,
     MAVLINK_MSG_ID_IHM_PWM_STATE: MAVLink_ihm_pwm_state_message,
     MAVLINK_MSG_ID_IHM_UI_STATE: MAVLink_ihm_ui_state_message,
+    MAVLINK_MSG_ID_IHM_RELAY_COMMAND: MAVLink_ihm_relay_command_message,
 }
 
 
@@ -1512,11 +1560,12 @@ class MAVLink(object):
     def ihm_relay_state_encode(self, relays: int) -> MAVLink_ihm_relay_state_message:
         """
         Periodic snapshot of all 8 relay outputs. Board -> PC, telemetry,
-        read-only -- there is no PC -> board relay command yet (relays
-        are         only toggled locally, by the physical buttons or
-        the on-screen         Relay tab). Mirrors main.cpp's
-        relayState[NUMBER_OF_RELAYS] the         same way
-        IHM_BOARD_STATE.buttons mirrors the button bitmap.
+        read-only. Relays change from the on-screen Output tab (RE1
+        focus +         pbRE1 or RE2) or from the PC's
+        IHM_RELAY_COMMAND (309); this is the         readback for
+        both. Mirrors main.cpp's relayState[NUMBER_OF_RELAYS]
+        the same way IHM_BOARD_STATE.buttons mirrors the button
+        bitmap.
 
         relays                    : Bitmask, bit i = relay i (0-7), 1 = on. (type:uint8_t)
 
@@ -1526,11 +1575,12 @@ class MAVLink(object):
     def ihm_relay_state_send(self, relays: int, force_mavlink1: bool = False) -> None:
         """
         Periodic snapshot of all 8 relay outputs. Board -> PC, telemetry,
-        read-only -- there is no PC -> board relay command yet (relays
-        are         only toggled locally, by the physical buttons or
-        the on-screen         Relay tab). Mirrors main.cpp's
-        relayState[NUMBER_OF_RELAYS] the         same way
-        IHM_BOARD_STATE.buttons mirrors the button bitmap.
+        read-only. Relays change from the on-screen Output tab (RE1
+        focus +         pbRE1 or RE2) or from the PC's
+        IHM_RELAY_COMMAND (309); this is the         readback for
+        both. Mirrors main.cpp's relayState[NUMBER_OF_RELAYS]
+        the same way IHM_BOARD_STATE.buttons mirrors the button
+        bitmap.
 
         relays                    : Bitmask, bit i = relay i (0-7), 1 = on. (type:uint8_t)
 
@@ -1712,3 +1762,35 @@ class MAVLink(object):
 
         """
         self.send(self.ihm_ui_state_encode(screen, focus, nav_focus, boxes_expanded), force_mavlink1=force_mavlink1)
+
+    def ihm_relay_command_encode(self, mask: int, state: int) -> MAVLink_ihm_relay_command_message:
+        """
+        PC switches relays. Relay i is set to state bit i when mask bit i is
+        1; relays whose mask bit is 0 are left as they are, so one
+        frame can         switch a single relay or all 8. Sets, never
+        flips: repeating a frame         changes nothing. Same path as
+        the on-screen Output tab, last writer         wins. No ack --
+        IHM_RELAY_STATE (304) is the readback. PC -> board,
+        command.
+
+        mask                      : Relays to change; bit i = relay i (0-7). (type:uint8_t)
+        state                     : Target state for the masked relays; bit i = relay i, 1 = on. Bits outside mask are ignored. (type:uint8_t)
+
+        """
+        return MAVLink_ihm_relay_command_message(mask, state)
+
+    def ihm_relay_command_send(self, mask: int, state: int, force_mavlink1: bool = False) -> None:
+        """
+        PC switches relays. Relay i is set to state bit i when mask bit i is
+        1; relays whose mask bit is 0 are left as they are, so one
+        frame can         switch a single relay or all 8. Sets, never
+        flips: repeating a frame         changes nothing. Same path as
+        the on-screen Output tab, last writer         wins. No ack --
+        IHM_RELAY_STATE (304) is the readback. PC -> board,
+        command.
+
+        mask                      : Relays to change; bit i = relay i (0-7). (type:uint8_t)
+        state                     : Target state for the masked relays; bit i = relay i, 1 = on. Bits outside mask are ignored. (type:uint8_t)
+
+        """
+        self.send(self.ihm_relay_command_encode(mask, state), force_mavlink1=force_mavlink1)

@@ -22,6 +22,7 @@ Janus is a black box here: the companion's `include/*.gen.h`,
                            simulation (id 306) buttons
 4-encoder-hold-repeat      CCW/CW repeat every 200 ms while held (2026-09-26)
 5-pwm-sliders              VARIABLE as a log frequency slider (244 Hz - 8 MHz), duty sliders (2026-09-27)
+6-relay-switches           8 relay checkboxes: send IHM_RELAY_COMMAND, follow 304 (2026-09-27)
 ```
 
 ## Acceptance

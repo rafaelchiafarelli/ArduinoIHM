@@ -35,12 +35,16 @@ not-yet-scoped goal.
 ## Tasks
 
 ```
-1-relay-state-message   dialect + regenerate + main.cpp send   (no deps)
+1-relay-state-message     dialect + regenerate + main.cpp send          (no deps) -- done
+2-relay-command-message   IHM_RELAY_COMMAND (309, mask + state), PC -> board  -- done
 ```
 
 Sent on the same ~100ms cadence as `IHM_BOARD_STATE` (see the
 `timeCounter>=100` block in `main.cpp`'s loop) -- no new timing
 mechanism needed.
+
+Second cut (Rafael, 2026-09-27): PC -> board commands, task 2. The
+companion's relay switches are `pc_companion/6-relay-switches`.
 
 ## Acceptance gate
 
