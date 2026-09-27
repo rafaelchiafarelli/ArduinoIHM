@@ -75,6 +75,7 @@ if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
 $libAllowlist = @(
     "lib/StateMachine/src",
     "lib/HAL/src",
+    "lib/MavlinkComms/src",   # RelayCommand.h only -- MavlinkComms.h itself is AVR-only
     "lib/MultiOutput/src",
     "lib/RotaryEncoder",
     "lib/Uart2/src",
