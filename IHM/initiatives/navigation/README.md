@@ -66,11 +66,11 @@ this initiative requests no Janus runtime change.
 
 ## Epics
 
-| Epic | Scope |
-|---|---|
-| `input_map` | Named constants for the enumeration above; a pure click-edge detector. |
-| `nav_state_machine` | Pure `Navigator` (levels, timeout), the IHM nav table, wiring into `main.cpp`. |
-| `value_editing` | What RE2 does to the selected setting, per kind: toggles, PWM duty, PWM frequency. |
+| Epic | Status (checked against `dev` 2026-09-27) | Scope |
+|---|---|---|
+| `input_map` | not started (0/2) | Named constants for the enumeration above; a pure click-edge detector. |
+| `nav_state_machine` | not started (0/3) | Pure `Navigator` (levels, timeout), the IHM nav table, wiring into `main.cpp`. |
+| `value_editing` | 3/4 done; task 3 partial (waits on `nav_state_machine/3`) | What RE2 does to the selected setting, per kind: toggles, PWM duty, PWM frequency. |
 
 Task order across epics:
 
