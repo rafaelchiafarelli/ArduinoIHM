@@ -1,7 +1,20 @@
 # Task 5: bench-check
 
-**Status:** in progress. A partial run on the OLD board (2026-09-27, below).
-The mirror-vs-TFT comparison and a new-revision run are still open.
+**Status:** done 2026-09-27, closed by Rafael's decisions:
+- **The old board counts for the gate.** The mirror is about the UI, not
+  the output bus, so no new-revision run is needed.
+- **Mirror == TFT and no flicker: confirmed by Rafael** by eye.
+- **The 308 gap is handed over, not fixed here.** Re-measured 2026-09-27 on
+  `dev` (dbbdcce): idle heartbeat every 0.50 s, but one switch to the PWM
+  tab stalls `IHM_UI_STATE` for 1.85 s, and two RE0 turns 1 s apart gave
+  1.97 s and 2.38 s. That is past the 1.5 s "no board" timeout, so the
+  overlay flashes on every switch to PWM (worse than the first run: the
+  PWM tab has more widgets now). Rafael chose to fix the cause, the
+  blocking full-screen redraw, in a new initiative (`non_blocking_redraw`),
+  not with a longer timeout.
+- Relays are covered since: the companion's relay switches
+  (`serial_commands` `pc_companion/6`) moved relay 0 both ways, and the
+  mirror follows 304.
 
 ## Bench run 2026-09-27 (old hardware revision, Rafael's go-ahead)
 
