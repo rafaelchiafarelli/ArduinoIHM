@@ -102,6 +102,9 @@ nav_state_machine/1-navigator ─> 2-ihm-nav-table ─┘
 5. **SERIAL tab.** Should its options (CAN0, CAN1, RS485) be read-only in v1
    (L1 only, pbRE0 does nothing), or editable? Their configs are stored
    but no bus driver consumes them yet. Blocks `nav_state_machine/2`.
+   *Pointer (2026-09-27):* Rafael chose board-side editing of the SERIAL
+   settings in `serial_config` (decision 2), i.e. **editable**. How it
+   maps onto the L1/L2 levels is still this initiative's to settle.
 6. **What resets the 4 s timer?** Only RE0/pbRE0/B0, or any input
    including the unassigned ones? Blocks `nav_state_machine/1`.
 7. **pbRE0 at L2 (SETTING).** With editing on RE2, should pbRE0 on a
