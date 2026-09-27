@@ -81,11 +81,11 @@ children:
               - kind: row
                 focus_ring: true   # toggles draw no ring of their own; this row carries it
                 children:
-                  - { kind: toggle, id: pwm_ch0_enabled_toggle, bind: { message: pwm, field: ch0_enabled, type: int }, on_press: toggle_pwm_ch0_enabled, size: { w: 28, h: 18 } }
+                  - { kind: toggle, id: pwm_ch0_enabled_toggle, bind: { message: pwm, field: ch0_enabled, type: int }, on_press: toggle_pwm_ch0_enabled, size: { w: 28, h: 18 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
               - kind: row
                 focus_ring: true   # toggles draw no ring of their own; this row carries it
                 children:
-                  - { kind: toggle, id: pwm_ch0_inverting_toggle, bind: { message: pwm, field: ch0_inverting, type: int }, on_press: toggle_pwm_ch0_inverting, size: { w: 28, h: 18 } }
+                  - { kind: toggle, id: pwm_ch0_inverting_toggle, bind: { message: pwm, field: ch0_inverting, type: int }, on_press: toggle_pwm_ch0_inverting, size: { w: 28, h: 18 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
           - kind: row
             children:
               - { kind: label, id: pwm_ch0_duty_caption, text: "Duty:", font_size: medium, size: { w: 50, h: 18 } }
@@ -115,11 +115,11 @@ children:
               - kind: row
                 focus_ring: true   # toggles draw no ring of their own; this row carries it
                 children:
-                  - { kind: toggle, id: pwm_ch1_enabled_toggle, bind: { message: pwm, field: ch1_enabled, type: int }, on_press: toggle_pwm_ch1_enabled, size: { w: 28, h: 18 } }
+                  - { kind: toggle, id: pwm_ch1_enabled_toggle, bind: { message: pwm, field: ch1_enabled, type: int }, on_press: toggle_pwm_ch1_enabled, size: { w: 28, h: 18 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
               - kind: row
                 focus_ring: true   # toggles draw no ring of their own; this row carries it
                 children:
-                  - { kind: toggle, id: pwm_ch1_inverting_toggle, bind: { message: pwm, field: ch1_inverting, type: int }, on_press: toggle_pwm_ch1_inverting, size: { w: 28, h: 18 } }
+                  - { kind: toggle, id: pwm_ch1_inverting_toggle, bind: { message: pwm, field: ch1_inverting, type: int }, on_press: toggle_pwm_ch1_inverting, size: { w: 28, h: 18 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
           - kind: row
             children:
               - { kind: label, id: pwm_ch1_duty_caption, text: "Duty:", font_size: medium, size: { w: 50, h: 18 } }
@@ -151,7 +151,7 @@ children:
               - kind: row
                 focus_ring: true
                 children:
-                  - { kind: toggle, id: pwm_ch2_a_enabled_toggle, bind: { message: pwm, field: ch2_a_enabled, type: int }, on_press: toggle_pwm_ch2_a_enabled, size: { w: 28, h: 18 } }
+                  - { kind: toggle, id: pwm_ch2_a_enabled_toggle, bind: { message: pwm, field: ch2_a_enabled, type: int }, on_press: toggle_pwm_ch2_a_enabled, size: { w: 28, h: 18 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
               - { kind: led, id: pwm_ch2_a_led, bind: { message: pwm, field: ch2_a_enabled, type: int }, states: [off, on], size: { w: 14, h: 14 }, color: "#00FF00", bg: "#FF0000" }
               - { kind: label, id: pwm_ch2_a_label, text: "A", font_size: medium, size: { w: 18, h: 18 } }
               - kind: row
@@ -163,7 +163,7 @@ children:
               - kind: row
                 focus_ring: true
                 children:
-                  - { kind: toggle, id: pwm_ch2_b_enabled_toggle, bind: { message: pwm, field: ch2_b_enabled, type: int }, on_press: toggle_pwm_ch2_b_enabled, size: { w: 28, h: 18 } }
+                  - { kind: toggle, id: pwm_ch2_b_enabled_toggle, bind: { message: pwm, field: ch2_b_enabled, type: int }, on_press: toggle_pwm_ch2_b_enabled, size: { w: 28, h: 18 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
               - { kind: led, id: pwm_ch2_b_led, bind: { message: pwm, field: ch2_b_enabled, type: int }, states: [off, on], size: { w: 14, h: 14 }, color: "#00FF00", bg: "#FF0000" }
               - { kind: label, id: pwm_ch2_b_label, text: "B", font_size: medium, size: { w: 18, h: 18 } }
               - kind: row
@@ -175,7 +175,7 @@ children:
               - kind: row
                 focus_ring: true
                 children:
-                  - { kind: toggle, id: pwm_ch2_c_enabled_toggle, bind: { message: pwm, field: ch2_c_enabled, type: int }, on_press: toggle_pwm_ch2_c_enabled, size: { w: 28, h: 18 } }
+                  - { kind: toggle, id: pwm_ch2_c_enabled_toggle, bind: { message: pwm, field: ch2_c_enabled, type: int }, on_press: toggle_pwm_ch2_c_enabled, size: { w: 28, h: 18 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
               - { kind: led, id: pwm_ch2_c_led, bind: { message: pwm, field: ch2_c_enabled, type: int }, states: [off, on], size: { w: 14, h: 14 }, color: "#00FF00", bg: "#FF0000" }
               - { kind: label, id: pwm_ch2_c_label, text: "C", font_size: medium, size: { w: 18, h: 18 } }
               - kind: row
@@ -205,7 +205,7 @@ children:
               - kind: row
                 focus_ring: true
                 children:
-                  - { kind: toggle, id: pwm_ch3_a_enabled_toggle, bind: { message: pwm, field: ch3_a_enabled, type: int }, on_press: toggle_pwm_ch3_a_enabled, size: { w: 28, h: 18 } }
+                  - { kind: toggle, id: pwm_ch3_a_enabled_toggle, bind: { message: pwm, field: ch3_a_enabled, type: int }, on_press: toggle_pwm_ch3_a_enabled, size: { w: 28, h: 18 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
               - { kind: led, id: pwm_ch3_a_led, bind: { message: pwm, field: ch3_a_enabled, type: int }, states: [off, on], size: { w: 14, h: 14 }, color: "#00FF00", bg: "#FF0000" }
               - { kind: label, id: pwm_ch3_a_label, text: "A", font_size: medium, size: { w: 18, h: 18 } }
               - kind: row
@@ -217,7 +217,7 @@ children:
               - kind: row
                 focus_ring: true
                 children:
-                  - { kind: toggle, id: pwm_ch3_b_enabled_toggle, bind: { message: pwm, field: ch3_b_enabled, type: int }, on_press: toggle_pwm_ch3_b_enabled, size: { w: 28, h: 18 } }
+                  - { kind: toggle, id: pwm_ch3_b_enabled_toggle, bind: { message: pwm, field: ch3_b_enabled, type: int }, on_press: toggle_pwm_ch3_b_enabled, size: { w: 28, h: 18 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
               - { kind: led, id: pwm_ch3_b_led, bind: { message: pwm, field: ch3_b_enabled, type: int }, states: [off, on], size: { w: 14, h: 14 }, color: "#00FF00", bg: "#FF0000" }
               - { kind: label, id: pwm_ch3_b_label, text: "B", font_size: medium, size: { w: 18, h: 18 } }
               - kind: row
@@ -229,7 +229,7 @@ children:
               - kind: row
                 focus_ring: true
                 children:
-                  - { kind: toggle, id: pwm_ch3_c_enabled_toggle, bind: { message: pwm, field: ch3_c_enabled, type: int }, on_press: toggle_pwm_ch3_c_enabled, size: { w: 28, h: 18 } }
+                  - { kind: toggle, id: pwm_ch3_c_enabled_toggle, bind: { message: pwm, field: ch3_c_enabled, type: int }, on_press: toggle_pwm_ch3_c_enabled, size: { w: 28, h: 18 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
               - { kind: led, id: pwm_ch3_c_led, bind: { message: pwm, field: ch3_c_enabled, type: int }, states: [off, on], size: { w: 14, h: 14 }, color: "#00FF00", bg: "#FF0000" }
               - { kind: label, id: pwm_ch3_c_label, text: "C", font_size: medium, size: { w: 18, h: 18 } }
               - kind: row
