@@ -83,7 +83,8 @@ The ISRs only move bytes. Telemetry is best-effort: a frame that doesn't
 fit in the TX ring is dropped and counted (`uart2::txDroppedCount()`), and
 the next ~100 ms frame replaces it. Per ~100 ms tick the board queues
 `IHM_BOARD_STATE` (31 B on the wire) + `IHM_RELAY_STATE` (13 B) +
-`IHM_PWM_STATE` (25 B) = 69 B, which is why the TX ring is 128, not 64. RX ring overflow and UART
+`IHM_PWM_STATE` (25 B) = 69 B, plus `IHM_UI_STATE` (20 B) on a tick where
+the UI changed or every 5th tick = 89 B at most, which is why the TX ring is 128, not 64. RX ring overflow and UART
 overrun/framing errors are counted too (`rxDroppedCount()`,
 `rxLineErrorCount()`). None of these counters are in telemetry yet.
 

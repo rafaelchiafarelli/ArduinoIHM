@@ -1,6 +1,13 @@
 # Task 2: ui-state-send
 
-**Status:** planned (heartbeat: 500 ms, open question 1 answered)
+**Status:** done 2026-09-27. Delivered as written. The send sits in the ~100 ms
+telemetry tick: on change, else every 5th tick (500 ms), first tick always.
+Pre-work check passed: focus is a runtime global and `janus_focus_index`
+counts only the active screen's widgets, so `get(&janus_app)` reports the
+index the nav-less `screenOnly` move set. Delta vs the baseline below:
+flash +584 B (77414 B, 30.5 %), RAM +18 B (4849 B, 59.2 %). 135 native
+tests pass. **Bench (epic gate) not run yet:** watching 308 on COM3 needs
+the board. Deferred to the initiative's bench step.
 **Branch:** `2-ui-state-send` (from `tasks`)
 **Depends on:** task 1
 
