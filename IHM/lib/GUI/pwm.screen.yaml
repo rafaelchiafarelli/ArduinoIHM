@@ -3,10 +3,11 @@
 #
 # Row layout (redesigned 2026-09-06): each channel is a plain `row` in the
 # screen's ROOT column -- the collapsible box/summary drawer is gone. A row
-# holds a left `column` (LED / state / frequency / duty / enable+invert
+# holds a left `column` (state / frequency / duty / enable+invert
 # controls, stacked) and, to its right, a single `image` icon sized to the
-# row's full height.
-#   * CH0 / CH1 left column (2026-09-25): LED + live frequency label, the
+# row's full height. No per-channel/per-output LEDs (removed 2026-09-27,
+# fixes/00000c): each one only repeated the Enabled switch beside it.
+#   * CH0 / CH1 left column (2026-09-25): live frequency label, the
 #     duty bar under it, then a read-only "inverted" / "non-inverted" label
 #     (string-bound `chN_inverting_label`, filled by main.cpp). The
 #     Enabled and Inverting switches sit unlabeled right of the frequency,
@@ -73,7 +74,6 @@ children:
         children:
           - kind: row
             children:
-              - { kind: led, id: pwm_ch0_led, bind: { message: pwm, field: ch0_enabled, type: int }, states: [off, on], size: { w: 16, h: 16 }, color: "#00FF00", bg: "#FF0000" }
               - kind: row
                 focus_ring: true   # frequency: RE1 focuses it, RE2 steps it, pbRE1 cycles it
                 children:
@@ -107,7 +107,6 @@ children:
         children:
           - kind: row
             children:
-              - { kind: led, id: pwm_ch1_led, bind: { message: pwm, field: ch1_enabled, type: int }, states: [off, on], size: { w: 16, h: 16 }, color: "#00FF00", bg: "#FF0000" }
               - kind: row
                 focus_ring: true   # frequency: RE1 focuses it, RE2 steps it, pbRE1 cycles it
                 children:
@@ -152,7 +151,6 @@ children:
                 focus_ring: true
                 children:
                   - { kind: toggle, id: pwm_ch2_a_enabled_toggle, bind: { message: pwm, field: ch2_a_enabled, type: int }, on_press: toggle_pwm_ch2_a_enabled, size: { w: 28, h: 18 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
-              - { kind: led, id: pwm_ch2_a_led, bind: { message: pwm, field: ch2_a_enabled, type: int }, states: [off, on], size: { w: 14, h: 14 }, color: "#00FF00", bg: "#FF0000" }
               - { kind: label, id: pwm_ch2_a_label, text: "A", font_size: medium, size: { w: 18, h: 18 } }
               - kind: row
                 focus_ring: true   # duty: RE1 selects it, RE2 changes it 1 % per detent
@@ -164,7 +162,6 @@ children:
                 focus_ring: true
                 children:
                   - { kind: toggle, id: pwm_ch2_b_enabled_toggle, bind: { message: pwm, field: ch2_b_enabled, type: int }, on_press: toggle_pwm_ch2_b_enabled, size: { w: 28, h: 18 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
-              - { kind: led, id: pwm_ch2_b_led, bind: { message: pwm, field: ch2_b_enabled, type: int }, states: [off, on], size: { w: 14, h: 14 }, color: "#00FF00", bg: "#FF0000" }
               - { kind: label, id: pwm_ch2_b_label, text: "B", font_size: medium, size: { w: 18, h: 18 } }
               - kind: row
                 focus_ring: true   # duty: RE1 selects it, RE2 changes it 1 % per detent
@@ -176,7 +173,6 @@ children:
                 focus_ring: true
                 children:
                   - { kind: toggle, id: pwm_ch2_c_enabled_toggle, bind: { message: pwm, field: ch2_c_enabled, type: int }, on_press: toggle_pwm_ch2_c_enabled, size: { w: 28, h: 18 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
-              - { kind: led, id: pwm_ch2_c_led, bind: { message: pwm, field: ch2_c_enabled, type: int }, states: [off, on], size: { w: 14, h: 14 }, color: "#00FF00", bg: "#FF0000" }
               - { kind: label, id: pwm_ch2_c_label, text: "C", font_size: medium, size: { w: 18, h: 18 } }
               - kind: row
                 focus_ring: true   # duty: RE1 selects it, RE2 changes it 1 % per detent
@@ -206,7 +202,6 @@ children:
                 focus_ring: true
                 children:
                   - { kind: toggle, id: pwm_ch3_a_enabled_toggle, bind: { message: pwm, field: ch3_a_enabled, type: int }, on_press: toggle_pwm_ch3_a_enabled, size: { w: 28, h: 18 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
-              - { kind: led, id: pwm_ch3_a_led, bind: { message: pwm, field: ch3_a_enabled, type: int }, states: [off, on], size: { w: 14, h: 14 }, color: "#00FF00", bg: "#FF0000" }
               - { kind: label, id: pwm_ch3_a_label, text: "A", font_size: medium, size: { w: 18, h: 18 } }
               - kind: row
                 focus_ring: true   # duty: RE1 selects it, RE2 changes it 1 % per detent
@@ -218,7 +213,6 @@ children:
                 focus_ring: true
                 children:
                   - { kind: toggle, id: pwm_ch3_b_enabled_toggle, bind: { message: pwm, field: ch3_b_enabled, type: int }, on_press: toggle_pwm_ch3_b_enabled, size: { w: 28, h: 18 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
-              - { kind: led, id: pwm_ch3_b_led, bind: { message: pwm, field: ch3_b_enabled, type: int }, states: [off, on], size: { w: 14, h: 14 }, color: "#00FF00", bg: "#FF0000" }
               - { kind: label, id: pwm_ch3_b_label, text: "B", font_size: medium, size: { w: 18, h: 18 } }
               - kind: row
                 focus_ring: true   # duty: RE1 selects it, RE2 changes it 1 % per detent
@@ -230,7 +224,6 @@ children:
                 focus_ring: true
                 children:
                   - { kind: toggle, id: pwm_ch3_c_enabled_toggle, bind: { message: pwm, field: ch3_c_enabled, type: int }, on_press: toggle_pwm_ch3_c_enabled, size: { w: 28, h: 18 }, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
-              - { kind: led, id: pwm_ch3_c_led, bind: { message: pwm, field: ch3_c_enabled, type: int }, states: [off, on], size: { w: 14, h: 14 }, color: "#00FF00", bg: "#FF0000" }
               - { kind: label, id: pwm_ch3_c_label, text: "C", font_size: medium, size: { w: 18, h: 18 } }
               - kind: row
                 focus_ring: true   # duty: RE1 selects it, RE2 changes it 1 % per detent
