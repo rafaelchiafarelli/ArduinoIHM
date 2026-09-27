@@ -52,5 +52,6 @@ task 5.
 ## Verification
 
 Build x64 + x86. A DPI-aware screenshot of the window, driven as in
-`serial_commands/epics/pc_companion/tasks/3`, shows screen 0 next to the
+`serial_commands`' `pc_companion/3` (initiative removed 2026-09-27; see
+git history), shows screen 0 next to the
 TFT's boot screen.

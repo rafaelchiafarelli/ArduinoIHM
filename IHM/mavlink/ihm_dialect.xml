@@ -174,10 +174,10 @@
     <message id="304" name="IHM_RELAY_STATE">
       <description>
         Periodic snapshot of all 8 relay outputs. Board -> PC, telemetry,
-        read-only -- there is no PC -> board relay command yet (relays are
-        only toggled locally, by the physical buttons or the on-screen
-        Relay tab). Mirrors main.cpp's relayState[NUMBER_OF_RELAYS] the
-        same way IHM_BOARD_STATE.buttons mirrors the button bitmap.
+        read-only. Relays change from the on-screen Output tab (RE1 focus +
+        pbRE1 or RE2) or from the PC's IHM_RELAY_COMMAND (309); this is the
+        readback for both. Mirrors main.cpp's relayState[NUMBER_OF_RELAYS]
+        the same way IHM_BOARD_STATE.buttons mirrors the button bitmap.
       </description>
       <field type="uint8_t" name="relays">Bitmask, bit i = relay i (0-7), 1 = on.</field>
     </message>
@@ -252,6 +252,18 @@
       <field type="int16_t" name="focus">Focused widget's index among the active screen's reachable focusable widgets, in Janus focus-traversal order. -1 = no widget focused.</field>
       <field type="int16_t" name="nav_focus">Previewed nav-strip tab index. -1 = none. At most one of focus / nav_focus is >= 0.</field>
       <field type="uint16_t" name="boxes_expanded">Bit i = the i-th box of the active screen's widget tree (depth-first, tree order) is expanded. 16 boxes max.</field>
+    </message>
+    <message id="309" name="IHM_RELAY_COMMAND">
+      <description>
+        PC switches relays. Relay i is set to state bit i when mask bit i is
+        1; relays whose mask bit is 0 are left as they are, so one frame can
+        switch a single relay or all 8. Sets, never flips: repeating a frame
+        changes nothing. Same path as the on-screen Output tab, last writer
+        wins. No ack -- IHM_RELAY_STATE (304) is the readback. PC -> board,
+        command.
+      </description>
+      <field type="uint8_t" name="mask">Relays to change; bit i = relay i (0-7).</field>
+      <field type="uint8_t" name="state">Target state for the masked relays; bit i = relay i, 1 = on. Bits outside mask are ignored.</field>
     </message>
   </messages>
 </mavlink>
