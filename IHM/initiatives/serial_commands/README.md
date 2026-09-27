@@ -37,7 +37,7 @@ same split as `sendBoardState()` (the class packs the message,
 | `pwm_control` | done, bench-verified 2026-09-25 (screen; no probe) | PC configures the 4 PWM channels (2 simplex, 2 complex) over MAVLink. |
 | `pc_companion` | done, bench-verified 2026-09-25 | The Windows companion (`IHMPCController`): PWM panel, input simulation (encoders + buttons), how-to-use doc. |
 | `input_simulation` | done, bench-verified 2026-09-25 | PC simulates encoder turns (id 305) and button presses (id 306). |
-| `relay_control` | telemetry done; commands planned 2026-09-27 | Board -> PC relay state (id 304); PC -> board relay command (id 309, task 2). |
+| `relay_control` | done 2026-09-27 (telemetry + commands, bench-verified) | Board -> PC relay state (id 304); PC -> board relay command (id 309, task 2). |
 
 ### Not yet scoped (future epics/tasks under this initiative)
 
