@@ -534,15 +534,27 @@ int main()
                 int8_t ch = pwmFrequencyActionChannel(action);
                 uint8_t dutyCh, dutyOut;
                 if (janusSetSwitch(action, step > 0)) {
-                    // set (or already in that state) -- nothing else to do
-                } else if (ch >= 0) {
-                    PWMFrequency f = (PWMFrequency)pwmLast[ch].f_selector;
-                    pwmSetFrequency((uint8_t)ch, pwmStepFrequency(f, step));
-                } else if (pwmDutyActionTarget(action, &dutyCh, &dutyOut)) {
-                    uint8_t duty = pwmLast[dutyCh].out[dutyOut].duty_percent;
-                    pwmSetDuty(dutyCh, dutyOut, pwmStepDuty(duty, step));
+                    // Full repaint, as the pbRE1 press path does: each switch
+                    // shares its bound field with an LED, and
+                    // janus_render_screen_if_dirty clears a field's dirty
+                    // flag at the *first* widget bound to it -- so only one
+                    // of the pair would repaint (CH0/CH1: the LED, leaving
+                    // the switch stale until focus moved; CH2/CH3 and
+                    // relays: the switch, leaving the LED stale). Janus
+                    // runtime bug, see initiatives/janus_handoff/.
+                    janus_render_screen(screen);
+                } else {
+                    if (ch >= 0) {
+                        PWMFrequency f = (PWMFrequency)pwmLast[ch].f_selector;
+                        pwmSetFrequency((uint8_t)ch, pwmStepFrequency(f, step));
+                    } else if (pwmDutyActionTarget(action, &dutyCh, &dutyOut)) {
+                        uint8_t duty = pwmLast[dutyCh].out[dutyOut].duty_percent;
+                        pwmSetDuty(dutyCh, dutyOut, pwmStepDuty(duty, step));
+                    }
+                    // Frequency labels and duty bars each own their field,
+                    // so the cheap dirty-only repaint is enough here.
+                    janus_render_screen_if_dirty(screen);
                 }
-                janus_render_screen_if_dirty(screen);
             }
         }
 
