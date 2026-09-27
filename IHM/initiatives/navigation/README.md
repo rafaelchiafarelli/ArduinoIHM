@@ -141,3 +141,13 @@ task's bench step can run from the PC.
 ```
 dev -> features -> navigation -> epics -> <epic> -> tasks -> <task>
 ```
+
+## Parked 2026-09-27 (partial merge to `dev`)
+
+Rafael chose to merge the finished work up to `dev` before the initiative
+is complete, so this clone can start the `desktop_mirror` chain. That skips
+the normal DoD on purpose: `value_editing` merged up with task 3 still only
+partly delivered, and `input_map`/`nav_state_machine` have no code yet.
+Open questions 1, 2, 5, 6 and 7 are still open. To resume, build a new
+`features -> navigation -> epics -> <epic> -> tasks` chain from `dev` and
+pick up from the task files, which are unchanged.

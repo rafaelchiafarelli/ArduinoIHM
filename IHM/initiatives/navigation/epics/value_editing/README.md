@@ -19,6 +19,13 @@ afterwards it means the navigator's L2 setting.
 4-pwm-row-labels      CH0/CH1: wider frequency label, "Duty:" caption  -- done as fixes/00000a
 ```
 
+## Parked 2026-09-27
+
+Merged up to `dev` with task 3 still partial (Rafael's call, see the
+initiative README's "Parked" section). The acceptance gate below has NOT
+been run as a whole. The build and native suite were green at the merge
+(132 tests).
+
 ## Acceptance gate
 
 - `platformio run` builds; `test_native/run_tests.ps1` passes.
