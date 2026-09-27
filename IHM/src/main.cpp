@@ -347,6 +347,12 @@ ISR(TIMER2_COMPA_vect){ /*~1.008ms system tick*/
     // tick must always finish inside its ~1 ms slot -- keep it that way.
     sei();
 
+    // RULE (Rafael, 2026-09-27): the MAVLink fast handler is always the FIRST
+    // call after sei() -- nothing goes between them. It drains the Serial2 RX
+    // ring (bounded) and decodes complete frames; the superloop is its only
+    // consumer (take*/consume*/get*), so nothing below depends on it.
+    mavlinkComms.fast_handler();
+
     multiOuput.fast_handler();
     bMap = userInputs.fast_handler();
     counterT0++;
@@ -370,10 +376,6 @@ ISR(TIMER2_COMPA_vect){ /*~1.008ms system tick*/
         newDataAvailable = comms.fast_handler(receivedRawData,10);
         rotaryEncoders.ms_handler(bMap);
     }
-
-    // MAVLink fast handler: drains the Serial2 RX ring (bounded) and decodes
-    // complete frames. Preemptible like the rest of the tick (see the top).
-    mavlinkComms.fast_handler();
 
     timeStatistics += TCNT2;
     timeCounter+=1;

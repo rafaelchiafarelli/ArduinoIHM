@@ -64,12 +64,16 @@ Order: `config_model` -> `wire` -> `board_editing` and `companion_panel`
 5. **Value lists:** proposal: CAN 125/250/500/1000 kbit/s; RS-485
    9600/19200/38400/57600/115200 baud, parity N/E/O; protocol raw /
    J1939 / UDS / CANopen; J1939 source address 0-253. [config_model/1]
+   *Pointer (2026-09-27):* `rs485_modbus` needs the RS-485 mode (off /
+   raw generator / Modbus slave) and a Modbus slave address (1-247) in
+   this list too.
 6. **PC vs board edits:** last writer wins, as for PWM (proposal).
    [wire/2]
 
 ## Not yet scoped
 
-- RS-485 driver on Serial3 (its generator actually transmitting).
+- ~~RS-485 driver on Serial3~~ -> planned in `rs485_modbus` (`uart3_driver`,
+  `rs485_modes`: raw generator and Modbus slave), 2026-09-27.
 
 ## Branch chain
 
