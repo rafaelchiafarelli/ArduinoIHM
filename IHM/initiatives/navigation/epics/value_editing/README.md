@@ -11,12 +11,12 @@ afterwards it means the navigator's L2 setting.
 ## Tasks
 
 ```
-1-toggle-settings     Enabled / Inverting / Relay N flip          (deps: nav_state_machine/3)
-2-pwm-duty-edit       duty ±1 % per RE2 detent on a selected      (no deps -- uses RE1 focus today)
-                      duty bar, applied via applyPwmChannel
-3-pwm-frequency-edit  step through PWMFrequency's fixed entries   (deps: nav_state_machine/3)
-                      -- partly delivered by fixes/000006, see the task
-4-pwm-row-labels      CH0/CH1: wider frequency label, "Duty:" caption  -- done as fixes/00000a
+[done]    1-toggle-settings     Enabled / Inverting / Relay N set by RE2 (CW on, CCW off)   -- done 2026-09-26
+[done]    2-pwm-duty-edit       duty ±1 % per RE2 detent on a selected duty bar,             -- done 2026-09-26
+                                applied via applyPwmChannel
+[partial] 3-pwm-frequency-edit  step through PWMFrequency's fixed entries                    (deps: nav_state_machine/3)
+                                -- partly delivered by fixes/000006; only "RE2 follows the navigator" is left
+[done]    4-pwm-row-labels      CH0/CH1: wider frequency label, "Duty:" caption              -- done 2026-09-27 as fixes/00000a
 ```
 
 ## Parked 2026-09-27
