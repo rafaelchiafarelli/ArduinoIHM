@@ -64,15 +64,20 @@ no field for it) and repaints only while that tab is showing.
 
 1. Power on. Rotate rot0 (encoder 0) to switch tabs (PWM / SERIAL / Output).
 2. Rotate rot1 (encoder 1) to move the focus ring through the tab's
-   controls: on the PWM tab, each channel's frequency label and its
-   Enabled/Inverting (CH0/CH1) or A/B/C enable (CH2/CH3) switches.
+   controls: on the PWM tab, each channel's frequency label, its
+   Enabled/Inverting (CH0/CH1) or A/B/C enable (CH2/CH3) switches, and every
+   duty bar. The ring surrounds exactly the control rot2 will change.
 3. Press rot1's button to activate the focused control: a switch flips; a
    frequency label steps to the next lower frequency (15 Hz wraps to
-   62500 Hz).
-4. With a frequency label focused, rotate rot2 (encoder 2) to step that
-   channel's frequency: CW = higher, CCW = lower, stopping at 62500 Hz and
-   15 Hz. Only the 13 fixed frequencies; VARIABLE (raw TOP) is PC-only.
-   Every change is applied to the timer immediately, with no confirm step.
+   62500 Hz); a duty bar does nothing.
+4. Rotate rot2 (encoder 2) to change whatever is focused, live, with no
+   confirm step:
+   - frequency label: CW = higher, CCW = lower, stopping at 62500 Hz and
+     15 Hz. Only the 13 fixed frequencies; VARIABLE (raw TOP) is PC-only.
+   - duty bar: 1 % per detent, CW = higher, stopping at 0 and 100 %.
+   - switch (PWM Enabled/Inverting, relay on the Output tab): CW = on /
+     inverting, CCW = off / non-inverting. It sets, never flips: turning
+     further the same way does nothing.
 
 ## Checks
 
