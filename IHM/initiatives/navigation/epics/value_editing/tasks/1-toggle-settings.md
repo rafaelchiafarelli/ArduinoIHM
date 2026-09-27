@@ -1,42 +1,47 @@
 # Task 1: toggle-settings
 
-**Status:** planned -- partly pre-delivered 2026-09-25 (see below)
+**Status:** ready (re-planned 2026-09-26)
 **Branch:** `1-toggle-settings` (from `tasks`)
-**Depends on:** `nav_state_machine/3-wire-into-main`
+**Depends on:** nothing unmerged. It uses today's RE1 focus as "selected".
+It needs `fixes/000008` (no phantom RE2 step at boot, which could otherwise
+switch an output on); that fix was synced down the chain on 2026-09-26.
+
+Re-planned for the initiative's editing rule (select it, turn RE2, it
+changes, live). Rafael, 2026-09-26: RE2 on a switch is **directional, not a
+flip**: **CW = on / inverting, CCW = off / non-inverting**. The same rule
+applies to **every switch, relays included**. A step that asks for the
+state the switch is already in does nothing.
 
 ## Contract
 
 ### Delivers
 
-1. **`src/main.cpp` `navEdit`** for `NAV_SET_TOGGLE`: an RE2 step in
-   either direction (the editing rule, initiative README) flips the value by dispatching the widget's existing
-   `on_press` action through `janus_handle_action`, e.g.
-   `toggle_pwm_ch0_enabled` or `toggle_relay_3`. That keeps one code path
-   for "flip this toggle". Live, with no confirm (open question 3, answered
-   2026-09-26).
-2. If the nav table exposes Inverting on the complex channels, the
-   missing widgets and actions are **not** added here. They get their own
-   task (flag it).
+1. **`pwmWireSetOutputBit(w, out, inverting, value)`**
+   (`lib/MultiOutput/src/PWMWireConfig.h`), pure: sets output `out`'s
+   enable bit (or inverting bit) to `value` and reports whether anything
+   changed. Unit-tested in `test_native/test_pwm_wire_config.cpp`.
+2. **RE2 on a focused switch** (`src/main.cpp` RE2 branch, plus
+   `src/janus_actions.cpp`): `janusSetSwitch(action, on)` resolves any
+   `toggle_*` action (the 10 PWM switches and the 8 relays) and sets it to
+   `on` (CW -> true, CCW -> false). It returns false for anything that isn't
+   a switch, so the frequency/duty handling keeps working.
+   - PWM: `pwmSetOutputBit(ch, out, inverting, on)` in `main.cpp`
+     re-applies through `applyPwmChannel()` only when the bit changed. The
+     tab and `IHM_PWM_STATE` follow.
+   - Relays: the same path as the press action (`relayState[]`,
+     `multiOuput.getRelays()->setRelay`, `relay_instance` + dirty), but set
+     rather than flipped. The switch, its LED and `IHM_RELAY_STATE` follow.
+3. **pbRE1 on a switch keeps flipping it** (unchanged; pbRE0's role at L2
+   is still open question 7).
+4. **`demo/HARDWARE_RUNBOOK.md`** "UI navigation": switches follow RE2
+   (CW on/inverting, CCW off/non-inverting), relays included.
 
 ## Definition of done
 
-`platformio run` builds; `test_native/run_tests.ps1` passes; bench:
-relay N and PWM CH0 Enabled flip from the knob; task file marked done in
-the same commit.
+`platformio run` builds; `test_native/run_tests.ps1` passes. Bench, over
+COM3 with simulated encoders:
+- With CH0 Enabled focused, RE2 CW gives `out1_enabled = 1`; a second CW
+  changes nothing; CCW gives 0.
+- The same for CH0 Inverting and for relay 0 (via `IHM_RELAY_STATE`).
 
-## Pre-delivered on dev (2026-09-25, fixes/000004)
-
-Requested by Rafael ahead of the navigator. It answers open question 3 for
-switches: **a press applies immediately**.
-
-- `src/janus_actions.cpp` handles all ten PWM toggle actions and calls
-  `pwmToggleOutput(ch, out, inverting)` in main.cpp. That flips one bit of
-  `pwmLast[ch]` and re-applies it through `applyPwmChannel()`, the same
-  path `PWM_CHANNEL_CONFIG` uses.
-- Boot defaults per channel: 62500 Hz, 50 % duty, all outputs off and
-  non-inverting (Rafael's choice).
-- Relay presses now also mirror into `relay_instance`, so the relay
-  switch and its LED follow the real relay.
-
-Still owed by this task: dispatching the same toggles from `navEdit` once
-`nav_state_machine/3` replaces pbRE1's direct activate.
+The task file is marked done in the same commit.
