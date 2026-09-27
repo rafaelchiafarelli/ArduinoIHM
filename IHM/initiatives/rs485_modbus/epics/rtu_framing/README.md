@@ -6,7 +6,7 @@ The protocol layer with no hardware: frames in, frames out.
 
 ```
 1-crc-and-frames   CRC-16/MODBUS, frame end by silence, address filter, request parse, response/exception build   (no deps)
-2-slave-engine     request -> handler callbacks -> response, bounded work per call (Timer2-tick safe)          (deps: 1; Q2)
+2-slave-engine     request -> handler callbacks -> response, run from the silence-timer ISR, bounded   (deps: 1; Q2)
 ```
 
 ## Acceptance gate
