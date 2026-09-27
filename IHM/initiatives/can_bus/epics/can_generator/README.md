@@ -6,7 +6,7 @@ transmits it. This epic makes the per-bus generator real.
 ## Tasks
 
 ```
-1-periodic-tx   period_ms / repeat_count / enable per bus on the driver's TX   (deps: mcp2515_driver/3)
+1-periodic-tx   each period is an event_timer expiry that queues the frame; no deadline checks   (deps: event_timer/1, mcp2515_driver/2, mcp2515_driver/3)
 ```
 
 ## Acceptance gate

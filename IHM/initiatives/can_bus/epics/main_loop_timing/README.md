@@ -1,13 +1,15 @@
 # Epic: main_loop_timing
 
-Protocol timers need a bounded superloop: J1939 address claim must
-answer within 250 ms, UDS P2 is 50 ms, ISO-TP timeouts are about 1 s.
-Today a full-screen redraw blocks for about 1 s.
+With the serial part strictly event-driven (initiative rule), protocol
+timing (J1939 250 ms, UDS P2 50 ms, ISO-TP ~1 s) runs in ISRs and no
+longer depends on the superloop. What's left is UI responsiveness: a
+full-screen redraw blocks the superloop for about 1 s, which delays
+applying queued writes and UI updates (and pauses `IHM_UI_STATE`).
 
 ## Tasks
 
 ```
-1-bound-the-loop   choose and implement: Janus non_blocking render and/or ISR-side CAN work   (blocked: Q4)
+1-bound-the-loop   Janus non_blocking render so the superloop stays responsive   (optional; no protocol depends on it)
 ```
 
 ## Acceptance gate
