@@ -1,6 +1,6 @@
 # Task 2: ui-state-send
 
-**Status:** planned -- blocked on initiative open question 1 (heartbeat period)
+**Status:** planned (heartbeat: 500 ms, open question 1 answered)
 **Branch:** `2-ui-state-send` (from `tasks`)
 **Depends on:** task 1
 

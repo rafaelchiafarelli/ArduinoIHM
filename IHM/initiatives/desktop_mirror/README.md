@@ -49,19 +49,20 @@ companion_mirror/1-vendor-and-msvc-gate ─> 2-gdi-display-driver ─> 3-telemet
                                                     (4 also needs mirror_transport/1) ┘
 ```
 
-## Open questions (each blocks the task named)
+## Open questions -- all answered 2026-09-27 (Rafael)
 
-1. **Heartbeat period** for `IHM_UI_STATE` when nothing changes. Proposal:
-   1 s (20 B/s on a 250000-baud link). Blocks `mirror_transport/2`.
-2. **`PWMLabelFormat.cpp` in the companion.** Should the vcxproj reference
-   `lib/MultiOutput/src/PWMLabelFormat.{h,cpp}` in this repo by path (one
-   source, but the companion build then needs this checkout), or keep a
-   copy (self-contained, can drift)? Blocks `companion_mirror/3`.
-3. **SERIAL tab (`bus_status`) values.** The board never reports its
-   CAN/RS485 config back. The PC could show only what it sent itself this
-   session (blank after a companion restart or if another tool sent it),
-   or the board could echo the config, which is a new telemetry message
-   and new scope. Blocks `companion_mirror/3`, for that screen only.
+1. ~~Heartbeat period.~~ **500 ms.** `IHM_UI_STATE` is also resent every
+   500 ms when nothing changed (about 40 B/s at 250000 baud). The mirror
+   treats 3 missed heartbeats (1.5 s) as "no board".
+2. ~~`PWMLabelFormat.cpp` in the companion.~~ **Copy it.** The companion
+   keeps its own copy of `lib/MultiOutput/src/PWMLabelFormat.{h,cpp}`.
+   Record the source commit in the copy's header. Re-copy it whenever the
+   board's version changes, and task 3's label check catches drift.
+3. ~~SERIAL tab values.~~ **Show what the PC sent.** `bus_status_instance`
+   holds the companion's own last-sent CAN/RS485 config this session. It
+   is blank (generated defaults) after a companion restart or if another
+   tool configured the board. `HOW_TO_USE.md` states this caveat. No new
+   firmware message.
 
 ## Cross-epic gate
 

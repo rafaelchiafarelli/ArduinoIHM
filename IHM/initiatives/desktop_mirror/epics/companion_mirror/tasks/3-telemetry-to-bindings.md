@@ -1,6 +1,6 @@
 # Task 3: telemetry-to-bindings
 
-**Status:** planned -- blocked on initiative open questions 2 (label source) and 3 (SERIAL tab)
+**Status:** planned (labels: copied source; SERIAL tab: PC-sent config -- open questions 2 and 3 answered)
 **Depends on:** task 2
 
 ## Contract
