@@ -4,14 +4,16 @@
 #include <stdbool.h>
 
 typedef struct {
-    int ch0_enabled;
     const char * ch0_state_label;
-    int ch0_duty_percent;
+    int ch0_enabled;
     int ch0_inverting;
-    int ch1_enabled;
+    int ch0_duty_percent;
+    const char * ch0_inverting_label;
     const char * ch1_state_label;
-    int ch1_duty_percent;
+    int ch1_enabled;
     int ch1_inverting;
+    int ch1_duty_percent;
+    const char * ch1_inverting_label;
     const char * ch2_state_label;
     int ch2_a_enabled;
     int ch2_a_duty_percent;
@@ -31,14 +33,16 @@ typedef struct {
 extern pwm_t pwm_instance;
 
 typedef struct {
-    bool ch0_enabled;
     bool ch0_state_label;
-    bool ch0_duty_percent;
+    bool ch0_enabled;
     bool ch0_inverting;
-    bool ch1_enabled;
+    bool ch0_duty_percent;
+    bool ch0_inverting_label;
     bool ch1_state_label;
-    bool ch1_duty_percent;
+    bool ch1_enabled;
     bool ch1_inverting;
+    bool ch1_duty_percent;
+    bool ch1_inverting_label;
     bool ch2_state_label;
     bool ch2_a_enabled;
     bool ch2_a_duty_percent;

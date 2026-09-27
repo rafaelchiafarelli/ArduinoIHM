@@ -11,8 +11,11 @@ nav:
     - { screen: PWM, title: "PWM" }
     - { screen: BusStatus, title: "SERIAL" }
     - { screen: Relay, title: "Output" }
+status:
+  text: "Status: TBD"
 display:
   size: { w: 320, h: 480 }
+  background: "#000000"   # full-panel erase colour on tab switch (else widget bg, white)
   color: rgb565
   bus: parallel
 input:

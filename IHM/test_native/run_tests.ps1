@@ -66,9 +66,9 @@ if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
 
 # --- Include dirs: test_native itself, plus an explicit allowlist of lib
 # dirs that hold hardware-independent logic. Deliberately NOT auto-globbing
-# all of lib/*/(src): several libs (ArduinoLib in particular) ship Arduino
-# compatibility shims -- e.g. lib/ArduinoLib/src/new, a header with no
-# extension -- that shadow real standard-library headers (<new>, ...) when
+# all of lib/*/(src): Arduino-facing libs pull in AVR/Arduino headers (and
+# the old vendored core once shipped shims like an extensionless `new`
+# that shadowed real standard-library headers) when
 # blindly added to the include path, and most of this codebase touches AVR
 # registers directly so it can't compile for a host target at all. Each
 # feature branch adds its own natively-testable dir(s) here as needed.
@@ -77,6 +77,8 @@ $libAllowlist = @(
     "lib/HAL/src",
     "lib/MultiOutput/src",
     "lib/RotaryEncoder",
+    "lib/Uart2/src",
+    "mavlink/generated/ihm_dialect",
     "src"
 )
 $includeDirs = @($root) + ($libAllowlist | ForEach-Object { Join-Path $repoRoot $_ })
@@ -96,6 +98,7 @@ $prodSourceAllowlist = @(
     "lib/MultiOutput/src/PWMTiming.cpp",
     "lib/MultiOutput/src/PWMConfig.cpp",
     "lib/MultiOutput/src/PWMChannelConfig.cpp",
+    "lib/MultiOutput/src/PWMWireConfig.cpp",
     "lib/MultiOutput/src/PWMLabelFormat.cpp",
     "lib/RotaryEncoder/ButtonMap.cpp",
     "src/Timer2Config.cpp"

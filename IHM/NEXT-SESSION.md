@@ -31,9 +31,16 @@ build and full functionality -- the display works, DAC output doesn't.
   `main.cpp` (`dac1.setVoltage(voltage0,...)`, `dac0.setVoltage(voltage1,...)`).
   May match board wiring -- check deliberately before assuming
   "channel 0 = voltage0".
-- **`MavlinkComms::poll()` drains its whole RX ring buffer in one
-  unbounded `while (serial->available())` loop.** A burst of buffered
-  bytes can hold up the rest of the superloop until they're all parsed.
+- **MAVLink on Serial2 is bench-verified (2026-09-25)**, on COM3 (PL2303
+  adapter on D16/D17). The Timer2 tick is now preemptible (serial_transport
+  task 6); before that, ~60 % of PC -> board frames were lost to USART2
+  overruns. The UART drop/error counters (`uart2::*Count()`) still aren't
+  in telemetry. Add a field if trouble returns.
+- **A full-screen redraw after an on-screen action blocks the superloop
+  > 0.7 s** (`janus_render_screen` in main.cpp's ACTION case). Two presses
+  inside that window merge into one, real or simulated. Fix: redraw only
+  dirty widgets. Not owned by any initiative (`navigation` closed
+  2026-09-27 without it).
 - **BusStatus tab passive refresh.** `bus_status_instance`'s CAN/RS-485
   fields only repaint on tab-switch or box-toggle -- the ~100ms tick
   redraws only the status bar. Live refresh there needs its own trigger
@@ -75,9 +82,19 @@ write sequence. Ask the user before testing against whatever is connected.
   walkthrough; `IHM/demo/HARDWARE_RUNBOOK.md` has the equivalent checks
   for real hardware.
 
+## Bench steps owed
+
+1. `pwm_control`: the PWM tab mirrors every channel (verified
+   2026-09-25). **The output pins themselves were not probed** -- scope
+   OC3A / OC1A-B per `demo/HARDWARE_RUNBOOK.md` when an instrument is at
+   hand.
+
 ## Related repo
 
-`workspace/IHM-PCApp` -- the PC-side counterpart. Win32/DirectX11/ImGui
+Two PC apps exist. **`C:\Users\rafae\source\repos\IHMPCController`**
+(Win32, no third-party libs; `HOW_TO_USE.md`) is the current companion the
+`serial_commands` initiative targets. The older `workspace/IHM-PCApp` -- the
+PC-side counterpart. Win32/DirectX11/ImGui
 app that speaks this board's MAVLink dialect over the debug/programming
 COM port: shows `IHM_BOARD_STATE` telemetry, sends `CAN_SIGNAL_CONFIG` /
 `RS485_SIGNAL_CONFIG` (which the SERIAL tab displays). Separate repo, its

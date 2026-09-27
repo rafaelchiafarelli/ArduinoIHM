@@ -1,44 +1,69 @@
 # Output tab -- 8 relays on the shared multiplexed bus (dig_1 strobe,
 # see ARCHITECTURE.md "The multiplexed output bus"). Each row mirrors
 # RelayConfig (lib/MultiOutput/src/RelayConfig.h): a single on/off bit.
+# Status text is app.yaml's `status: { text: ... }` chrome (status_bar
+# epic) now, not a per-screen row -- see pwm.screen.yaml's header comment.
 screen: Relay
 layout: column
 children:
-  - { kind: header, id: relay_header, text: "Output", font_size: medium, size: { w: 80, h: 20 } }
   - kind: navlist
     id: relay_list
     layout: column
     fill: true
     children:
       - kind: row
+        focus_ring: true
+        align: center
         children:
-          - { kind: toggle, id: relay_0, bind: { message: relay, field: relay_0, type: int }, on_press: toggle_relay_0 }
+          - { kind: toggle, id: relay_0, bind: { message: relay, field: relay_0, type: int }, on_press: toggle_relay_0, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
           - { kind: label, id: relay_0_label, text: "Relay 0", fill: true }
+          - { kind: led, id: relay_0_led, bind: { message: relay, field: relay_0, type: int }, states: [off, on], size: { w: 16, h: 16 }, color: "#00FF00", bg: "#808080" }
       - kind: row
+        focus_ring: true
+        align: center
         children:
-          - { kind: toggle, id: relay_1, bind: { message: relay, field: relay_1, type: int }, on_press: toggle_relay_1 }
+          - { kind: toggle, id: relay_1, bind: { message: relay, field: relay_1, type: int }, on_press: toggle_relay_1, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
           - { kind: label, id: relay_1_label, text: "Relay 1", fill: true }
+          - { kind: led, id: relay_1_led, bind: { message: relay, field: relay_1, type: int }, states: [off, on], size: { w: 16, h: 16 }, color: "#00FF00", bg: "#808080" }
       - kind: row
+        focus_ring: true
+        align: center
         children:
-          - { kind: toggle, id: relay_2, bind: { message: relay, field: relay_2, type: int }, on_press: toggle_relay_2 }
+          - { kind: toggle, id: relay_2, bind: { message: relay, field: relay_2, type: int }, on_press: toggle_relay_2, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
           - { kind: label, id: relay_2_label, text: "Relay 2", fill: true }
+          - { kind: led, id: relay_2_led, bind: { message: relay, field: relay_2, type: int }, states: [off, on], size: { w: 16, h: 16 }, color: "#00FF00", bg: "#808080" }
       - kind: row
+        focus_ring: true
+        align: center
         children:
-          - { kind: toggle, id: relay_3, bind: { message: relay, field: relay_3, type: int }, on_press: toggle_relay_3 }
+          - { kind: toggle, id: relay_3, bind: { message: relay, field: relay_3, type: int }, on_press: toggle_relay_3, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
           - { kind: label, id: relay_3_label, text: "Relay 3", fill: true }
+          - { kind: led, id: relay_3_led, bind: { message: relay, field: relay_3, type: int }, states: [off, on], size: { w: 16, h: 16 }, color: "#00FF00", bg: "#808080" }
       - kind: row
+        focus_ring: true
+        align: center
         children:
-          - { kind: toggle, id: relay_4, bind: { message: relay, field: relay_4, type: int }, on_press: toggle_relay_4 }
+          - { kind: toggle, id: relay_4, bind: { message: relay, field: relay_4, type: int }, on_press: toggle_relay_4, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
           - { kind: label, id: relay_4_label, text: "Relay 4", fill: true }
+          - { kind: led, id: relay_4_led, bind: { message: relay, field: relay_4, type: int }, states: [off, on], size: { w: 16, h: 16 }, color: "#00FF00", bg: "#808080" }
       - kind: row
+        focus_ring: true
+        align: center
         children:
-          - { kind: toggle, id: relay_5, bind: { message: relay, field: relay_5, type: int }, on_press: toggle_relay_5 }
+          - { kind: toggle, id: relay_5, bind: { message: relay, field: relay_5, type: int }, on_press: toggle_relay_5, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
           - { kind: label, id: relay_5_label, text: "Relay 5", fill: true }
+          - { kind: led, id: relay_5_led, bind: { message: relay, field: relay_5, type: int }, states: [off, on], size: { w: 16, h: 16 }, color: "#00FF00", bg: "#808080" }
       - kind: row
+        focus_ring: true
+        align: center
         children:
-          - { kind: toggle, id: relay_6, bind: { message: relay, field: relay_6, type: int }, on_press: toggle_relay_6 }
+          - { kind: toggle, id: relay_6, bind: { message: relay, field: relay_6, type: int }, on_press: toggle_relay_6, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
           - { kind: label, id: relay_6_label, text: "Relay 6", fill: true }
+          - { kind: led, id: relay_6_led, bind: { message: relay, field: relay_6, type: int }, states: [off, on], size: { w: 16, h: 16 }, color: "#00FF00", bg: "#808080" }
       - kind: row
+        focus_ring: true
+        align: center
         children:
-          - { kind: toggle, id: relay_7, bind: { message: relay, field: relay_7, type: int }, on_press: toggle_relay_7 }
+          - { kind: toggle, id: relay_7, bind: { message: relay, field: relay_7, type: int }, on_press: toggle_relay_7, bg: "#D0D0D0", color: "#D0D0D0", knob_off: "#FF0000", knob_on: "#00FF00" }
           - { kind: label, id: relay_7_label, text: "Relay 7", fill: true }
+          - { kind: led, id: relay_7_led, bind: { message: relay, field: relay_7, type: int }, states: [off, on], size: { w: 16, h: 16 }, color: "#00FF00", bg: "#808080" }

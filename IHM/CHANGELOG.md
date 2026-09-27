@@ -1,5 +1,117 @@
 # Changelog
 
+## 2026-09-25 -- PWM switches drive the hardware; LED colours
+
+- pbRE1 on a focused PWM switch now changes the real output. Each channel
+  keeps its last config (`pwmLast[4]`, from the PC or a switch). A press
+  flips one enable/inverting bit and re-applies it via `applyPwmChannel()`,
+  which is shared with `PWM_CHANNEL_CONFIG`. Boot default: 62500 Hz, 50 %,
+  outputs off, mirrored onto the PWM tab.
+- LEDs: green on / red off on PWM CH0/CH1 and SERIAL; new green/red LEDs
+  beside each CH2/CH3 A/B/C switch; a new LED at the end of each relay row,
+  green on / grey off.
+- Relay presses now update `relay_instance` + dirty flags; before this, the
+  Relay tab's switches never followed the relays.
+- Janus regenerated as a black box. RAM 4738 B (57.8%). Bench-checked.
+
+## 2026-09-25 -- PWM switches back, black canvas, RE1 stays on screen
+
+- CH0/CH1: the Enabled and Inverting switches are back, unlabeled, next to
+  the frequency. Each sits in its own `focus_ring: true` row, because
+  Janus toggles draw no focus ring of their own (without the row, focus
+  landed on them invisibly). The inverted/non-inverted text stays.
+- `app.yaml` now declares `display.background: "#000000"`. Without it,
+  every tab switch erased the screen, and every ring erase used the
+  widgets' default bg, which is white.
+- SERIAL's three headerless boxes get `bg: "#000000"`. Unfocusing one
+  repaints its body in its own bg, which used to be white.
+- RE1 wraps within the active screen only; rot0 owns the tabs. main.cpp
+  passes `janus_focus_move` a copy of the app with no nav strip.
+- The UI was regenerated with Janus as a black box. Bench-checked on the
+  board.
+
+## 2026-09-25 -- PWM tab: CH0/CH1 rows simplified
+
+- CH0/CH1 lose their Enabled/Inverting switches. Each row is now the LED
+  plus the live frequency, then the duty bar under it, then an
+  "inverted" / "non-inverted" label (new string binding
+  `chN_inverting_label`, RAM strings in main.cpp, default "non-inverted" at
+  boot). These channels are configured from the PC only; they have no
+  focusable widget until the navigation initiative decides row focus.
+- The UI was regenerated with Janus as a black box (yaml + main.cpp changes
+  only). RAM 4640 B (56.6%).
+
+## 2026-09-25 -- PWM tab: stale frequency placeholders removed
+
+- Every PWM channel row showed two frequencies: the live one in
+  `chN_state_label` and a static `pwm_chN_freq` placeholder ("1200Hz",
+  "2400Hz", "500Hz", "8000Hz") left over from before the live label existed.
+  The placeholders are removed from `lib/GUI/pwm.screen.yaml` and the UI is
+  regenerated. Bench: CH3 @ 488 Hz sent from the companion shows one correct
+  frequency.
+
+## 2026-09-25 -- Timer2 tick preemptible (Serial2 RX overrun fix)
+
+- Bench found ~60 % of PC -> board MAVLink frames lost. A debug build tied
+  every loss to a USART2 line error: the Timer2 tick kept interrupts off for
+  up to ~216 us (the output/input handlers ~116 us every tick, plus
+  relay/encoder/comms work every 25 ms), past USART2's ~120 us of buffering
+  at 250000 baud.
+- `ISR(TIMER2_COMPA_vect)` now calls `sei()` first; task 4's busy flag
+  around `mavlinkComms.fast_handler()` is gone. Rule: the tick must finish
+  inside its ~1 ms slot. Bench: 10/10 simulated presses applied, 0 overrun
+  and 0 framing errors, 0 bad telemetry frames in a 10 s command stream.
+- Known, not fixed here: a full-screen redraw after an on-screen action
+  blocks the superloop for > 0.7 s, so two presses inside that window merge
+  into one (same as a real button).
+
+## 2026-09-23 -- MAVLink on Serial2, interrupt-driven
+
+- MAVLink moved off the debug port onto **Serial2 (USART2, D16/D17) at
+  250000 baud**. `Serial` is debug-only again.
+- New `lib/Uart2`: its own `USART2_RX_vect` / `USART2_UDRE_vect` that only
+  move bytes to/from 64-byte SPSC rings (`ByteRing`, natively tested), plus
+  saturating drop/line-error counters. Firmware must not reference
+  `Serial2`, which would link the core's duplicate ISRs.
+- `MavlinkComms::poll()` (unbounded superloop drain) replaced by
+  `fast_handler()`, which runs last in the Timer2 tick with interrupts
+  re-enabled and parses at most 32 bytes per tick. Superloop accessors are
+  atomic copy-outs; `getCanSignalConfig` / `getRs485SignalConfig` now copy
+  out instead of returning pointers. TX is drop-not-block, whole frames only.
+- `serial_transport` epic re-planned (tasks 3-4; 1-2 superseded). AVR
+  build: RAM 4611 B (56.3%, +134), Flash 71260 B (28.1%); native tests
+  117/117. Not bench-tested.
+
+## 2026-09-20 (later) -- PC input injection: buttons
+
+- New `IHM_SIMULATE_BUTTON` (id 306, PC -> board): pressed-for-one-pass pulse
+  per set bit, applied to `btnMap` right after `buildButtonMap()` in
+  `main.cpp` so edge detection and telemetry both see it. Encoders already
+  had `IHM_SIMULATE_ENCODER`; with this, the PC can drive every physical
+  input. `mavlink/scripts/sim_input.py` sends either. Still on `Serial`
+  (stopgap, see above). Not bench-tested; companion app has no button UI.
+
+## 2026-09-20 -- PWM-over-MAVLink message; plan corrections; serial_transport reverted
+
+- **Reverted the `serial_transport` epic** (Timer2-tick `MavlinkComms::tick()`
+  RX and drop-not-block TX): it was built on the wrong premise that MAVLink
+  lives on the debug `Serial` port. `MavlinkComms::poll()` (superloop) and
+  plain `serial->write()` are back. MAVLink/protocol traffic must move to a
+  serial other than Serial0 -- see `NEXT-SESSION.md`.
+- `PWM_CHANNEL_CONFIG` (id 303) + `PWM_FREQUENCY` enum added to the dialect;
+  `epics` (input_simulation, relay_control: ids 304/305) merged in, so the
+  dialect is now 300-305 and CRC-identical to the PC companion's copy.
+- `.gitattributes` added (LF in repo) -- ~80 files were CRLF-only noise.
+- PC companion (`IHMPCController`, outside this repo, not version-controlled):
+  new PWM command panel (`SendPwmChannelConfig` in `MavlinkLink.h`) and a
+  `HOW_TO_USE.md`. Compiles (VS 2022, x64 Debug); layout not visually checked.
+- `pwm_control` complete through task 5 (PWM tab mirrors PC configs); new
+  `mavlink/generated_py/` + `scripts/pwm_config.py`. AVR build after all of
+  it: RAM 4467 B (54.5%), Flash 70842 B (27.9%); native tests 110/110.
+- Planning fix: `PWM::setupPWMChannelN`'s duty argument is a **raw OCR
+  count**, not a percent; `pwm_control` tasks 2/3 now reuse
+  `computeSimplex/ComplexCallArgs` instead of scaling twice.
+
 ## 2026-08-23 -- Bring up the Janus-generated UI on real hardware; fix two AVR PROGMEM bugs
 
 The on-board TFT UI (`lib/Elements`, the old `lib/GUI/GUI.cpp`/`.h`) is
