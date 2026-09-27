@@ -16,7 +16,7 @@ afterwards it means the navigator's L2 setting.
                       duty bar, applied via applyPwmChannel
 3-pwm-frequency-edit  step through PWMFrequency's fixed entries   (deps: nav_state_machine/3)
                       -- partly delivered by fixes/000006, see the task
-4-pwm-row-labels      CH0/CH1: wider frequency label, "Duty:" caption  -- done as fixes/000009
+4-pwm-row-labels      CH0/CH1: wider frequency label, "Duty:" caption  -- done as fixes/00000a
 ```
 
 ## Acceptance gate

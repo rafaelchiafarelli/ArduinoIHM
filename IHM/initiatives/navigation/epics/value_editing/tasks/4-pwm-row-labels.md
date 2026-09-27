@@ -1,7 +1,10 @@
 # Task 4: pwm-row-labels
 
-**Status:** done 2026-09-27, as **`fixes/000009/pwm-ch01-labels`** off
-`tasks`, merged back into `tasks`. Rafael chose a fix branch over a task
+**Status:** done 2026-09-27, as **`fixes/00000a/pwm-ch01-labels`** off
+`tasks`, merged back into `tasks`. It was created as `fixes/000009/...`, but
+another session had already used 000009 on `dev`
+(`fixes/000009/janus-shared-field-dirty`), so it was renamed before the
+first push. Commit c3c4541 and merge be65aa0 still say 000009. Rafael chose a fix branch over a task
 branch. This file is the record the workflow skill asks for when that
 happens.
 **Depends on:** `value_editing/2` (the duty bars' focus rings, which this
