@@ -12,8 +12,8 @@ the PC.
    values). This initiative builds the editable version on top of it.
 2. **Configured from the board and from the companion.** Board: the same
    pattern as the PWM tab today (RE1 selects a field, RE2 changes it).
-   Companion: a new SERIAL panel. This answers navigation's open
-   question 5 as **editable** (pointer added to `navigation/README.md`).
+   Companion: a new SERIAL panel. This answered the former `navigation`
+   initiative's open question 5 as **editable**.
 3. **Settings in scope:**
    - the **signal generator** fields the MAVLink messages already carry
      (CAN: enable, ID, standard/extended, DLC, data, period, repeat count;
@@ -39,8 +39,9 @@ The MAVLink link itself (301/302 and the new messages) is exempt.
   reported only**. Nothing in this initiative drives a CAN controller.
   The RS-485 generator needs a Serial3 driver, which neither initiative
   covers yet (see "Not yet scoped").
-- `navigation` (closed 2026-09-27): "selected" means the RE1 focus ring,
-  as on the PWM tab. That is final; no navigator is coming.
+- The on-screen controls are final (the `navigation` initiative was closed
+  and removed 2026-09-27): "selected" means the RE1 focus ring, as on the
+  PWM tab.
 
 ## Epics
 
