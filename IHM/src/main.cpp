@@ -409,7 +409,12 @@ int main()
     // Edge-detected each pass below -- BinaryInputs/ButtonMap's convention
     // is active-low (a bit reads 0 while the button is held), so this is
     // "was rot1's button already down last pass" for a single-fire click.
-    uint8_t prevBtnMap = 0xFF;
+    // Seeded from the real inputs, not 0xFF ("nothing held"): a button
+    // already down at power-up must not count as a press (fixes/000008 --
+    // the bench board's pbRE1 reads held at rest, which fired one phantom
+    // press at every boot). The Timer2 tick has been sampling bMap all
+    // through setup(), so it's a real read by now.
+    uint8_t prevBtnMap = buildButtonMap(bMap);
 
     while (1)
     {

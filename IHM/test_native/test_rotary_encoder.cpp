@@ -64,3 +64,39 @@ TEST(RotaryEncoder, Encoder0And2PinsAreUnaffectedByThisFix) {
         CHECK_TRUE(enc.getDirection(2) == not_supported);
     }
 }
+
+// ---- fixes/000008: no phantom step from the first sample after boot ----
+// Before the fix, ls1/ls2 started at the constructor's 0/0, so an encoder
+// whose lines rest at 10 or 01 decoded a CW / CCW step on the very first
+// ms_handler() -- at every power-up, with nobody touching the knob.
+
+TEST(RotaryEncoderBoot, FirstSampleNeverProducesADirection) {
+    // Every resting state for all three encoders at once: 00, 01, 10, 11
+    // on each encoder's signal pair (0/7, 9/10, 12/13).
+    const uint16_t pairs[4] = { 0b00, 0b01, 0b10, 0b11 };
+    for (int a = 0; a < 4; a++) {
+        RotaryEncoder enc(nullptr);
+        uint16_t bMap = (uint16_t)((pairs[a] << 6) | (pairs[a] << 9) | (pairs[a] << 12));
+        enc.ms_handler(bMap);
+        for (uint8_t i = 0; i < MAX_NUMBER_EMCODERS; i++)
+            CHECK_TRUE(enc.getDirection(i) == not_supported);
+    }
+}
+
+TEST(RotaryEncoderBoot, RestingStateRepeatedIsStillSilent) {
+    RotaryEncoder enc(nullptr);
+    uint16_t bMap = (uint16_t)(0b01 << 12);   // encoder2 resting at s1=1, s2=0
+    for (int n = 0; n < 5; n++) {
+        enc.ms_handler(bMap);
+        CHECK_TRUE(enc.getDirection(2) == not_supported);
+    }
+}
+
+TEST(RotaryEncoderBoot, RealTurnAfterPrimingStillDecodes) {
+    // Seed at the 00 detent, then 00 -> 01 is a real movement from a detent
+    // and must decode exactly as before the fix (cDirection[0b0001] == CW).
+    RotaryEncoder enc(nullptr);
+    enc.ms_handler(0);
+    enc.ms_handler((uint16_t)(0b01 << 12));
+    CHECK_TRUE(enc.getDirection(2) == CW);
+}
