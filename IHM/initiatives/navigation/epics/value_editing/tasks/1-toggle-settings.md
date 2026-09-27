@@ -1,6 +1,9 @@
 # Task 1: toggle-settings
 
-**Status:** ready (re-planned 2026-09-26)
+**Status:** done 2026-09-26. All 4 items delivered as written; 132 native
+tests pass; RAM 59.0 %. Bench DoD passed on the old board revision over COM3
+with simulated encoders, 8/8: CH0 Enabled CW -> 1, CW again -> 1, CCW -> 0;
+CH0 Inverting CW -> 1, CCW -> 0; relay 0 CW -> 1, CW again -> 1, CCW -> 0.
 **Branch:** `1-toggle-settings` (from `tasks`)
 **Depends on:** nothing unmerged. It uses today's RE1 focus as "selected".
 It needs `fixes/000008` (no phantom RE2 step at boot, which could otherwise

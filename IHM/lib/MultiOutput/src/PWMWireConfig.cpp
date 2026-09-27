@@ -41,3 +41,17 @@ uint8_t pwmStepDuty(uint8_t percent, int8_t steps)
     if (v > 100) v = 100;
     return (uint8_t)v;
 }
+
+bool pwmWireSetOutputBit(PwmWireConfig& w, uint8_t out, bool inverting, bool value)
+{
+    if (out > 2)
+        return false;
+    uint8_t& bit = inverting ? w.out[out].inverting : w.out[out].enabled;
+    uint8_t want = value ? 1 : 0;
+    // Nonzero counts as set (the wire's 0/nonzero convention), so 2 -> 1 is
+    // not a change.
+    if ((bit != 0) == value)
+        return false;
+    bit = want;
+    return true;
+}

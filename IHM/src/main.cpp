@@ -268,6 +268,16 @@ void pwmToggleOutput(uint8_t ch, uint8_t out, bool inverting)
     applyPwmChannel(w);
 }
 
+// RE2 on a focused PWM switch (via janusSetSwitch in janus_actions.cpp):
+// sets -- not flips -- output `out`'s enable or inverting bit to `on` and
+// re-applies the channel only if that changed it.
+void pwmSetOutputBit(uint8_t ch, uint8_t out, bool inverting, bool on)
+{
+    if (ch > 3) return;
+    PwmWireConfig w = pwmLast[ch];
+    if (pwmWireSetOutputBit(w, out, inverting, on)) applyPwmChannel(w);
+}
+
 // On-screen frequency edit: re-applies channel `ch` at frequency `f`,
 // keeping its outputs' enable/inverting/duty. No-op if unchanged.
 static void pwmSetFrequency(uint8_t ch, PWMFrequency f)
@@ -312,6 +322,10 @@ static bool pwmDutyActionTarget(janus_action_t action, uint8_t* ch, uint8_t* out
         default: return false;
     }
 }
+
+// janus_actions.cpp: sets the switch behind a toggle_* action (PWM switch
+// or relay) to `on`; false if the action isn't a switch.
+bool janusSetSwitch(janus_action_t action, bool on);
 
 // Which channel's frequency label an action belongs to; -1 for any other.
 static int8_t pwmFrequencyActionChannel(janus_action_t action)
@@ -505,8 +519,10 @@ int main()
         // rot2 changes whatever rot1 has selected, live (navigation
         // initiative's editing rule): a frequency label steps its channel's
         // frequency (CW = higher, clamped at 62500 Hz / 15 Hz), a duty bar
-        // steps that output's duty 1 % (CW = higher, clamped 0-100). Any
-        // other focus: nothing. janus_focus_activate only resolves the
+        // steps that output's duty 1 % (CW = higher, clamped 0-100), a
+        // switch (PWM Enabled/Inverting, relay) is set -- CW = on /
+        // inverting, CCW = off / non-inverting, never flipped. Any other
+        // focus: nothing. janus_focus_activate only resolves the
         // focused widget to its action here, it runs nothing: its one side
         // effect, committing a previewed tab, needs focus on the nav strip,
         // which rot1 never gives (see above).
@@ -517,7 +533,9 @@ int main()
                 janus_action_t action = (janus_action_t)hit.action;
                 int8_t ch = pwmFrequencyActionChannel(action);
                 uint8_t dutyCh, dutyOut;
-                if (ch >= 0) {
+                if (janusSetSwitch(action, step > 0)) {
+                    // set (or already in that state) -- nothing else to do
+                } else if (ch >= 0) {
                     PWMFrequency f = (PWMFrequency)pwmLast[ch].f_selector;
                     pwmSetFrequency((uint8_t)ch, pwmStepFrequency(f, step));
                 } else if (pwmDutyActionTarget(action, &dutyCh, &dutyOut)) {
