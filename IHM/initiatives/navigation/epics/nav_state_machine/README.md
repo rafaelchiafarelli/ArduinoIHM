@@ -1,5 +1,9 @@
 # Epic: nav_state_machine
 
+**Dropped 2026-09-27, never built.** Rafael kept the controls already on
+`dev` (RE0 tabs, RE1 focus, RE2 edits) as the final design. See the
+initiative README, "Closing decisions". The plan below is kept as a record.
+
 The L0-L3 drill-down from the initiative README, as an IHM-side state
 machine. It is split into three parts so the logic can be unit-tested
 without Janus:

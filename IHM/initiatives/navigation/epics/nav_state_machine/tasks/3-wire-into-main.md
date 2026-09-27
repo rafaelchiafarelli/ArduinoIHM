@@ -1,6 +1,6 @@
 # Task 3: wire-into-main
 
-**Status:** planned
+**Status:** dropped 2026-09-27, never built. Rafael kept the controls already on `dev` as the final design; see the initiative README, "Closing decisions". The contract below is kept as the record of what was planned.
 **Branch:** `3-wire-into-main` (from `tasks`)
 **Depends on:** `nav_state_machine/1`, `nav_state_machine/2`, `input_map/1`, `input_map/2`
 

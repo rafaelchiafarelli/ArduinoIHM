@@ -1,12 +1,13 @@
 # Task 3: pwm-frequency-edit
 
-**Status:** partly delivered -- the frequency logic, the focusable labels and
-an RE2 shortcut shipped in `fixes/000006/pwm-frequency-edit` (merged to `dev`
-f70bcca, 2026-09-26, scope-verified by Rafael on the old board revision).
-What is left is making RE2 follow the navigator's selection instead of
-RE1 focus (below). Open question 3 is answered (live).
+**Status:** done 2026-09-27. Everything shipped in
+`fixes/000006/pwm-frequency-edit` (merged to `dev` f70bcca, 2026-09-26,
+scope-verified by Rafael on the old board revision). The remaining contract
+below was about following a navigator, and it was closed without code
+because `nav_state_machine` was dropped. Rafael, 2026-09-27: the PWM tab as
+it works now is the standard, so RE1 focus is the final selection.
 **Branch:** `3-pwm-frequency-edit` (from `tasks`)
-**Depends on:** `nav_state_machine/3-wire-into-main` (for `navEdit` and the
+**Depends on:** (dropped 2026-09-27) `nav_state_machine/3-wire-into-main` (for `navEdit` and the
 navigator's L2 selection). It used to also depend on `value_editing/2` for
 `applyPwmChannel` and the last-applied config, but those already exist on
 `dev` (`fixes/000004`: `applyPwmChannel()`, `pwmLast[4]`).
@@ -45,29 +46,22 @@ contract.
    initiative (open question 3: live), so this is the final behaviour, not
    a shortcut. Only the selection source changes.
 
-## Remaining contract
+## Remaining contract -- closed 2026-09-27, no code
 
-### In
+Kept as planned, with how each item closed:
 
-`nav_state_machine/3` merged: the navigator owns selection, and RE1 focus
-is gone.
-
-### Delivers
-
-1. **RE2 follows the navigator.** When the navigator's L2 setting is a
-   channel's Frequency, RE2 calls `pwmStepFrequency(f, ±1)` then
-   `pwmSetFrequency(ch, ...)`. This replaces the `janus_focus_activate()`
-   plus `pwmFrequencyActionChannel()` lookup in `main.cpp`'s RE2 branch.
-   Reuse the functions above; add no second stepping implementation.
-2. Whether the labels keep their `on_press: cycle_pwm_chN_frequency`
-   depends on open question 7 (what pbRE0 does at L2). Remove it, and
-   regenerate, only if that answer makes the press unused.
-3. **`demo/HARDWARE_RUNBOOK.md`**'s "UI navigation" section updated to the
-   final controls.
+1. ~~**RE2 follows the navigator.**~~ There is no navigator. RE2 keeps
+   resolving the RE1-focused widget through `janus_focus_activate()` plus
+   `pwmFrequencyActionChannel()`, which was already the final behaviour.
+2. **`on_press: cycle_pwm_chN_frequency` stays.** Open question 7 closed
+   as "pbRE0 has no UI role; pbRE1 keeps today's press", so the press is
+   still used. No regenerate.
+3. **`demo/HARDWARE_RUNBOOK.md`** "UI navigation" already describes the
+   final controls (RE0 tabs, RE1 focus, pbRE1 press, RE2 live edit).
+   No change needed.
 
 ## Definition of done
 
-`platformio run` builds; `test_native/run_tests.ps1` passes. Bench: with
-CH0's Frequency selected through the navigator, the probed frequency on
-OC3A follows RE2. The task file is marked done in
-the same commit.
+Met by `fixes/000006` (build, native suite, scope check on OC3A with the
+frequency label selected by RE1). Nothing further to run for the closing
+commit, which is docs only.
