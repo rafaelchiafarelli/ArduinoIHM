@@ -29,9 +29,9 @@ void pwmSetOutputBit(uint8_t ch, uint8_t out, bool inverting, bool on);
 
 // Drives relay `index` to `on`: the hardware, relayState[], and the Relay
 // tab's binding (switch + LED) -- nothing else writes relay_instance, so
-// without the mirror the screen never follows. Shared by the press (flip)
-// and RE2 (set) paths.
-static void setRelay(uint8_t index, bool on) {
+// without the mirror the screen never follows. Shared by the press (flip),
+// RE2 (set) and IHM_RELAY_COMMAND (main.cpp) paths.
+void relaySet(uint8_t index, bool on) {
     relayState[index] = on;
     multiOuput.getRelays()->setRelay(index, on);
     int* const field[NUMBER_OF_RELAYS] = {
@@ -47,7 +47,7 @@ static void setRelay(uint8_t index, bool on) {
 extern "C" void janus_handle_action(janus_action_t action) {
     if (action >= JANUS_ACTION_TOGGLE_RELAY_0 && action <= JANUS_ACTION_TOGGLE_RELAY_7) {
         uint8_t index = (uint8_t)(action - JANUS_ACTION_TOGGLE_RELAY_0);
-        setRelay(index, !relayState[index]);
+        relaySet(index, !relayState[index]);
         return;
     }
     switch (action) {
@@ -88,7 +88,7 @@ extern "C" void janus_handle_action(janus_action_t action) {
 bool janusSetSwitch(janus_action_t action, bool on) {
     if (action >= JANUS_ACTION_TOGGLE_RELAY_0 && action <= JANUS_ACTION_TOGGLE_RELAY_7) {
         uint8_t index = (uint8_t)(action - JANUS_ACTION_TOGGLE_RELAY_0);
-        if (relayState[index] != on) setRelay(index, on);
+        if (relayState[index] != on) relaySet(index, on);
         return true;
     }
     switch (action) {

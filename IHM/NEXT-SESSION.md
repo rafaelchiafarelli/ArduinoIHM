@@ -16,6 +16,20 @@ build and full functionality -- the display works, DAC output doesn't.
 
 ## Open items
 
+- **PC -> board motor and DAC commands are not scoped.** Relays got
+  `IHM_RELAY_COMMAND` (309) and companion switches on 2026-09-27; the
+  remaining outputs were left out of `serial_commands` (closed that day)
+  because each is blocked on a hardware fact first:
+  - **motor_control** (`MotorDC` drive/stop over MAVLink): blocked on the
+    `MotorDC` bit layout below. Exercising it over serial is one way to
+    do that confirmation.
+  - **dac_control** (`MCP4725` voltage over MAVLink): blocked on the DAC
+    hang in `setup()` (top priority above). That fix is its own task.
+- **Relay commands: on-screen check owed.** `IHM_RELAY_COMMAND` read back
+  correctly on the bench (script and companion), but nobody has watched the
+  TFT's Output tab switch/LED follow a PC command yet. Old board revision
+  only, so the relay bus itself is also unverified (see Hardware
+  verification).
 - **`MotorDC` bit layout is a placeholder.** The bit positions within its
   one latched byte (`enA`=bit0, `dirA`=bit1, `enB`=bit2, `dirB`=bit3) are
   unconfirmed against `IOs IHM.xlsx` / the KiCad schematic. The backend
@@ -92,8 +106,9 @@ write sequence. Ask the user before testing against whatever is connected.
 ## Related repo
 
 Two PC apps exist. **`C:\Users\rafae\source\repos\IHMPCController`**
-(Win32, no third-party libs; `HOW_TO_USE.md`) is the current companion the
-`serial_commands` initiative targets. The older `workspace/IHM-PCApp` -- the
+(Win32, no third-party libs; `HOW_TO_USE.md`) is the current companion. It
+is not under git: each change leaves a `.bak` beside the edited file, and the
+task file of whichever initiative made the change is the record. The older `workspace/IHM-PCApp` -- the
 PC-side counterpart. Win32/DirectX11/ImGui
 app that speaks this board's MAVLink dialect over the debug/programming
 COM port: shows `IHM_BOARD_STATE` telemetry, sends `CAN_SIGNAL_CONFIG` /
