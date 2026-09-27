@@ -5,7 +5,7 @@ Interrupt-driven USART3 for RS-485 half-duplex.
 ## Tasks
 
 ```
-1-usart3-rings-and-direction   RX/TX rings, DE/RE or auto direction, TXC release, byte timestamps   (blocked: Q1, Q7)
+1-usart3-rings-and-direction   RX ISR -> frame buffer + silence-timer re-arm, UDRE TX, TXC DE/RE release   (deps: can_bus event_timer/1; blocked: Q1, Q7)
 ```
 
 ## Acceptance gate

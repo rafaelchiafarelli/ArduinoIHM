@@ -24,18 +24,39 @@ driver foundation; `serial_config` configures it.
   (2 s seen on the bench), and the MCP2515 holds only 2 frames. At
   250 kbit/s a busy bus can deliver a frame every ~0.5 ms.
 
+## Rule: strictly event-driven (Rafael, 2026-09-27)
+
+**No polling anywhere in the serial part** (CAN, RS-485/Modbus). Every
+step is triggered by an interrupt:
+
+- MCP2515 INT for RX, TX-complete and errors;
+- a one-shot hardware timer compare for periods and timeouts;
+- no periodic tick scanning rings or deadlines;
+- no main-loop checks of serial state.
+
+The superloop only receives "work pending" events (e.g. apply a queued
+write, update the UI). The existing MAVLink link on Serial2 is exempt
+and stays as it is; its handler is always the first call after `sei()`
+in the Timer2 ISR (`fixes/000011`).
+
+Timer resources: Timer1/3/4/5 are PWM, Timer2 Compare-A is the system
+tick, and Timer0's overflow drives Arduino's `millis()`. Free: Timer2
+Compare-B, and Timer0 Compare-A/B.
+
 ## Epics (foundation)
 
 | Epic | Scope |
 |---|---|
+| `event_timer` | One-shot hardware timer compare + a small software timer queue: the only time source for periods and timeouts (CAN generator, protocol timers, and `rs485_modbus`'s frame-silence timer). |
 | `spi_sharing` | One SPI discipline for CAN-1, CAN-2 and the SD card, including access from an ISR. |
-| `mcp2515_driver` | Driver for both modules: bit timing from the crystal, INT-driven RX into a RAM ring, TX, filters, error state. |
-| `can_generator` | `CAN_SIGNAL_CONFIG` (301) actually transmits: period and repeat count, per bus. |
-| `main_loop_timing` | Bound the superloop's worst case so protocol timers hold (Janus non-blocking render and/or ISR-side CAN work). |
+| `mcp2515_driver` | Driver for both modules: bit timing from the crystal; everything from the INT line (RX handed straight to the protocol layer, TX-complete starts the next queued frame, error state); filters. |
+| `can_generator` | `CAN_SIGNAL_CONFIG` (301) actually transmits: each period is an `event_timer` expiry, never a checked deadline. |
+| `main_loop_timing` | UI responsiveness only: with the serial part interrupt-driven, protocol timing no longer depends on the superloop. Optional Janus non-blocking render. |
 | `sd_storage` | Mount, CS pin, a small file API, buffered writes, RAM budget. |
 
-Order: `spi_sharing` -> `mcp2515_driver` -> `can_generator`;
-`main_loop_timing` and `sd_storage` in parallel. Protocol epics start once
+Order: `event_timer` and `spi_sharing` -> `mcp2515_driver` ->
+`can_generator`; `sd_storage` in parallel; `main_loop_timing` whenever
+the UI needs it. Protocol epics start once
 the relevant foundation epics are done.
 
 ## Protocols: feasibility on this hardware (2026-09-27), not yet scoped
@@ -75,10 +96,15 @@ Each becomes its own epic once open question 5 picks it.
    revision? [sd_storage/1]
 3. **Serial1:** CAN-1 uses D18/D19, which are TX1/RX1, so Serial1 can't
    be used. OK? [spi_sharing/1]
-4. **Timing strategy:** RX in the INT ISR (fast, but the SPI must then be
-   ISR-safe everywhere), Janus `render_mode: non_blocking` (bounded
-   loop, needs `main.cpp` changes), or both (proposal: both).
-   [main_loop_timing/1]
+4. ~~Timing strategy~~ **Answered 2026-09-27: strictly event-driven**
+   (see the rule above). Protocol work runs from the MCP2515 INT and
+   `event_timer` ISRs. Remaining question: **ISR budget and nesting.**
+   Those ISRs must re-enable interrupts (`sei()`) like the Timer2 tick so
+   USART2 at 250000 baud never overruns, and bound their work.
+   Proposal: at most ~200 us per ISR entry. [mcp2515_driver/2, event_timer/1]
+8. **Which free timer for `event_timer`:** Timer0 Compare-A/B (4 us
+   steps, shares Timer0 with `millis()`), or Timer2 Compare-B (8 us
+   steps, shares the tick's timer)? [event_timer/1]
 5. **First protocol and role:** J1939 node or sniffer, UDS tester or
    server, CANopen master or node, and in which order? [protocol epics]
 6. **J1939 database:** source (which DBC), file format on SD, licensing.
