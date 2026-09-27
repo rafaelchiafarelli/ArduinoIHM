@@ -23,6 +23,14 @@ the PC.
      e.g. the J1939 source address;
    - **persisted in EEPROM** (survives a power cycle).
 
+## Rule: no polling in the serial part (Rafael, 2026-09-27)
+
+Everything that talks to CAN or RS-485 is strictly interrupt-driven (see
+`can_bus` and `rs485_modbus`). For this initiative: applying a changed
+`SerialConfig` to a bus happens on the change event (an edit, a MAVLink
+message, a Modbus write), never by the superloop re-checking the config.
+The MAVLink link itself (301/302 and the new messages) is exempt.
+
 ## Depends on
 
 - **`can_bus`** (sibling initiative, planned the same day) for bus
