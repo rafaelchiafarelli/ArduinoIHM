@@ -18,8 +18,8 @@ MAVLink dialect in [mavlink/](mavlink/README.md)). Two ways to send them:
 Today's commands: `PWM_CHANNEL_CONFIG` (4 PWM channels), `IHM_RELAY_COMMAND`
 (8 relays), `IHM_SIMULATE_ENCODER`, `IHM_SIMULATE_BUTTON`.
 Worked bench examples: [demo/HARDWARE_RUNBOOK.md](demo/HARDWARE_RUNBOOK.md)
-("Driving PWM over MAVLink"). Plans and status:
-[initiatives/serial_commands/](initiatives/serial_commands/README.md).
+("Driving PWM over MAVLink"). Protocol and message table:
+[mavlink/README.md](mavlink/README.md).
 
 Timer2 is for time keeping and fast-handler operations (communications, debug and others)
 

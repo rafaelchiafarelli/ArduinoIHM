@@ -6,7 +6,7 @@
 ## Contract
 
 1. `MavlinkComms` stores the new PC -> board message like 301/302
-   (storage only, same layering rule as `serial_commands`).
+   (storage only, per the layering rule in `mavlink/README.md`).
 2. `main.cpp` applies 301/302/new into the live `SerialConfig`
    (replacing today's direct copy into `bus_status_instance`) and
    refreshes the SERIAL bindings from it.

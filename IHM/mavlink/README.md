@@ -48,6 +48,18 @@ Largest message is 38 bytes, hence the 64-byte cap (some margin for the
 still-undesigned SD-card-status and UI-state messages -- see
 `IHM/NEXT-SESSION.md`).
 
+## Layering rule
+
+`MavlinkComms` (`lib/MavlinkComms`) owns the wire protocol only. It decodes
+inbound commands into storage and hands them out through `take*`/`consume*`/
+`get*` copy-outs, and packs outbound telemetry from values the caller
+gathers. It never depends on `PWM`, `MultiOutput`, `MotorDC` or the Janus UI
+headers. `main.cpp` is the only place that reads a decoded command and drives
+hardware with it (e.g. `takeRelayCommand` -> `relaySet`), and the only place
+that gathers telemetry values (e.g. `relayState[]` -> `sendRelayState`). Pure
+protocol rules it needs (e.g. `RelayCommand.h`) live beside it, host-tested.
+(From the `serial_commands` initiative, closed 2026-09-27.)
+
 ## Sending commands (PC side)
 
 | Command | Message | Tool |

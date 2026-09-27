@@ -21,8 +21,8 @@ entry), flash 76830 B. Nothing calls `sendUiState` yet (task 2).
 2. Regenerate `mavlink/generated` and `mavlink/generated_py` with
    `mavlink/generate.py` (the procedure in `mavlink/README.md`).
 3. `MavlinkComms::sendUiState(screen, focus, navFocus, boxesExpanded)`
-   takes four scalars, not the Janus struct: the serial_commands
-   "Layering rule" keeps Janus UI headers out of `MavlinkComms`. It only
+   takes four scalars, not the Janus struct: the layering rule
+   (`mavlink/README.md`) keeps Janus UI headers out of `MavlinkComms`. It only
    packs and sends, like `sendRelayState`.
 4. Native test: pack -> decode round-trip of all four fields, including
    `focus = -1` and `nav_focus = -1`.
