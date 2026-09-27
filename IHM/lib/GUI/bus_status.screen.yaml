@@ -10,48 +10,43 @@
 # dense, read-only monitor content is. Sizes below are re-tuned for
 # medium's ~11px/char (1px pad + 10 + 1px gap) instead of large's ~21px.
 #
+# Layout (2026-09-27, fixes/000010): one compact row per bus at the top of
+# the screen -- LED, name, then captioned values (label format templates,
+# e.g. "ID %x"). The three used to be `fill: true` boxes that each
+# stretched over a third of the panel, leaving the values as unlabelled
+# placeholders in a mostly empty column. Editing comes with the
+# serial_config initiative.
+#
 # Status text is app.yaml's `status: { text: ... }` chrome (status_bar
 # epic) now, not a per-screen row -- see pwm.screen.yaml's header comment.
 screen: BusStatus
 layout: column
 children:
-  - kind: box
-    id: can0_box
-    bg: "#000000"   # unfocusing a headerless box repaints it in its bg (default white)
-    layout: row
-    collapsible: false
-    default_expanded: true
-    fill: true
+  - kind: row
+    id: can0_row
+    align: center
     children:
       - { kind: led, id: can0_led, bind: { message: bus_status, field: can0_enabled, type: int }, states: [off, on], size: { w: 10, h: 10 }, color: "#00FF00", bg: "#FF0000" }
-      - { kind: label, id: can0_label, text: "CAN0", font_size: medium, size: { w: 50, h: 18 } }
-      - { kind: label, id: can0_id, bind: { message: bus_status, field: can0_id, type: int }, font_size: medium, size: { w: 60, h: 18 } }
-      - { kind: label, id: can0_dlc, bind: { message: bus_status, field: can0_dlc, type: int }, font_size: medium, size: { w: 30, h: 18 } }
-      - { kind: label, id: can0_extended, bind: { message: bus_status, field: can0_extended, type: int }, font_size: medium, fill: true }
+      - { kind: label, id: can0_label, text: "CAN0", font_size: medium, size: { w: 44, h: 18 } }
+      - { kind: label, id: can0_id, text: "ID %x", bind: { message: bus_status, field: can0_id, type: int }, font_size: medium, size: { w: 121, h: 18 } }
+      - { kind: label, id: can0_dlc, text: "DLC %d", bind: { message: bus_status, field: can0_dlc, type: int }, font_size: medium, size: { w: 66, h: 18 } }
+      - { kind: label, id: can0_extended, text: "EXT %d", bind: { message: bus_status, field: can0_extended, type: int }, font_size: medium, size: { w: 60, h: 18 } }
 
-  - kind: box
-    id: can1_box
-    bg: "#000000"   # unfocusing a headerless box repaints it in its bg (default white)
-    layout: row
-    collapsible: false
-    default_expanded: true
-    fill: true
+  - kind: row
+    id: can1_row
+    align: center
     children:
       - { kind: led, id: can1_led, bind: { message: bus_status, field: can1_enabled, type: int }, states: [off, on], size: { w: 10, h: 10 }, color: "#00FF00", bg: "#FF0000" }
-      - { kind: label, id: can1_label, text: "CAN1", color: "#555555", font_size: medium, size: { w: 50, h: 18 } }
-      - { kind: label, id: can1_id, bind: { message: bus_status, field: can1_id, type: int }, font_size: medium, size: { w: 60, h: 18 } }
-      - { kind: label, id: can1_dlc, bind: { message: bus_status, field: can1_dlc, type: int }, font_size: medium, size: { w: 30, h: 18 } }
-      - { kind: label, id: can1_extended, bind: { message: bus_status, field: can1_extended, type: int }, font_size: medium, fill: true }
+      - { kind: label, id: can1_label, text: "CAN1", font_size: medium, size: { w: 44, h: 18 } }
+      - { kind: label, id: can1_id, text: "ID %x", bind: { message: bus_status, field: can1_id, type: int }, font_size: medium, size: { w: 121, h: 18 } }
+      - { kind: label, id: can1_dlc, text: "DLC %d", bind: { message: bus_status, field: can1_dlc, type: int }, font_size: medium, size: { w: 66, h: 18 } }
+      - { kind: label, id: can1_extended, text: "EXT %d", bind: { message: bus_status, field: can1_extended, type: int }, font_size: medium, size: { w: 60, h: 18 } }
 
-  - kind: box
-    id: rs485_box
-    bg: "#000000"   # unfocusing a headerless box repaints it in its bg (default white)
-    layout: row
-    collapsible: false
-    default_expanded: true
-    fill: true
+  - kind: row
+    id: rs485_row
+    align: center
     children:
       - { kind: led, id: rs485_led, bind: { message: bus_status, field: rs485_enabled, type: int }, states: [off, on], size: { w: 10, h: 10 }, color: "#00FF00", bg: "#FF0000" }
       - { kind: label, id: rs485_label, text: "RS485", font_size: medium, size: { w: 60, h: 18 } }
-      - { kind: label, id: rs485_length, bind: { message: bus_status, field: rs485_length, type: int }, font_size: medium, size: { w: 50, h: 18 } }
-      - { kind: label, id: rs485_period_ms, bind: { message: bus_status, field: rs485_period_ms, type: int }, font_size: medium, fill: true }
+      - { kind: label, id: rs485_length, text: "LEN %d", bind: { message: bus_status, field: rs485_length, type: int }, font_size: medium, size: { w: 66, h: 18 } }
+      - { kind: label, id: rs485_period_ms, text: "%d ms", bind: { message: bus_status, field: rs485_period_ms, type: int }, font_size: medium, size: { w: 88, h: 18 } }
