@@ -41,6 +41,7 @@ that class is unrelated and untouched by this).
 | `IHM_SIMULATE_ENCODER` | PC -> board | 2 | Inject one simulated CW/CCW rotation step on the given encoder; only applied when that encoder's real hardware read was idle the same pass -- real input always wins |
 | `IHM_SIMULATE_BUTTON` | PC -> board | 1 | Press the buttons in `button_mask` (bit layout as `IHM_BOARD_STATE.buttons`) for exactly one superloop pass; OR-ed with the real read, so real input wins |
 | `IHM_PWM_STATE` | board -> PC | 13 | The config currently applied to one PWM channel, same fields as `PWM_CHANNEL_CONFIG`; one channel per ~100 ms tick, round-robin (all 4 every ~400 ms). Mirrors `main.cpp`'s `pwmLast[]`, i.e. the readback `PWM_CHANNEL_CONFIG` has no ack for |
+| `IHM_UI_STATE` | board -> PC | 8 | Janus's `janus_remote_state_t` (active screen, widget focus, nav focus, open-box bitmask), sent on change and every 500 ms, for the companion's screen mirror (`janus_remote_state_apply`). Initiative `desktop_mirror` |
 
 Largest message is 38 bytes, hence the 64-byte cap (some margin for the
 still-undesigned SD-card-status and UI-state messages -- see
