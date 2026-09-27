@@ -38,8 +38,9 @@ build and full functionality -- the display works, DAC output doesn't.
   in telemetry. Add a field if trouble returns.
 - **A full-screen redraw after an on-screen action blocks the superloop
   > 0.7 s** (`janus_render_screen` in main.cpp's ACTION case). Two presses
-  inside that window merge into one, real or simulated. Relevant to the
-  `navigation` initiative (redraw only dirty widgets instead).
+  inside that window merge into one, real or simulated. Fix: redraw only
+  dirty widgets. Not owned by any initiative (`navigation` closed
+  2026-09-27 without it).
 - **BusStatus tab passive refresh.** `bus_status_instance`'s CAN/RS-485
   fields only repaint on tab-switch or box-toggle -- the ~100ms tick
   redraws only the status bar. Live refresh there needs its own trigger

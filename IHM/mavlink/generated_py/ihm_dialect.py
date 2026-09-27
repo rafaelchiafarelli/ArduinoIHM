@@ -429,6 +429,7 @@ MAVLINK_MSG_ID_IHM_RELAY_STATE = 304
 MAVLINK_MSG_ID_IHM_SIMULATE_ENCODER = 305
 MAVLINK_MSG_ID_IHM_SIMULATE_BUTTON = 306
 MAVLINK_MSG_ID_IHM_PWM_STATE = 307
+MAVLINK_MSG_ID_IHM_UI_STATE = 308
 
 
 class MAVLink_ihm_board_state_message(MAVLink_message):
@@ -836,6 +837,56 @@ class MAVLink_ihm_pwm_state_message(MAVLink_message):
 setattr(MAVLink_ihm_pwm_state_message, "name", mavlink_msg_deprecated_name_property())
 
 
+class MAVLink_ihm_ui_state_message(MAVLink_message):
+    """
+    The board's on-screen UI state: which screen is up, what has
+    focus,         which boxes are open. Board -> PC, telemetry, read-
+    only. Sent when it         changes and every 500 ms otherwise, so
+    a PC that stops seeing it for         ~1.5 s can assume the board
+    is gone. The fields are Janus's         janus_remote_state_t
+    (lib/GUI/runtime/include/janus_remote.h, Janus         c56f14c)
+    one for one, as filled by janus_remote_state_get(): a PC
+    mirror feeds them straight to janus_remote_state_apply(). Bound
+    values         (what the widgets show) are not here -- they come
+    from IHM_PWM_STATE         and IHM_RELAY_STATE.
+    """
+
+    id = MAVLINK_MSG_ID_IHM_UI_STATE
+    msgname = "IHM_UI_STATE"
+    fieldnames = ["screen", "focus", "nav_focus", "boxes_expanded"]
+    ordered_fieldnames = ["screen", "focus", "nav_focus", "boxes_expanded"]
+    fieldtypes = ["uint16_t", "int16_t", "int16_t", "uint16_t"]
+    fielddisplays_by_name: Dict[str, str] = {}
+    fieldenums_by_name: Dict[str, str] = {}
+    fieldunits_by_name: Dict[str, str] = {}
+    native_format = bytearray(b"<HhhH")
+    orders = [0, 1, 2, 3]
+    lengths = [1, 1, 1, 1]
+    array_lengths = [0, 0, 0, 0]
+    crc_extra = 3
+    unpacker = struct.Struct("<HhhH")
+    instance_field = None
+    instance_offset = -1
+
+    def __init__(self, screen: int, focus: int, nav_focus: int, boxes_expanded: int):
+        MAVLink_message.__init__(self, MAVLink_ihm_ui_state_message.id, MAVLink_ihm_ui_state_message.msgname)
+        self._fieldnames = MAVLink_ihm_ui_state_message.fieldnames
+        self._instance_field = MAVLink_ihm_ui_state_message.instance_field
+        self._instance_offset = MAVLink_ihm_ui_state_message.instance_offset
+        self.screen = screen
+        self.focus = focus
+        self.nav_focus = nav_focus
+        self.boxes_expanded = boxes_expanded
+
+    def pack(self, mav: "MAVLink", force_mavlink1: bool = False) -> bytes:
+        return self._pack(mav, self.crc_extra, self.unpacker.pack(self.screen, self.focus, self.nav_focus, self.boxes_expanded), force_mavlink1=force_mavlink1)
+
+
+# Define name on the class for backwards compatibility (it is now msgname).
+# Done with setattr to hide the class variable from mypy.
+setattr(MAVLink_ihm_ui_state_message, "name", mavlink_msg_deprecated_name_property())
+
+
 mavlink_map: Dict[int, Type[MAVLink_message]] = {
     MAVLINK_MSG_ID_IHM_BOARD_STATE: MAVLink_ihm_board_state_message,
     MAVLINK_MSG_ID_CAN_SIGNAL_CONFIG: MAVLink_can_signal_config_message,
@@ -845,6 +896,7 @@ mavlink_map: Dict[int, Type[MAVLink_message]] = {
     MAVLINK_MSG_ID_IHM_SIMULATE_ENCODER: MAVLink_ihm_simulate_encoder_message,
     MAVLINK_MSG_ID_IHM_SIMULATE_BUTTON: MAVLink_ihm_simulate_button_message,
     MAVLINK_MSG_ID_IHM_PWM_STATE: MAVLink_ihm_pwm_state_message,
+    MAVLINK_MSG_ID_IHM_UI_STATE: MAVLink_ihm_ui_state_message,
 }
 
 
@@ -1616,3 +1668,47 @@ class MAVLink(object):
 
         """
         self.send(self.ihm_pwm_state_encode(channel, f_selector, frequency, out1_enabled, out1_inverting, out1_duty_percent, out2_enabled, out2_inverting, out2_duty_percent, out3_enabled, out3_inverting, out3_duty_percent), force_mavlink1=force_mavlink1)
+
+    def ihm_ui_state_encode(self, screen: int, focus: int, nav_focus: int, boxes_expanded: int) -> MAVLink_ihm_ui_state_message:
+        """
+        The board's on-screen UI state: which screen is up, what has focus,
+        which boxes are open. Board -> PC, telemetry, read-only. Sent
+        when it         changes and every 500 ms otherwise, so a PC
+        that stops seeing it for         ~1.5 s can assume the board
+        is gone. The fields are Janus's         janus_remote_state_t
+        (lib/GUI/runtime/include/janus_remote.h, Janus
+        c56f14c) one for one, as filled by janus_remote_state_get(): a
+        PC         mirror feeds them straight to
+        janus_remote_state_apply(). Bound values         (what the
+        widgets show) are not here -- they come from IHM_PWM_STATE
+        and IHM_RELAY_STATE.
+
+        screen                    : Active screen index (janus_app.active_screen). (type:uint16_t)
+        focus                     : Focused widget's index among the active screen's reachable focusable widgets, in Janus focus-traversal order. -1 = no widget focused. (type:int16_t)
+        nav_focus                 : Previewed nav-strip tab index. -1 = none. At most one of focus / nav_focus is >= 0. (type:int16_t)
+        boxes_expanded            : Bit i = the i-th box of the active screen's widget tree (depth-first, tree order) is expanded. 16 boxes max. (type:uint16_t)
+
+        """
+        return MAVLink_ihm_ui_state_message(screen, focus, nav_focus, boxes_expanded)
+
+    def ihm_ui_state_send(self, screen: int, focus: int, nav_focus: int, boxes_expanded: int, force_mavlink1: bool = False) -> None:
+        """
+        The board's on-screen UI state: which screen is up, what has focus,
+        which boxes are open. Board -> PC, telemetry, read-only. Sent
+        when it         changes and every 500 ms otherwise, so a PC
+        that stops seeing it for         ~1.5 s can assume the board
+        is gone. The fields are Janus's         janus_remote_state_t
+        (lib/GUI/runtime/include/janus_remote.h, Janus
+        c56f14c) one for one, as filled by janus_remote_state_get(): a
+        PC         mirror feeds them straight to
+        janus_remote_state_apply(). Bound values         (what the
+        widgets show) are not here -- they come from IHM_PWM_STATE
+        and IHM_RELAY_STATE.
+
+        screen                    : Active screen index (janus_app.active_screen). (type:uint16_t)
+        focus                     : Focused widget's index among the active screen's reachable focusable widgets, in Janus focus-traversal order. -1 = no widget focused. (type:int16_t)
+        nav_focus                 : Previewed nav-strip tab index. -1 = none. At most one of focus / nav_focus is >= 0. (type:int16_t)
+        boxes_expanded            : Bit i = the i-th box of the active screen's widget tree (depth-first, tree order) is expanded. 16 boxes max. (type:uint16_t)
+
+        """
+        self.send(self.ihm_ui_state_encode(screen, focus, nav_focus, boxes_expanded), force_mavlink1=force_mavlink1)
