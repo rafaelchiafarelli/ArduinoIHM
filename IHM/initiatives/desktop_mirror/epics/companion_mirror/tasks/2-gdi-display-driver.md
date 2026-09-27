@@ -17,8 +17,8 @@
   (`AdjustWindowRect`). WM_CREATE renders the boot screen. The dead
   `WM_CTLCOLORSTATIC` placeholder branch is removed.
 - vcxproj: the 7 runtime `.c` and 5 generated `.gen.c` are compiled as C
-  in all 4 configurations (include dirs `includeinclude`,
-  `includeuntime\include`), plus a "janus" filter. No SDL.
+  in all 4 configurations (include dirs `include/include`,
+  `include/runtime/include`), plus a "janus" filter. No SDL.
 - Backups: `IHMPCController.cpp.mirror-gdi.bak`,
   `IHMPCController.vcxproj{,.filters}.mirror-gdi.bak`.
 
