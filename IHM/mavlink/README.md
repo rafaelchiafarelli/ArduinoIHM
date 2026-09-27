@@ -59,7 +59,7 @@ None has an ack; the board's periodic `IHM_BOARD_STATE` is the proof of
 life, and for PWM the periodic `IHM_PWM_STATE` shows what was actually applied. Invalid frames are dropped silently. The companion app
 (`C:\Users\rafae\source\repos\IHMPCController`, see its `HOW_TO_USE.md`)
 keeps its own copy of `generated/ihm_dialect/`: after regenerating here, copy
-it over (last synced 2026-09-26, ids 300-307).
+it over (last synced 2026-09-27, ids 300-308).
 
 ## Serial port
 
