@@ -75,6 +75,9 @@ no field for it) and repaints only while that tab is showing.
    - frequency label: CW = higher, CCW = lower, stopping at 62500 Hz and
      15 Hz. Only the 13 fixed frequencies; VARIABLE (raw TOP) is PC-only.
    - duty bar: 1 % per detent, CW = higher, stopping at 0 and 100 %.
+   - switch (PWM Enabled/Inverting, relay on the Output tab): CW = on /
+     inverting, CCW = off / non-inverting. It sets, never flips: turning
+     further the same way does nothing.
 
 ## Checks
 

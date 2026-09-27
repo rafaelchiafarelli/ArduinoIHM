@@ -41,3 +41,11 @@ PWMComplexChannelConfig pwmWireToComplex(const PwmWireConfig& w);
  * it's only clamped when applied) is treated as 100.
  */
 uint8_t pwmStepDuty(uint8_t percent, int8_t steps);
+
+/**
+ * On-screen switch editing (RE2 on a selected Enabled/Inverting switch):
+ * sets output `out` (0-2 = A-C)'s enable bit, or its inverting bit when
+ * `inverting`, to `value`. Returns true if the bit changed, false if it
+ * already held `value` or `out` > 2 (w untouched).
+ */
+bool pwmWireSetOutputBit(PwmWireConfig& w, uint8_t out, bool inverting, bool value);

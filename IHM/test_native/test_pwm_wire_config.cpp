@@ -106,3 +106,35 @@ TEST(PWMDutyEdit, OutOfRangeStartIsTreatedAsHundred) {
     CHECK_EQ(pwmStepDuty(150, -1), 99);
     CHECK_EQ(pwmStepDuty(255, 1), 100);
 }
+
+// ---- On-screen switch editing (pwmWireSetOutputBit) ----
+
+TEST(PWMSwitchEdit, SetsEnableAndReportsChange) {
+    PwmWireConfig w = make(2, 0);
+    CHECK_TRUE(pwmWireSetOutputBit(w, 1, false, true));
+    CHECK_EQ(w.out[1].enabled, 1);
+    CHECK_EQ(w.out[1].inverting, 0);
+    CHECK_EQ(w.out[0].enabled, 0);
+    CHECK_TRUE(pwmWireSetOutputBit(w, 1, false, false));
+    CHECK_EQ(w.out[1].enabled, 0);
+}
+
+TEST(PWMSwitchEdit, SetsInvertingOnly) {
+    PwmWireConfig w = make(0, 0);
+    CHECK_TRUE(pwmWireSetOutputBit(w, 0, true, true));
+    CHECK_EQ(w.out[0].inverting, 1);
+    CHECK_EQ(w.out[0].enabled, 0);
+}
+
+TEST(PWMSwitchEdit, SameValueIsNoChange) {
+    PwmWireConfig w = make(0, 0);
+    CHECK_FALSE(pwmWireSetOutputBit(w, 0, false, false));
+    w.out[0].enabled = 2;   // nonzero from the wire counts as on
+    CHECK_FALSE(pwmWireSetOutputBit(w, 0, false, true));
+    CHECK_EQ(w.out[0].enabled, 2);
+}
+
+TEST(PWMSwitchEdit, OutputOutOfRangeIsIgnored) {
+    PwmWireConfig w = make(3, 0);
+    CHECK_FALSE(pwmWireSetOutputBit(w, 3, false, true));
+}
