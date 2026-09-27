@@ -146,6 +146,7 @@ children:
                 children:
                   - { kind: label, id: pwm_ch2_state, bind: { message: pwm, field: ch2_state_label, type: string }, on_press: cycle_pwm_ch2_frequency, font_size: medium, size: { w: 90, h: 18 } }
           - kind: row
+            align: center
             children:
               - kind: row
                 focus_ring: true
@@ -157,6 +158,7 @@ children:
                 children:
                   - { kind: progress, id: pwm_ch2_a_duty, bind: { message: pwm, field: ch2_a_duty_percent, type: int }, range: { min: 0, max: 100 }, on_press: edit_pwm_ch2_a_duty, size: { w: 90, h: 14 } }
           - kind: row
+            align: center
             children:
               - kind: row
                 focus_ring: true
@@ -168,6 +170,7 @@ children:
                 children:
                   - { kind: progress, id: pwm_ch2_b_duty, bind: { message: pwm, field: ch2_b_duty_percent, type: int }, range: { min: 0, max: 100 }, on_press: edit_pwm_ch2_b_duty, size: { w: 90, h: 14 } }
           - kind: row
+            align: center
             children:
               - kind: row
                 focus_ring: true
@@ -197,6 +200,7 @@ children:
                 children:
                   - { kind: label, id: pwm_ch3_state, bind: { message: pwm, field: ch3_state_label, type: string }, on_press: cycle_pwm_ch3_frequency, font_size: medium, size: { w: 90, h: 18 } }
           - kind: row
+            align: center
             children:
               - kind: row
                 focus_ring: true
@@ -208,6 +212,7 @@ children:
                 children:
                   - { kind: progress, id: pwm_ch3_a_duty, bind: { message: pwm, field: ch3_a_duty_percent, type: int }, range: { min: 0, max: 100 }, on_press: edit_pwm_ch3_a_duty, size: { w: 90, h: 14 } }
           - kind: row
+            align: center
             children:
               - kind: row
                 focus_ring: true
@@ -219,6 +224,7 @@ children:
                 children:
                   - { kind: progress, id: pwm_ch3_b_duty, bind: { message: pwm, field: ch3_b_duty_percent, type: int }, range: { min: 0, max: 100 }, on_press: edit_pwm_ch3_b_duty, size: { w: 90, h: 14 } }
           - kind: row
+            align: center
             children:
               - kind: row
                 focus_ring: true
