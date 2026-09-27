@@ -118,6 +118,22 @@ static const char* pwmInvertingText(bool inverting) { return inverting ? pwmInve
 
 static void initPwmDefaults(); // below mirrorPwmToUi -- seeds pwmLast[] and the PWM tab
 
+// Focuses the active screen's first focusable widget -- never the tab strip:
+// rot0 owns the tabs (see the rot0 branch in loop()). Clears the strip's
+// preview first: janus_switch_screen clears widget focus but not the
+// strip's, and on a screen with no focusable widget (SERIAL since
+// fixes/000010) janus_focus_move(&janus_app, 0) put focus on the strip and
+// left it there, so later screens reported widget AND strip focus at once
+// (fixes/000012). Same strip-less copy as the rot1 branch.
+static void focusFirstOnScreen()
+{
+    janus_set_nav_focus(&janus_app, -1);
+    janus_app_t screenOnly = janus_app;
+    screenOnly.nav_tabs = NULL;
+    screenOnly.nav_tab_count = 0;
+    janus_focus_move(&screenOnly, 0);
+}
+
 void setup()
 {
     Serial.begin(250000);   // debug port only
@@ -157,7 +173,7 @@ void setup()
     janus_render_status_bar(&janus_app);   // app-level status band -- no-op if app.yaml had no `status:`
     janus_render_nav_bar(&janus_app);   // app-level PWM/SERIAL/Output tab strip -- no-op if app.yaml had no `nav:`
 
-    janus_focus_move(&janus_app, 0);   // establish initial focus
+    focusFirstOnScreen();   // establish initial focus
 
 }
 
@@ -478,7 +494,7 @@ int main()
             // background color", that's a per-project/hardware choice.
            // tft.fillScreen(0x0000);
             janus_switch_screen(&janus_app, next); // also re-renders the new screen + repaints the tab strip
-            janus_focus_move(&janus_app, 0);
+            focusFirstOnScreen();
         }
 
         // rot1 + its button: focus move / activate within the current
@@ -508,7 +524,7 @@ int main()
                 case JANUS_INPUT_NAVIGATE:
                     tft.fillScreen(0x0000); // see the rot0 branch above for why
                     janus_switch_screen(&janus_app, (uint16_t)hit.navigate_target);
-                    janus_focus_move(&janus_app, 0);
+                    focusFirstOnScreen();
                     break;
                 case JANUS_INPUT_TOGGLE_BOX:
                     janus_toggle_box(hit.widget);
