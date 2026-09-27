@@ -1,6 +1,34 @@
 # Task 2: gdi-display-driver
 
-**Status:** planned
+**Status:** done 2026-09-27.
+
+## Delivered
+
+- New companion files: `JanusGdiDriver.{h,c}` (C; the three contract
+  functions into a 320x480 RGB565 buffer, clipped, with a dirty flag) and
+  `MirrorView.{h,cpp}` (window class `IHMJanusMirror`: `StretchDIBits`
+  with `BI_BITFIELDS` 565 masks, top-down; integer scale with
+  `COLORONCOLOR` when the panel fits, aspect-kept `HALFTONE` downscale
+  otherwise; `MirrorRenderBoot()` = the board's `setup()` render order;
+  `MirrorPresentIfDirty()`).
+- `IHMPCController.cpp`: the placeholder `STATIC` is now the mirror view,
+  moved to its own full-height column right of the PWM panel
+  (`kMirrorX`). The default window size fits it at 1:1
+  (`AdjustWindowRect`). WM_CREATE renders the boot screen. The dead
+  `WM_CTLCOLORSTATIC` placeholder branch is removed.
+- vcxproj: the 7 runtime `.c` and 5 generated `.gen.c` are compiled as C
+  in all 4 configurations (include dirs `includeinclude`,
+  `includeuntime\include`), plus a "janus" filter. No SDL.
+- Backups: `IHMPCController.cpp.mirror-gdi.bak`,
+  `IHMPCController.vcxproj{,.filters}.mirror-gdi.bak`.
+
+## Verification
+
+Debug x64 and Win32 build. A full x64 rebuild shows no warnings from the
+new or Janus files. Screenshot `2-boot-render.png`: the PWM screen,
+status bar and nav strip render in the mirror column with default
+(zero) bindings, before any board data. Side-by-side with the TFT is
+task 5.
 **Depends on:** task 1
 
 ## Contract
