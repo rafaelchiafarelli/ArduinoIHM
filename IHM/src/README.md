@@ -9,6 +9,11 @@ the two hardware interrupts that drive most of the project's scheduling.
 mode, prescaler 128, `OCR2A = 125`; see `Timer2Config.h/.cpp` for which
 sub-interrupt is enabled -- only Compare-A, deliberately). Inside it:
 
+- **First, always:** `sei()`, then `mavlinkComms.fast_handler()` (drains
+  the Serial2 RX ring, bounded, and decodes MAVLink frames -- see
+  [lib/MavlinkComms](../lib/MavlinkComms/src/MavlinkComms.h)). Nothing
+  goes between the two, and new tick work goes after them (Rafael,
+  2026-09-27).
 - **Every tick (~1ms):** `userInputs.fast_handler()` (`BinaryInputs` --
   see [lib/BinaryInput](../lib/BinaryInput/README.md)), and
   `multiOutput.fast_handler()` (-> `MotorDC::fast_handler()`, stepper
