@@ -343,6 +343,9 @@ static bool pwmDutyActionTarget(janus_action_t action, uint8_t* ch, uint8_t* out
 // janus_actions.cpp: sets the switch behind a toggle_* action (PWM switch
 // or relay) to `on`; false if the action isn't a switch.
 bool janusSetSwitch(janus_action_t action, bool on);
+// janus_actions.cpp: drives relay `index` to `on` -- hardware, relayState[]
+// and the Output tab's switch + LED (marked dirty, not repainted).
+void relaySet(uint8_t index, bool on);
 
 // Which channel's frequency label an action belongs to; -1 for any other.
 static int8_t pwmFrequencyActionChannel(janus_action_t action)
@@ -592,6 +595,24 @@ int main()
         // pwm_instance for the next full render of the tab.
         if (pwmUiChanged && janus_app_get_screen(&janus_app, janus_app.active_screen) == &pwm_screen) {
             janus_render_screen_if_dirty(&pwm_screen);
+        }
+
+        // PC-driven relays (IHM_RELAY_COMMAND). Same path as the Output tab,
+        // last writer wins; only relays whose state actually changes are
+        // driven, so a repeated frame does nothing.
+        uint8_t relayCmdMask, relayCmdState;
+        if (mavlinkComms.takeRelayCommand(&relayCmdMask, &relayCmdState)) {
+            uint8_t current = 0;
+            for (uint8_t i = 0; i < NUMBER_OF_RELAYS; i++) {
+                if (relayState[i]) current |= (uint8_t)(1u << i);
+            }
+            uint8_t target = relayCommandApply(current, relayCmdMask, relayCmdState);
+            for (uint8_t i = 0; i < NUMBER_OF_RELAYS; i++) {
+                if ((current ^ target) & (1u << i)) relaySet(i, (target >> i) & 1u);
+            }
+            if (current != target && janus_app_get_screen(&janus_app, janus_app.active_screen) == &relay_screen) {
+                janus_render_screen_if_dirty(&relay_screen);
+            }
         }
 
         if(newDataAvailable){
