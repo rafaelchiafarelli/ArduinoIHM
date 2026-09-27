@@ -1,6 +1,11 @@
 # Task 1: ui-state-message
 
-**Status:** planned
+**Status:** done 2026-09-27. Delivered as written: message 308 in the dialect,
+`mavlink/generated{,_py}` regenerated, `MavlinkComms::sendUiState` (four
+scalars), `test_native/test_ui_state_message.cpp` (3 tests; the runner now
+also has `mavlink/generated/ihm_dialect` on its include path). 135 native
+tests pass. Build: RAM 59.1 % (4841 B, +10 B for the dialect's CRC table
+entry), flash 76830 B. Nothing calls `sendUiState` yet (task 2).
 **Branch:** `1-ui-state-message` (from `tasks`)
 **Depends on:** nothing
 

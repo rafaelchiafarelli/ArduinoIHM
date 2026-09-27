@@ -236,5 +236,22 @@
       <field type="uint8_t" name="out3_inverting">Output C edge polarity. Unused by channels 0 and 1.</field>
       <field type="uint8_t" name="out3_duty_percent">Output C duty cycle, 0-100. Unused by channels 0 and 1.</field>
     </message>
+    <message id="308" name="IHM_UI_STATE">
+      <description>
+        The board's on-screen UI state: which screen is up, what has focus,
+        which boxes are open. Board -> PC, telemetry, read-only. Sent when it
+        changes and every 500 ms otherwise, so a PC that stops seeing it for
+        ~1.5 s can assume the board is gone. The fields are Janus's
+        janus_remote_state_t (lib/GUI/runtime/include/janus_remote.h, Janus
+        c56f14c) one for one, as filled by janus_remote_state_get(): a PC
+        mirror feeds them straight to janus_remote_state_apply(). Bound values
+        (what the widgets show) are not here -- they come from IHM_PWM_STATE
+        and IHM_RELAY_STATE.
+      </description>
+      <field type="uint16_t" name="screen">Active screen index (janus_app.active_screen).</field>
+      <field type="int16_t" name="focus">Focused widget's index among the active screen's reachable focusable widgets, in Janus focus-traversal order. -1 = no widget focused.</field>
+      <field type="int16_t" name="nav_focus">Previewed nav-strip tab index. -1 = none. At most one of focus / nav_focus is >= 0.</field>
+      <field type="uint16_t" name="boxes_expanded">Bit i = the i-th box of the active screen's widget tree (depth-first, tree order) is expanded. 16 boxes max.</field>
+    </message>
   </messages>
 </mavlink>
