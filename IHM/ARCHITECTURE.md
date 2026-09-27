@@ -43,7 +43,9 @@ usual strategy," this is what they mean.
    handles everything else with no fixed cadence. The tick re-enables
    interrupts as its first statement, so UART RX ISRs can always preempt
    it, and it must always finish inside its ~1 ms slot (there is no
-   re-entry guard). See
+   re-entry guard). **The MAVLink fast handler
+   (`mavlinkComms.fast_handler()`) is always the first call after that
+   `sei()`** (Rafael, 2026-09-27); new tick work goes after it. See
    [`src/README.md`](src/README.md) for the exact dispatch table. PWM
    timing runs on its own dedicated hardware timers (Timer1/3/4/5), not
    on delay loops.
@@ -61,6 +63,7 @@ before the scheduler is running -- see that module's README.
                          ISR(TIMER2_COMPA_vect)  ~1.008ms tick
                                     |
         +---------------+----------+----------+------------------+
+        | sei(); MavlinkComms.fast_handler()  <- always first     |
         | every tick     every 25th tick        every 10th tick   |
         v                v                      (unused slot)     |
   BinaryInputs      MultiOutput.slow_handler                      |
