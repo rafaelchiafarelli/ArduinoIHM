@@ -3,6 +3,7 @@
 #include <util/atomic.h>
 #include "mavlink.h"
 #include "Uart2.h"
+#include "RelayCommand.h"
 
 // Protocol port baud (Serial2/USART2). 250000 is exact at 16 MHz with U2X
 // and is what mavlink/scripts/*.py default to.
@@ -61,6 +62,13 @@ private:
     mavlink_pwm_channel_config_t pwmConfig[4];
     bool pwmConfigDirty[4];
 
+    // Pending IHM_RELAY_COMMAND, not yet taken by the superloop. Frames that
+    // arrive before takeRelayCommand() are folded together
+    // (relayCommandAccumulate), so none is lost. Storage only -- this class
+    // never touches the relays.
+    uint8_t relayCmdMask;
+    uint8_t relayCmdState;
+
     void dispatch()
     {
         switch (rxMsg.msgid)
@@ -109,6 +117,13 @@ private:
             }
             break;
         }
+        case MAVLINK_MSG_ID_IHM_RELAY_COMMAND:
+        {
+            mavlink_ihm_relay_command_t cmd;
+            mavlink_msg_ihm_relay_command_decode(&rxMsg, &cmd);
+            relayCommandAccumulate(relayCmdMask, relayCmdState, cmd.mask, cmd.state);
+            break;
+        }
         default:
             break;
         }
@@ -127,7 +142,8 @@ private:
 public:
     MavlinkComms()
         : canConfigValid{false, false}, rs485ConfigValid(false),
-          simulatedEncoderPending{false, false, false}, simulatedButtonMask(0), pwmConfigDirty{false, false, false, false}
+          simulatedEncoderPending{false, false, false}, simulatedButtonMask(0), pwmConfigDirty{false, false, false, false},
+          relayCmdMask(0), relayCmdState(0)
     {
     }
 
@@ -229,6 +245,27 @@ public:
             {
                 pwmConfigDirty[ch] = false;
                 *out = pwmConfig[ch];
+                taken = true;
+            }
+        }
+        return taken;
+    }
+
+    // Superloop-side hand-off of the pending IHM_RELAY_COMMAND: false if none
+    // arrived since the last call; otherwise copies mask/state out, clears
+    // them and returns true -- atomically, as dispatch() writes them from the
+    // Timer2 ISR. main.cpp applies it (relayCommandApply semantics).
+    bool takeRelayCommand(uint8_t *mask, uint8_t *state)
+    {
+        bool taken = false;
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+        {
+            if (relayCmdMask)
+            {
+                *mask = relayCmdMask;
+                *state = relayCmdState;
+                relayCmdMask = 0;
+                relayCmdState = 0;
                 taken = true;
             }
         }
