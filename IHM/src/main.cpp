@@ -268,6 +268,16 @@ void pwmToggleOutput(uint8_t ch, uint8_t out, bool inverting)
     applyPwmChannel(w);
 }
 
+// RE2 on a focused PWM switch (via janusSetSwitch in janus_actions.cpp):
+// sets -- not flips -- output `out`'s enable or inverting bit to `on` and
+// re-applies the channel only if that changed it.
+void pwmSetOutputBit(uint8_t ch, uint8_t out, bool inverting, bool on)
+{
+    if (ch > 3) return;
+    PwmWireConfig w = pwmLast[ch];
+    if (pwmWireSetOutputBit(w, out, inverting, on)) applyPwmChannel(w);
+}
+
 // On-screen frequency edit: re-applies channel `ch` at frequency `f`,
 // keeping its outputs' enable/inverting/duty. No-op if unchanged.
 static void pwmSetFrequency(uint8_t ch, PWMFrequency f)
@@ -285,6 +295,37 @@ void pwmCycleChannelFrequency(uint8_t ch)
     if (ch > 3) return;
     pwmSetFrequency(ch, pwmCycleFrequency((PWMFrequency)pwmLast[ch].f_selector));
 }
+
+// On-screen duty edit: re-applies channel `ch` with output `out` (0-2 =
+// A-C) at `percent`, keeping everything else. No-op if unchanged.
+static void pwmSetDuty(uint8_t ch, uint8_t out, uint8_t percent)
+{
+    if (ch > 3 || out > 2 || pwmLast[ch].out[out].duty_percent == percent) return;
+    PwmWireConfig w = pwmLast[ch];
+    w.out[out].duty_percent = percent;
+    applyPwmChannel(w);
+}
+
+// Which duty bar an action belongs to (channel, output 0-2 = A-C); false
+// for any other action.
+static bool pwmDutyActionTarget(janus_action_t action, uint8_t* ch, uint8_t* out)
+{
+    switch (action) {
+        case JANUS_ACTION_EDIT_PWM_CH0_DUTY:   *ch = 0; *out = 0; return true;
+        case JANUS_ACTION_EDIT_PWM_CH1_DUTY:   *ch = 1; *out = 0; return true;
+        case JANUS_ACTION_EDIT_PWM_CH2_A_DUTY: *ch = 2; *out = 0; return true;
+        case JANUS_ACTION_EDIT_PWM_CH2_B_DUTY: *ch = 2; *out = 1; return true;
+        case JANUS_ACTION_EDIT_PWM_CH2_C_DUTY: *ch = 2; *out = 2; return true;
+        case JANUS_ACTION_EDIT_PWM_CH3_A_DUTY: *ch = 3; *out = 0; return true;
+        case JANUS_ACTION_EDIT_PWM_CH3_B_DUTY: *ch = 3; *out = 1; return true;
+        case JANUS_ACTION_EDIT_PWM_CH3_C_DUTY: *ch = 3; *out = 2; return true;
+        default: return false;
+    }
+}
+
+// janus_actions.cpp: sets the switch behind a toggle_* action (PWM switch
+// or relay) to `on`; false if the action isn't a switch.
+bool janusSetSwitch(janus_action_t action, bool on);
 
 // Which channel's frequency label an action belongs to; -1 for any other.
 static int8_t pwmFrequencyActionChannel(janus_action_t action)
@@ -475,18 +516,36 @@ int main()
         }
         prevBtnMap = btnMap;
 
-        // rot2: steps the frequency of the PWM channel whose frequency label
-        // has focus (CW = higher, clamped at 62500 Hz / 15 Hz); does nothing
-        // on any other focus. janus_focus_activate only resolves the focused
-        // widget to its action here, it runs nothing: its one side effect,
-        // committing a previewed tab, needs focus on the nav strip, which
-        // rot1 never gives (see above).
+        // rot2 changes whatever rot1 has selected, live (navigation
+        // initiative's editing rule): a frequency label steps its channel's
+        // frequency (CW = higher, clamped at 62500 Hz / 15 Hz), a duty bar
+        // steps that output's duty 1 % (CW = higher, clamped 0-100), a
+        // switch (PWM Enabled/Inverting, relay) is set -- CW = on /
+        // inverting, CCW = off / non-inverting, never flipped. Any other
+        // focus: nothing. janus_focus_activate only resolves the
+        // focused widget to its action here, it runs nothing: its one side
+        // effect, committing a previewed tab, needs focus on the nav strip,
+        // which rot1 never gives (see above).
         if(dir[2] == CW || dir[2] == CCW){
+            int8_t step = dir[2] == CW ? 1 : -1;
             janus_input_result_t hit = janus_focus_activate(&janus_app);
-            int8_t ch = hit.kind == JANUS_INPUT_ACTION ? pwmFrequencyActionChannel((janus_action_t)hit.action) : -1;
-            if (ch >= 0) {
-                PWMFrequency f = (PWMFrequency)pwmLast[ch].f_selector;
-                pwmSetFrequency((uint8_t)ch, pwmStepFrequency(f, dir[2] == CW ? 1 : -1));
+            if (hit.kind == JANUS_INPUT_ACTION) {
+                janus_action_t action = (janus_action_t)hit.action;
+                int8_t ch = pwmFrequencyActionChannel(action);
+                uint8_t dutyCh, dutyOut;
+                if (!janusSetSwitch(action, step > 0)) {
+                    if (ch >= 0) {
+                        PWMFrequency f = (PWMFrequency)pwmLast[ch].f_selector;
+                        pwmSetFrequency((uint8_t)ch, pwmStepFrequency(f, step));
+                    } else if (pwmDutyActionTarget(action, &dutyCh, &dutyOut)) {
+                        uint8_t duty = pwmLast[dutyCh].out[dutyOut].duty_percent;
+                        pwmSetDuty(dutyCh, dutyOut, pwmStepDuty(duty, step));
+                    }
+                }
+                // Dirty-only repaint. Since Janus shared_field_dirty
+                // (c56f14c) it repaints every widget bound to a changed
+                // field, so a switch and the LED sharing its field both
+                // follow; no full redraw needed any more.
                 janus_render_screen_if_dirty(screen);
             }
         }

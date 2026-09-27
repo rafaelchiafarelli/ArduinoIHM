@@ -1,8 +1,16 @@
 # Initiative: navigation
 
-Drill-down navigation of the on-screen UI driven by **one** knob (RE0),
-with a dedicated back button (B0) and an inactivity timeout. Replaces
-today's split where RE0 switches tabs and RE1 walks focus inside a tab.
+Drill-down navigation of the on-screen UI: **RE0 selects** (tab, then
+option, then setting), with a dedicated back button (B0) and an inactivity
+timeout. **RE2 changes whatever is selected**, live. Replaces today's split
+where RE0 switches tabs and RE1 walks focus inside a tab.
+
+**Editing rule (Rafael, 2026-09-26):** "when something is selected and you
+turn RE2, that thing changes." Every RE2 detent applies to the hardware
+immediately. There's no edit mode, no confirm and nothing to discard. Until
+`nav_state_machine/3` lands, RE1 does the selecting (today's focus ring)
+and RE2 already edits PWM frequency (fixes/000006) and duty
+(`value_editing/2`).
 
 ## Input enumeration
 
@@ -32,15 +40,20 @@ later initiative.
 
 ## Navigation model
 
-Four levels. RE0 always moves within the current level. pbRE0 always goes
-one level deeper. B0 always goes one level up.
+Three levels. RE0 always moves within the current level. pbRE0 goes one
+level deeper. B0 always goes one level up. RE2 edits the selected setting at
+L2. There is no separate value level (the earlier L3 VALUE was dropped
+2026-09-26, see the editing rule above).
 
-| Level | RE0 turns | pbRE0 click | B0 click |
-|---|---|---|---|
-| L0 TAB | cycle tabs PWM / SERIAL / Output (screen switches live) | enter L1 on this tab | no-op |
-| L1 OPTION | next/prev option of the tab (e.g. PWM: CH0..CH3; Output: Relay 0..7) | enter L2 on this option | back to L0 |
-| L2 SETTING | next/prev setting of the option (e.g. CH0: Enabled, Inverting, Frequency, Duty) | enter L3 (edit this setting) | back to L1 |
-| L3 VALUE | change the value (toggle flips, duty steps, frequency steps) | see open question 3 | back to L2 |
+| Level | RE0 turns | pbRE0 click | B0 click | RE2 turns |
+|---|---|---|---|---|
+| L0 TAB | cycle tabs PWM / SERIAL / Output (screen switches live) | enter L1 on this tab | no-op | nothing |
+| L1 OPTION | next/prev option of the tab (e.g. PWM: CH0..CH3; Output: Relay 0..7) | enter L2 on this option | back to L0 | nothing |
+| L2 SETTING | next/prev setting of the option (e.g. CH0: Enabled, Inverting, Frequency, Duty) | open question 7 | back to L1 | change the selected setting, live: toggle flips, frequency ±1 fixed step (clamped), duty ±1 % (clamped 0-100) |
+
+**Not yet re-planned:** the `nav_state_machine` task files still describe
+the four-level model with L3. Update them to this table when that epic is
+picked up.
 
 **Inactivity timeout:** 4 s with no navigation input returns straight to
 L0, with the currently active tab kept.
@@ -57,7 +70,7 @@ this initiative requests no Janus runtime change.
 |---|---|
 | `input_map` | Named constants for the enumeration above; a pure click-edge detector. |
 | `nav_state_machine` | Pure `Navigator` (levels, timeout), the IHM nav table, wiring into `main.cpp`. |
-| `value_editing` | What L3 does per setting kind: toggles, PWM duty, PWM frequency. |
+| `value_editing` | What RE2 does to the selected setting, per kind: toggles, PWM duty, PWM frequency. |
 
 Task order across epics:
 
@@ -79,18 +92,22 @@ nav_state_machine/1-navigator ─> 2-ihm-nav-table ─┘
    the screen and never reaches the tab strip (main.cpp passes Janus a
    nav-less copy of the app).
 2. **Single-setting options** (Relay N has only on/off). Should pbRE0 at L1
-   go through L2 with one entry, skip to L3, or flip the relay right
-   away? Blocks `nav_state_machine/2`.
-3. **Apply and commit in L3.** Should each RE0 detent apply to hardware
-   live, or only when pbRE0 confirms? After confirming, go back to L2 or
-   stay in L3? Does B0 or the timeout discard an unconfirmed edit or keep
-   it? Blocks `value_editing/*`.
-4. **Duty step size** per RE0 detent (1 %? 5 %?). Blocks `value_editing/2`.
+   go through L2 with one entry, or should selecting the relay at L1 already
+   let RE2 flip it? Blocks `nav_state_machine/2`.
+3. ~~Apply and commit in L3.~~ **Answered 2026-09-26: live.** Each RE2
+   detent applies to the hardware immediately. With no edit level, there's
+   no confirm step and nothing for B0 or the timeout to discard.
+4. ~~Duty step size.~~ **Answered 2026-09-26: 1 % per RE2 detent**, clamped
+   at 0 and 100.
 5. **SERIAL tab.** Should its options (CAN0, CAN1, RS485) be read-only in v1
    (L1 only, pbRE0 does nothing), or editable? Their configs are stored
    but no bus driver consumes them yet. Blocks `nav_state_machine/2`.
 6. **What resets the 4 s timer?** Only RE0/pbRE0/B0, or any input
    including the unassigned ones? Blocks `nav_state_machine/1`.
+7. **pbRE0 at L2 (SETTING).** With editing on RE2, should pbRE0 on a
+   selected setting press it (the way pbRE1 does today: a switch flips, a
+   frequency label cycles, a duty bar does nothing), or do nothing? Blocks
+   `nav_state_machine/2`.
 
 ## Since planned: RE2 frequency step (fixes/000006, 2026-09-26)
 
@@ -98,9 +115,10 @@ Outside this initiative, Rafael had RE2 wired to PWM frequency: RE1
 focuses a channel's frequency label (now a focusable `focus_ring` row with
 `on_press: cycle_pwm_chN_frequency`), RE2 steps it live (clamped), and
 pbRE1 cycles it. It relies on RE1 focus, which `nav_state_machine/3`
-removes, and it overlaps `value_editing/3`. Decide when that task is
-picked up: keep RE2 as a shortcut on nav focus, or fold it into RE0's L3
-edit. `pwmStepFrequency`/`pwmCycleFrequency` (`PWMTiming.h`, unit-tested)
+removes. **Resolved 2026-09-26:** RE2 *is* the editing knob (see the
+editing rule at the top). When the navigator lands, RE2 keeps its role and
+only "what is selected" moves from RE1 focus to the navigator's L2
+setting. `pwmStepFrequency`/`pwmCycleFrequency` (`PWMTiming.h`, unit-tested)
 already exist either way.
 
 ## Dependency on serial_commands
@@ -123,3 +141,13 @@ task's bench step can run from the PC.
 ```
 dev -> features -> navigation -> epics -> <epic> -> tasks -> <task>
 ```
+
+## Parked 2026-09-27 (partial merge to `dev`)
+
+Rafael chose to merge the finished work up to `dev` before the initiative
+is complete, so this clone can start the `desktop_mirror` chain. That skips
+the normal DoD on purpose: `value_editing` merged up with task 3 still only
+partly delivered, and `input_map`/`nav_state_machine` have no code yet.
+Open questions 1, 2, 5, 6 and 7 are still open. To resume, build a new
+`features -> navigation -> epics -> <epic> -> tasks` chain from `dev` and
+pick up from the task files, which are unchanged.
