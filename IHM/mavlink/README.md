@@ -43,10 +43,32 @@ that class is unrelated and untouched by this).
 | `IHM_PWM_STATE` | board -> PC | 13 | The config currently applied to one PWM channel, same fields as `PWM_CHANNEL_CONFIG`; one channel per ~100 ms tick, round-robin (all 4 every ~400 ms). Mirrors `main.cpp`'s `pwmLast[]`, i.e. the readback `PWM_CHANNEL_CONFIG` has no ack for |
 | `IHM_UI_STATE` | board -> PC | 8 | Janus's `janus_remote_state_t` (active screen, widget focus, nav focus, open-box bitmask), sent on change and every 500 ms, for the companion's screen mirror (`janus_remote_state_apply`). Initiative `desktop_mirror` |
 | `IHM_RELAY_COMMAND` | PC -> board | 2 | Set the relays whose `mask` bit is 1 to their `state` bit; others untouched. Sets, never flips; same path as the Output tab, last writer wins. No ack -- `IHM_RELAY_STATE` is the readback |
+| `IHM_CAN_SIGNAL_STATE` (311) | board -> PC | 20 | The generator config the board holds for one CAN bus, same fields as `CAN_SIGNAL_CONFIG`; the readback for 301 and for SERIAL-tab edits. Initiative `serial_config` |
+| `IHM_RS485_SIGNAL_STATE` (312) | board -> PC | 38 | Same for the RS-485 generator, same fields as `RS485_SIGNAL_CONFIG` |
+| `IHM_SERIAL_SETTING` (313) | PC -> board | 7 | Set one keyed bus setting (`bus`, `key`, int32 `value`): the generic path for settings bus initiatives add (key table below) |
+| `IHM_SERIAL_SETTING_STATE` (314) | board -> PC | 8 | One keyed setting's value + `status` (OK / unknown key / invalid value): the ack for every 313, and the keyed settings' periodic readback |
 
 Largest message is 38 bytes, hence the 64-byte cap (some margin for the
 still-undesigned SD-card-status and UI-state messages -- see
 `IHM/NEXT-SESSION.md`).
+
+310 is left free for `non_blocking_redraw`'s proposed `IHM_LOOP_STATS`.
+
+## Serial setting keys (`IHM_SERIAL_SETTING`, 313)
+
+Settings a bus initiative adds to `SerialConfig` (`lib/BusConfig/README.md`)
+travel as keys instead of new messages. Keys are per bus (`IHM_SERIAL_BUS`:
+0 = CAN0, 1 = CAN1, 2 = RS-485). Each row gives the key, the bus(es), the
+value encoding and range, and the owning task.
+
+| Key | Bus | Value | Owner |
+|---|---|---|---|
+| *(none yet)* | | | |
+
+Until a key exists the board answers every 313 with `status` =
+`IHM_SERIAL_SETTING_UNKNOWN_KEY` and changes nothing. A new key: add its
+row here, handle it in `main.cpp`'s setting dispatch, and add it to the
+periodic key readback.
 
 ## Layering rule
 
@@ -68,9 +90,11 @@ protocol rules it needs (e.g. `RelayCommand.h`) live beside it, host-tested.
 | Simulate an encoder step | `IHM_SIMULATE_ENCODER` (305) | companion app CCW/CW buttons, or `scripts/sim_input.py encoder` |
 | Simulate a button click | `IHM_SIMULATE_BUTTON` (306) | `scripts/sim_input.py button` (companion app has no button UI yet) |
 | Switch relays | `IHM_RELAY_COMMAND` (309) | `scripts/relay_cmd.py --set 0=1 3=0` |
+| Configure a bus generator | `CAN_SIGNAL_CONFIG` (301) / `RS485_SIGNAL_CONFIG` (302) | companion app "SERIAL command" panel |
+| Set a keyed bus setting | `IHM_SERIAL_SETTING` (313) | companion app SERIAL panel (once keys exist) |
 
 None has an ack; the board's periodic `IHM_BOARD_STATE` is the proof of
-life, for PWM the periodic `IHM_PWM_STATE` shows what was actually applied, and for relays `IHM_RELAY_STATE`. Invalid frames are dropped silently. The companion app
+life, for PWM the periodic `IHM_PWM_STATE` shows what was actually applied, for relays `IHM_RELAY_STATE`, and for the bus generators `IHM_CAN_SIGNAL_STATE` / `IHM_RS485_SIGNAL_STATE`. Invalid frames are dropped silently. The companion app
 (`C:\Users\rafae\source\repos\IHMPCController`, see its `HOW_TO_USE.md`)
 keeps its own copy of `generated/ihm_dialect/`: after regenerating here, copy
 it over (last synced 2026-09-27, ids 300-308).
@@ -98,7 +122,12 @@ fit in the TX ring is dropped and counted (`uart2::txDroppedCount()`), and
 the next ~100 ms frame replaces it. Per ~100 ms tick the board queues
 `IHM_BOARD_STATE` (31 B on the wire) + `IHM_RELAY_STATE` (13 B) +
 `IHM_PWM_STATE` (25 B) = 69 B, plus `IHM_UI_STATE` (20 B) on a tick where
-the UI changed or every 5th tick = 89 B at most, which is why the TX ring is 128, not 64. RX ring overflow and UART
+the UI changed or every 5th tick = 89 B at most, which is why the TX ring is 128, not 64.
+The SERIAL readback (`IHM_CAN_SIGNAL_STATE` 32 B / `IHM_RS485_SIGNAL_STATE`
+50 B on the wire, one bus per tick, round-robin CAN0 -> CAN1 -> RS-485) would
+not fit behind those 89 B, so it goes out ~50 ms into the window instead,
+after the burst has drained (~4 ms at 250000 baud). A 313's ack (20 B) is
+queued as soon as the superloop takes the 313. RX ring overflow and UART
 overrun/framing errors are counted too (`rxDroppedCount()`,
 `rxLineErrorCount()`). None of these counters are in telemetry yet.
 
