@@ -138,5 +138,6 @@ Order: `config_model` -> `wire` -> `board_editing` and `companion_panel`
 dev -> features -> serial_config -> epics -> <epic> -> tasks -> <task>
 ```
 
-Planned 2026-09-27 as initiative-only. Create the epic and task branches
-off `serial_config` when implementation starts.
+Planned 2026-09-27 as initiative-only; implemented 2026-09-27/28, all four
+epics done and bench-verified 2026-09-28 (see the task files' Bench
+sections). Bus initiatives extend it per `lib/BusConfig/README.md`.

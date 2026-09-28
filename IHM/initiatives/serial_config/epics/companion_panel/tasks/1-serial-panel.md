@@ -1,6 +1,6 @@
 # Task 1: serial-panel
 
-**Status:** done (2026-09-28) -- builds and unit check pass; bench pending (see Result)
+**Status:** done (2026-09-28) -- bench-verified 2026-09-28
 **Depends on:** `wire/2`
 
 ## Contract
@@ -46,3 +46,18 @@ backups `*.serial-config.bak` beside every edited file, and
 - **Pending, bench:** a config sent from the panel shows on the TFT and in
   the readback; an edit made with the knobs shows in the panel. Rebuild
   into `x64\Debug` once the running companion is closed.
+
+## Bench (2026-09-28, old board revision: flashed via COM7, MAVLink on COM3)
+
+Script checks, all passed: 311/312 stream at 10/s (one bus per tick); a
+301 is applied and read back; an out-of-range 301 (standard ID 0x800) is
+dropped; a 313 is answered by 314 "unknown key"; RE0/RE1/RE2 (simulated)
+reach the CAN0 ID field, one slow click is +1, 12 fast clicks (40 ms
+apart) give +836 (acceleration); after a reset (COM7 DTR) the
+toggle-saved config loads and the later un-toggled knob edit is gone.
+Companion driven headlessly (WM_COMMAND / WM_SETTEXT): connects, fills
+all three readback lines, a panel Send reads "Board applied CAN1", bad
+input is refused locally, Set shows the 314 answer, a board knob edit
+shows in the panel. Not checked: the mirror's SERIAL tab by pixel (same
+handler as the readback lines; the mapping is unit-tested), and the knob
+feel by hand (clicks were simulated).
