@@ -23,6 +23,8 @@
 #include "PWMLabelFormat.h"
 #include "SerialConfig.h"
 #include "SerialConfigWire.h"
+#include "SerialEdit.h"
+#include "SerialConfigEeprom.h"
 
 // Janus-generated UI (lib/GUI) -- plain C, so every header/declaration that
 // crosses into this .cpp translation unit needs extern "C" linkage to match
@@ -175,7 +177,10 @@ void setup()
     
     initPwmDefaults();
 
-    serialConfigDefaults(serialConfig);
+    // Saved SERIAL settings, used as saved (serial_config question 4: a
+    // generator saved as enabled comes up enabled); defaults if the
+    // EEPROM is blank or corrupt.
+    loadSerialConfig(&serialConfig);
     mirrorSerialToUi();
 
     const janus_screen_desc_t *screen = janus_app_get_screen(&janus_app, janus_app.active_screen);
@@ -419,27 +424,104 @@ ISR(ADC_vect){
     analogInputs.isr_handler();
 }
 
-// Copies serialConfig into the SERIAL tab's bound struct and marks every
-// field dirty; the caller decides when to repaint. The only writer of
-// bus_status_instance.
+// Which data byte each bus's "B<n>" field points at (CAN0, CAN1, RS-485):
+// UI state only, not a setting. Kept inside the bus's DLC / LEN.
+static uint8_t serialByteIndex[SERIAL_CAN_BUSES + 1];
+
+// RAM-resident repeat texts ("x inf" / "x65535"): bound strings are read
+// through a plain RAM pointer, never PROGMEM.
+static char serialRepeatLabel[SERIAL_CAN_BUSES + 1][8];
+
+static void formatRepeatLabel(char* out, uint16_t repeat)
+{
+    if (repeat == 0) { strcpy(out, "x inf"); return; }
+    out[0] = 'x';
+    utoa(repeat, out + 1, 10);
+}
+
+// Clamps a bus's byte index into its current DLC / LEN (0 when empty).
+static uint8_t serialClampByteIndex(uint8_t bus)
+{
+    uint8_t count = bus < SERIAL_CAN_BUSES ? serialConfig.can[bus].gen.dlc : serialConfig.rs485.gen.length;
+    if (serialByteIndex[bus] >= count) serialByteIndex[bus] = count ? (uint8_t)(count - 1) : 0;
+    return serialByteIndex[bus];
+}
+
+// Copies serialConfig into the SERIAL tab's bound struct, marking dirty
+// only the fields whose value changed -- an RE2 click then repaints one
+// label, not the whole tab. The caller decides when to repaint. The only
+// writer of bus_status_instance.
+#define SERIAL_SET(field, value)     do { if (bus_status_instance.field != (value)) { bus_status_instance.field = (value); bus_status_dirty.field = true; } } while (0)
+#define SERIAL_SET_LABEL(field, bus)     do { char t[8]; formatRepeatLabel(t, repeatOf(bus));          if (bus_status_instance.field == NULL || strcmp(t, serialRepeatLabel[bus]) != 0) {              strcpy(serialRepeatLabel[bus], t); bus_status_instance.field = serialRepeatLabel[bus]; bus_status_dirty.field = true; } } while (0)
+
+static uint16_t repeatOf(uint8_t bus)
+{
+    return bus < SERIAL_CAN_BUSES ? serialConfig.can[bus].gen.repeat_count : serialConfig.rs485.gen.repeat_count;
+}
+
 static void mirrorSerialToUi(){
     const CanGeneratorConfig& c0 = serialConfig.can[0].gen;
     const CanGeneratorConfig& c1 = serialConfig.can[1].gen;
     const Rs485GeneratorConfig& r = serialConfig.rs485.gen;
-    bus_status_instance.can0_enabled = c0.enable;
-    bus_status_instance.can0_id = (int)c0.id;
-    bus_status_instance.can0_dlc = c0.dlc;
-    bus_status_instance.can0_extended = c0.extended;
-    bus_status_instance.can1_enabled = c1.enable;
-    bus_status_instance.can1_id = (int)c1.id;
-    bus_status_instance.can1_dlc = c1.dlc;
-    bus_status_instance.can1_extended = c1.extended;
-    bus_status_instance.rs485_enabled = r.enable;
-    bus_status_instance.rs485_length = r.length;
-    bus_status_instance.rs485_period_ms = r.period_ms;
-    bus_status_dirty.can0_enabled = bus_status_dirty.can0_id = bus_status_dirty.can0_dlc = bus_status_dirty.can0_extended = true;
-    bus_status_dirty.can1_enabled = bus_status_dirty.can1_id = bus_status_dirty.can1_dlc = bus_status_dirty.can1_extended = true;
-    bus_status_dirty.rs485_enabled = bus_status_dirty.rs485_length = bus_status_dirty.rs485_period_ms = true;
+    for (uint8_t bus = 0; bus <= SERIAL_CAN_BUSES; bus++) serialClampByteIndex(bus);
+    SERIAL_SET(can0_enabled, c0.enable); SERIAL_SET(can0_id, (int64_t)c0.id); SERIAL_SET(can0_dlc, c0.dlc);
+    SERIAL_SET(can0_extended, c0.extended); SERIAL_SET(can0_period_ms, (int64_t)c0.period_ms);
+    SERIAL_SET_LABEL(can0_repeat_label, 0);
+    SERIAL_SET(can0_byte_index, serialByteIndex[0]); SERIAL_SET(can0_byte_value, c0.data[serialByteIndex[0]]);
+    SERIAL_SET(can1_enabled, c1.enable); SERIAL_SET(can1_id, (int64_t)c1.id); SERIAL_SET(can1_dlc, c1.dlc);
+    SERIAL_SET(can1_extended, c1.extended); SERIAL_SET(can1_period_ms, (int64_t)c1.period_ms);
+    SERIAL_SET_LABEL(can1_repeat_label, 1);
+    SERIAL_SET(can1_byte_index, serialByteIndex[1]); SERIAL_SET(can1_byte_value, c1.data[serialByteIndex[1]]);
+    SERIAL_SET(rs485_enabled, r.enable); SERIAL_SET(rs485_length, r.length);
+    SERIAL_SET(rs485_period_ms, (int64_t)r.period_ms);
+    SERIAL_SET_LABEL(rs485_repeat_label, 2);
+    SERIAL_SET(rs485_byte_index, serialByteIndex[2]); SERIAL_SET(rs485_byte_value, r.data[serialByteIndex[2]]);
+}
+
+// Which SERIAL field an action belongs to; false for any other action.
+static bool serialActionTarget(janus_action_t action, uint8_t* bus, SerialField* field)
+{
+    switch (action) {
+        case JANUS_ACTION_TOGGLE_CAN0_ENABLED:    *bus = 0; *field = SERIAL_FIELD_ENABLE; return true;
+        case JANUS_ACTION_EDIT_CAN0_ID:           *bus = 0; *field = SERIAL_FIELD_ID; return true;
+        case JANUS_ACTION_EDIT_CAN0_DLC:          *bus = 0; *field = SERIAL_FIELD_DLC; return true;
+        case JANUS_ACTION_EDIT_CAN0_EXTENDED:     *bus = 0; *field = SERIAL_FIELD_EXTENDED; return true;
+        case JANUS_ACTION_EDIT_CAN0_PERIOD:       *bus = 0; *field = SERIAL_FIELD_PERIOD; return true;
+        case JANUS_ACTION_EDIT_CAN0_REPEAT:       *bus = 0; *field = SERIAL_FIELD_REPEAT; return true;
+        case JANUS_ACTION_EDIT_CAN0_BYTE_INDEX:   *bus = 0; *field = SERIAL_FIELD_BYTE_INDEX; return true;
+        case JANUS_ACTION_EDIT_CAN0_BYTE_VALUE:   *bus = 0; *field = SERIAL_FIELD_BYTE_VALUE; return true;
+        case JANUS_ACTION_TOGGLE_CAN1_ENABLED:    *bus = 1; *field = SERIAL_FIELD_ENABLE; return true;
+        case JANUS_ACTION_EDIT_CAN1_ID:           *bus = 1; *field = SERIAL_FIELD_ID; return true;
+        case JANUS_ACTION_EDIT_CAN1_DLC:          *bus = 1; *field = SERIAL_FIELD_DLC; return true;
+        case JANUS_ACTION_EDIT_CAN1_EXTENDED:     *bus = 1; *field = SERIAL_FIELD_EXTENDED; return true;
+        case JANUS_ACTION_EDIT_CAN1_PERIOD:       *bus = 1; *field = SERIAL_FIELD_PERIOD; return true;
+        case JANUS_ACTION_EDIT_CAN1_REPEAT:       *bus = 1; *field = SERIAL_FIELD_REPEAT; return true;
+        case JANUS_ACTION_EDIT_CAN1_BYTE_INDEX:   *bus = 1; *field = SERIAL_FIELD_BYTE_INDEX; return true;
+        case JANUS_ACTION_EDIT_CAN1_BYTE_VALUE:   *bus = 1; *field = SERIAL_FIELD_BYTE_VALUE; return true;
+        case JANUS_ACTION_TOGGLE_RS485_ENABLED:   *bus = 2; *field = SERIAL_FIELD_ENABLE; return true;
+        case JANUS_ACTION_EDIT_RS485_LENGTH:      *bus = 2; *field = SERIAL_FIELD_LENGTH; return true;
+        case JANUS_ACTION_EDIT_RS485_PERIOD:      *bus = 2; *field = SERIAL_FIELD_PERIOD; return true;
+        case JANUS_ACTION_EDIT_RS485_REPEAT:      *bus = 2; *field = SERIAL_FIELD_REPEAT; return true;
+        case JANUS_ACTION_EDIT_RS485_BYTE_INDEX:  *bus = 2; *field = SERIAL_FIELD_BYTE_INDEX; return true;
+        case JANUS_ACTION_EDIT_RS485_BYTE_VALUE:  *bus = 2; *field = SERIAL_FIELD_BYTE_VALUE; return true;
+        default: return false;
+    }
+}
+
+// A bus's enable switch toggled -- on the board or by a 301/302 that
+// changes `enable` (serial_config question 3): saves the whole config.
+// Other edits stay in RAM until the next toggle. eeprom_update_block only
+// writes changed bytes, ~3.3 ms each (see SerialConfigEeprom.h).
+static void serialEnableToggled()
+{
+    saveSerialConfig(serialConfig);
+}
+
+// pbRE1 on a SERIAL enable switch (via janus_actions.cpp): flips it.
+void serialPressEnable(uint8_t bus)
+{
+    if (serialToggleEnable(serialConfig, bus) & SERIAL_EDIT_ENABLE_TOGGLED) serialEnableToggled();
+    mirrorSerialToUi();
 }
 
 // Repaints the SERIAL tab's dirty widgets if it's the tab showing; off-screen
@@ -590,7 +672,10 @@ int main()
             if (hit.kind == JANUS_INPUT_ACTION) {
                 janus_action_t action = (janus_action_t)hit.action;
                 int8_t ch = pwmFrequencyActionChannel(action);
-                uint8_t dutyCh, dutyOut;
+                uint8_t dutyCh, dutyOut, serialBus;
+                SerialField serialField;
+                static DigitAccel serialAccel;
+                static janus_action_t serialAccelAction = JANUS_ACTION_NONE;
                 if (!janusSetSwitch(action, step > 0)) {
                     if (ch >= 0) {
                         PWMFrequency f = (PWMFrequency)pwmLast[ch].f_selector;
@@ -598,6 +683,17 @@ int main()
                     } else if (pwmDutyActionTarget(action, &dutyCh, &dutyOut)) {
                         uint8_t duty = pwmLast[dutyCh].out[dutyOut].duty_percent;
                         pwmSetDuty(dutyCh, dutyOut, pwmStepDuty(duty, step));
+                    } else if (serialActionTarget(action, &serialBus, &serialField)) {
+                        // Digit-at-a-time acceleration (lib/BusConfig
+                        // README); a click on another field starts over.
+                        if (action != serialAccelAction) {
+                            digitAccelReset(serialAccel);
+                            serialAccelAction = action;
+                        }
+                        uint8_t r = serialEditStep(serialConfig, serialByteIndex, serialBus, serialField,
+                                                   step > 0, serialAccel, millis());
+                        if (r & SERIAL_EDIT_ENABLE_TOGGLED) serialEnableToggled();
+                        if (r) mirrorSerialToUi();
                     }
                 }
                 // Dirty-only repaint. Since Janus shared_field_dirty
@@ -654,17 +750,26 @@ int main()
         // PC-driven SERIAL settings (301/302). Same model as the SERIAL tab,
         // last writer wins; out-of-range frames are dropped silently (no ack
         // in 301/302 -- 311/312 is the readback).
-        bool serialChanged = false;
+        // One whose `enable` differs from the current one is a toggle, and
+        // saves (same rule as the on-screen switch).
+        bool serialChanged = false, serialToggled = false;
         for (uint8_t bus = 0; bus < SERIAL_CAN_BUSES; bus++) {
             mavlink_can_signal_config_t m;
+            uint8_t was = serialConfig.can[bus].gen.enable;
             if (mavlinkComms.takeCanSignalConfig(bus, &m) &&
-                canGeneratorFromWire(m, &serialConfig.can[bus].gen))
+                canGeneratorFromWire(m, &serialConfig.can[bus].gen)) {
                 serialChanged = true;
+                if (serialConfig.can[bus].gen.enable != was) serialToggled = true;
+            }
         }
         mavlink_rs485_signal_config_t rs485Msg;
+        uint8_t rs485Was = serialConfig.rs485.gen.enable;
         if (mavlinkComms.takeRs485SignalConfig(&rs485Msg) &&
-            rs485GeneratorFromWire(rs485Msg, &serialConfig.rs485.gen))
+            rs485GeneratorFromWire(rs485Msg, &serialConfig.rs485.gen)) {
             serialChanged = true;
+            if (serialConfig.rs485.gen.enable != rs485Was) serialToggled = true;
+        }
+        if (serialToggled) serialEnableToggled();
         if (serialChanged) {
             mirrorSerialToUi();
             repaintSerialIfShown();
