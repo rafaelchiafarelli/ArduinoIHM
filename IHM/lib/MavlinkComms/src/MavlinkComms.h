@@ -33,15 +33,21 @@ private:
     mavlink_message_t rxMsg;
     mavlink_status_t rxStatus;
 
-    // Latest received signal-generator configs, storage only. No CAN or
-    // RS-485 transmit driver exists in this codebase yet (see
-    // IHM/ARCHITECTURE.md's known gaps) -- these are decoded and held here
-    // for whoever wires up the actual bus hardware next; nothing currently
-    // acts on them.
+    // Latest received signal-generator configs (301/302), plus a pending
+    // flag set by dispatch() and cleared by take*SignalConfig() (superloop),
+    // which applies them to its SerialConfig. Last writer wins: a newer
+    // frame replaces an un-taken older one. Storage only.
     mavlink_can_signal_config_t canConfig[2];
-    bool canConfigValid[2];
+    bool canConfigDirty[2];
     mavlink_rs485_signal_config_t rs485Config;
-    bool rs485ConfigValid;
+    bool rs485ConfigDirty;
+
+    // Pending IHM_SERIAL_SETTING frames, oldest first. Each one is answered
+    // (IHM_SERIAL_SETTING_STATE), so they queue instead of replacing each
+    // other; a frame arriving with the queue full is dropped.
+    static const uint8_t SERIAL_SETTING_QUEUE = 4;
+    mavlink_ihm_serial_setting_t settingQueue[SERIAL_SETTING_QUEUE];
+    uint8_t settingCount;
 
     // Pending simulated encoder turns, one slot per encoder (hardcoded 3,
     // same as canConfig[2] hardcodes 2 CAN buses -- this class stays
@@ -80,13 +86,20 @@ private:
             if (cfg.bus_id < 2)
             {
                 canConfig[cfg.bus_id] = cfg;
-                canConfigValid[cfg.bus_id] = true;
+                canConfigDirty[cfg.bus_id] = true;
             }
             break;
         }
         case MAVLINK_MSG_ID_RS485_SIGNAL_CONFIG:
             mavlink_msg_rs485_signal_config_decode(&rxMsg, &rs485Config);
-            rs485ConfigValid = true;
+            rs485ConfigDirty = true;
+            break;
+        case MAVLINK_MSG_ID_IHM_SERIAL_SETTING:
+            if (settingCount < SERIAL_SETTING_QUEUE)
+            {
+                mavlink_msg_ihm_serial_setting_decode(&rxMsg, &settingQueue[settingCount]);
+                settingCount++;
+            }
             break;
         case MAVLINK_MSG_ID_IHM_SIMULATE_ENCODER:
         {
@@ -141,7 +154,7 @@ private:
 
 public:
     MavlinkComms()
-        : canConfigValid{false, false}, rs485ConfigValid(false),
+        : canConfigDirty{false, false}, rs485ConfigDirty(false), settingCount(0),
           simulatedEncoderPending{false, false, false}, simulatedButtonMask(0), pwmConfigDirty{false, false, false, false},
           relayCmdMask(0), relayCmdState(0)
     {
@@ -227,6 +240,32 @@ public:
         sendMessage(&msg);
     }
 
+    // Packs and queues one IHM_CAN_SIGNAL_STATE / IHM_RS485_SIGNAL_STATE: the
+    // generator config main.cpp holds for that bus (its SerialConfig), same
+    // fields as 301/302. Caller fills it; this class only packs/sends it.
+    void sendCanSignalState(const mavlink_ihm_can_signal_state_t &state)
+    {
+        mavlink_message_t msg;
+        mavlink_msg_ihm_can_signal_state_encode(1, 1, &msg, &state);
+        sendMessage(&msg);
+    }
+
+    void sendRs485SignalState(const mavlink_ihm_rs485_signal_state_t &state)
+    {
+        mavlink_message_t msg;
+        mavlink_msg_ihm_rs485_signal_state_encode(1, 1, &msg, &state);
+        sendMessage(&msg);
+    }
+
+    // Packs and queues one IHM_SERIAL_SETTING_STATE (the answer to an
+    // IHM_SERIAL_SETTING, or a keyed setting's periodic readback).
+    void sendSerialSettingState(uint8_t bus, uint16_t key, int32_t value, uint8_t status)
+    {
+        mavlink_message_t msg;
+        mavlink_msg_ihm_serial_setting_state_pack(1, 1, &msg, bus, key, value, status);
+        sendMessage(&msg);
+    }
+
     // Superloop-side hand-off of the latest PWM_CHANNEL_CONFIG for channel
     // `ch` that fast_handler() stored. Returns false if ch >= 4 or nothing
     // new has arrived for it; otherwise copies it to *out, clears the
@@ -307,32 +346,58 @@ public:
         return m;
     }
 
-    // Copies the latest config for that bus to *out; false if none has been
-    // received yet (or bus >= 2). Copy-out, not a pointer, for the same
-    // reason as takePwmChannelConfig().
-    bool getCanSignalConfig(uint8_t bus, mavlink_can_signal_config_t *out)
+    // Superloop-side hand-off of the latest CAN_SIGNAL_CONFIG for `bus`:
+    // false if bus >= 2 or nothing new arrived; otherwise copies it out and
+    // clears the pending flag, atomically (same pattern as
+    // takePwmChannelConfig). main.cpp validates it (canGeneratorFromWire).
+    bool takeCanSignalConfig(uint8_t bus, mavlink_can_signal_config_t *out)
     {
         if (bus >= 2)
             return false;
-        bool valid;
+        bool taken = false;
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
         {
-            valid = canConfigValid[bus];
-            if (valid)
+            if (canConfigDirty[bus])
+            {
+                canConfigDirty[bus] = false;
                 *out = canConfig[bus];
+                taken = true;
+            }
         }
-        return valid;
+        return taken;
     }
 
-    bool getRs485SignalConfig(mavlink_rs485_signal_config_t *out)
+    bool takeRs485SignalConfig(mavlink_rs485_signal_config_t *out)
     {
-        bool valid;
+        bool taken = false;
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
         {
-            valid = rs485ConfigValid;
-            if (valid)
+            if (rs485ConfigDirty)
+            {
+                rs485ConfigDirty = false;
                 *out = rs485Config;
+                taken = true;
+            }
         }
-        return valid;
+        return taken;
+    }
+
+    // Superloop-side hand-off of the oldest pending IHM_SERIAL_SETTING;
+    // false if none. main.cpp dispatches it by key and answers it.
+    bool takeSerialSetting(mavlink_ihm_serial_setting_t *out)
+    {
+        bool taken = false;
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+        {
+            if (settingCount > 0)
+            {
+                *out = settingQueue[0];
+                for (uint8_t i = 1; i < settingCount; i++)
+                    settingQueue[i - 1] = settingQueue[i];
+                settingCount--;
+                taken = true;
+            }
+        }
+        return taken;
     }
 };

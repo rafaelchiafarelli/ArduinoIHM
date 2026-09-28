@@ -21,6 +21,8 @@
 #include "MavlinkComms.h"
 #include "PWMWireConfig.h"
 #include "PWMLabelFormat.h"
+#include "SerialConfig.h"
+#include "SerialConfigWire.h"
 
 // Janus-generated UI (lib/GUI) -- plain C, so every header/declaration that
 // crosses into this .cpp translation unit needs extern "C" linkage to match
@@ -118,6 +120,12 @@ static const char* pwmInvertingText(bool inverting) { return inverting ? pwmInve
 
 static void initPwmDefaults(); // below mirrorPwmToUi -- seeds pwmLast[] and the PWM tab
 
+// The SERIAL tab's settings (lib/BusConfig): written by CAN_SIGNAL_CONFIG /
+// RS485_SIGNAL_CONFIG and the tab's own edits, last writer wins; read by
+// the tab's bindings and the 311/312 readback.
+static SerialConfig serialConfig;
+static void mirrorSerialToUi(); // below -- copies serialConfig into bus_status_instance
+
 // Focuses the active screen's first focusable widget -- never the tab strip:
 // rot0 owns the tabs (see the rot0 branch in loop()). Clears the strip's
 // preview first: janus_switch_screen clears widget focus but not the
@@ -166,6 +174,9 @@ void setup()
     display_driver_init();
     
     initPwmDefaults();
+
+    serialConfigDefaults(serialConfig);
+    mirrorSerialToUi();
 
     const janus_screen_desc_t *screen = janus_app_get_screen(&janus_app, janus_app.active_screen);
 
@@ -408,33 +419,58 @@ ISR(ADC_vect){
     analogInputs.isr_handler();
 }
 
-// Reflects the CAN0/CAN1/RS-485 signal-generator config MavlinkComms has
-// received from the PC app into bus_status_instance -- same data the old,
-// now-deleted Elements/BusStatusScreen.h read, just pushed into Janus's
-// bound struct instead of a hand-written widget. Read-only tab, so this is
-// the only writer of these fields.
-static void refreshBusStatusInstance(){
-    mavlink_can_signal_config_t can;
-    if(mavlinkComms.getCanSignalConfig(0, &can)){
-        bus_status_instance.can0_enabled = can.enable ? 1 : 0;
-        bus_status_instance.can0_id = (int)can.can_id;
-        bus_status_instance.can0_dlc = can.dlc;
-        bus_status_instance.can0_extended = can.extended_id ? 1 : 0;
-    }
+// Copies serialConfig into the SERIAL tab's bound struct and marks every
+// field dirty; the caller decides when to repaint. The only writer of
+// bus_status_instance.
+static void mirrorSerialToUi(){
+    const CanGeneratorConfig& c0 = serialConfig.can[0].gen;
+    const CanGeneratorConfig& c1 = serialConfig.can[1].gen;
+    const Rs485GeneratorConfig& r = serialConfig.rs485.gen;
+    bus_status_instance.can0_enabled = c0.enable;
+    bus_status_instance.can0_id = (int)c0.id;
+    bus_status_instance.can0_dlc = c0.dlc;
+    bus_status_instance.can0_extended = c0.extended;
+    bus_status_instance.can1_enabled = c1.enable;
+    bus_status_instance.can1_id = (int)c1.id;
+    bus_status_instance.can1_dlc = c1.dlc;
+    bus_status_instance.can1_extended = c1.extended;
+    bus_status_instance.rs485_enabled = r.enable;
+    bus_status_instance.rs485_length = r.length;
+    bus_status_instance.rs485_period_ms = r.period_ms;
+    bus_status_dirty.can0_enabled = bus_status_dirty.can0_id = bus_status_dirty.can0_dlc = bus_status_dirty.can0_extended = true;
+    bus_status_dirty.can1_enabled = bus_status_dirty.can1_id = bus_status_dirty.can1_dlc = bus_status_dirty.can1_extended = true;
+    bus_status_dirty.rs485_enabled = bus_status_dirty.rs485_length = bus_status_dirty.rs485_period_ms = true;
+}
 
-    if(mavlinkComms.getCanSignalConfig(1, &can)){
-        bus_status_instance.can1_enabled = can.enable ? 1 : 0;
-        bus_status_instance.can1_id = (int)can.can_id;
-        bus_status_instance.can1_dlc = can.dlc;
-        bus_status_instance.can1_extended = can.extended_id ? 1 : 0;
-    }
+// Repaints the SERIAL tab's dirty widgets if it's the tab showing; off-screen
+// the values wait in bus_status_instance for the tab's next full render.
+static void repaintSerialIfShown(){
+    if (janus_app_get_screen(&janus_app, janus_app.active_screen) == &busstatus_screen)
+        janus_render_screen_if_dirty(&busstatus_screen);
+}
 
-    mavlink_rs485_signal_config_t rs485;
-    if(mavlinkComms.getRs485SignalConfig(&rs485)){
-        bus_status_instance.rs485_enabled = rs485.enable ? 1 : 0;
-        bus_status_instance.rs485_length = rs485.length;
-        bus_status_instance.rs485_period_ms = rs485.period_ms;
+// Sends one bus's generator readback (311/312), round-robin CAN0 -> CAN1 ->
+// RS-485.
+static void sendSerialState(){
+    static uint8_t bus = 0;
+    if (bus < SERIAL_CAN_BUSES) {
+        mavlink_can_signal_config_t w;
+        canGeneratorToWire(bus, serialConfig.can[bus].gen, &w);
+        mavlink_ihm_can_signal_state_t s;
+        s.bus_id = w.bus_id; s.can_id = w.can_id; s.extended_id = w.extended_id; s.dlc = w.dlc;
+        memcpy(s.data, w.data, sizeof(s.data));
+        s.period_ms = w.period_ms; s.repeat_count = w.repeat_count; s.enable = w.enable;
+        mavlinkComms.sendCanSignalState(s);
+    } else {
+        mavlink_rs485_signal_config_t w;
+        rs485GeneratorToWire(serialConfig.rs485.gen, &w);
+        mavlink_ihm_rs485_signal_state_t s;
+        s.length = w.length;
+        memcpy(s.data, w.data, sizeof(s.data));
+        s.period_ms = w.period_ms; s.repeat_count = w.repeat_count; s.enable = w.enable;
+        mavlinkComms.sendRs485SignalState(s);
     }
+    bus = (uint8_t)((bus + 1) % (SERIAL_CAN_BUSES + 1));
 }
 
 int main()
@@ -615,6 +651,42 @@ int main()
             }
         }
 
+        // PC-driven SERIAL settings (301/302). Same model as the SERIAL tab,
+        // last writer wins; out-of-range frames are dropped silently (no ack
+        // in 301/302 -- 311/312 is the readback).
+        bool serialChanged = false;
+        for (uint8_t bus = 0; bus < SERIAL_CAN_BUSES; bus++) {
+            mavlink_can_signal_config_t m;
+            if (mavlinkComms.takeCanSignalConfig(bus, &m) &&
+                canGeneratorFromWire(m, &serialConfig.can[bus].gen))
+                serialChanged = true;
+        }
+        mavlink_rs485_signal_config_t rs485Msg;
+        if (mavlinkComms.takeRs485SignalConfig(&rs485Msg) &&
+            rs485GeneratorFromWire(rs485Msg, &serialConfig.rs485.gen))
+            serialChanged = true;
+        if (serialChanged) {
+            mirrorSerialToUi();
+            repaintSerialIfShown();
+        }
+
+        // Keyed settings (IHM_SERIAL_SETTING, 313): the path bus initiatives
+        // add their settings to (mavlink/README.md key table). No key exists
+        // yet, so every one is answered "unknown key" and changes nothing.
+        mavlink_ihm_serial_setting_t setting;
+        while (mavlinkComms.takeSerialSetting(&setting)) {
+            mavlinkComms.sendSerialSettingState(setting.bus, setting.key, 0, IHM_SERIAL_SETTING_UNKNOWN_KEY);
+        }
+
+        // SERIAL readback, ~50 ms into each ~100 ms window: behind the
+        // window's telemetry burst it wouldn't fit the TX ring (see
+        // mavlink/README.md, TX budget).
+        static bool serialStateSent = true;
+        if (!serialStateSent && timeCounter >= 50) {
+            sendSerialState();
+            serialStateSent = true;
+        }
+
         if(newDataAvailable){
             voltage0 = receivedRawData[0];
             voltage1 = receivedRawData[1];
@@ -683,7 +755,7 @@ int main()
                 uiTicksSinceSend = 0;
             }
 
-            refreshBusStatusInstance();
+            serialStateSent = false;   // the SERIAL readback goes out mid-window
 
             // This tick used to also force-redraw the active screen's first
             // top-level widget every ~100ms, back when that widget was
@@ -695,12 +767,6 @@ int main()
             // refresh. Removed rather than repointed at whatever now
             // happens to be widgets[0] on each screen, which would silently
             // redraw unrelated content for no reason.
-            //
-            // Known regression, still not fixed here: BusStatus's own
-            // CAN/RS485 fields only refresh on tab-switch or a box being
-            // toggled, not passively on this timer. Needs its own mechanism
-            // (e.g. an action fired from the MAVLink receive path) if live
-            // passive refresh there still matters.
         }
 
     }
