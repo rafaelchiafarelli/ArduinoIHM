@@ -24,6 +24,7 @@
 #include "SerialConfig.h"
 #include "SerialConfigWire.h"
 #include "SerialEdit.h"
+#include "SerialConfigEeprom.h"
 
 // Janus-generated UI (lib/GUI) -- plain C, so every header/declaration that
 // crosses into this .cpp translation unit needs extern "C" linkage to match
@@ -176,7 +177,10 @@ void setup()
     
     initPwmDefaults();
 
-    serialConfigDefaults(serialConfig);
+    // Saved SERIAL settings, used as saved (serial_config question 4: a
+    // generator saved as enabled comes up enabled); defaults if the
+    // EEPROM is blank or corrupt.
+    loadSerialConfig(&serialConfig);
     mirrorSerialToUi();
 
     const janus_screen_desc_t *screen = janus_app_get_screen(&janus_app, janus_app.active_screen);
@@ -504,10 +508,13 @@ static bool serialActionTarget(janus_action_t action, uint8_t* bus, SerialField*
     }
 }
 
-// A bus's enable switch toggled (serial_config question 3): board_editing
-// task 3 saves the whole config here.
+// A bus's enable switch toggled -- on the board or by a 301/302 that
+// changes `enable` (serial_config question 3): saves the whole config.
+// Other edits stay in RAM until the next toggle. eeprom_update_block only
+// writes changed bytes, ~3.3 ms each (see SerialConfigEeprom.h).
 static void serialEnableToggled()
 {
+    saveSerialConfig(serialConfig);
 }
 
 // pbRE1 on a SERIAL enable switch (via janus_actions.cpp): flips it.
@@ -743,17 +750,26 @@ int main()
         // PC-driven SERIAL settings (301/302). Same model as the SERIAL tab,
         // last writer wins; out-of-range frames are dropped silently (no ack
         // in 301/302 -- 311/312 is the readback).
-        bool serialChanged = false;
+        // One whose `enable` differs from the current one is a toggle, and
+        // saves (same rule as the on-screen switch).
+        bool serialChanged = false, serialToggled = false;
         for (uint8_t bus = 0; bus < SERIAL_CAN_BUSES; bus++) {
             mavlink_can_signal_config_t m;
+            uint8_t was = serialConfig.can[bus].gen.enable;
             if (mavlinkComms.takeCanSignalConfig(bus, &m) &&
-                canGeneratorFromWire(m, &serialConfig.can[bus].gen))
+                canGeneratorFromWire(m, &serialConfig.can[bus].gen)) {
                 serialChanged = true;
+                if (serialConfig.can[bus].gen.enable != was) serialToggled = true;
+            }
         }
         mavlink_rs485_signal_config_t rs485Msg;
+        uint8_t rs485Was = serialConfig.rs485.gen.enable;
         if (mavlinkComms.takeRs485SignalConfig(&rs485Msg) &&
-            rs485GeneratorFromWire(rs485Msg, &serialConfig.rs485.gen))
+            rs485GeneratorFromWire(rs485Msg, &serialConfig.rs485.gen)) {
             serialChanged = true;
+            if (serialConfig.rs485.gen.enable != rs485Was) serialToggled = true;
+        }
+        if (serialToggled) serialEnableToggled();
         if (serialChanged) {
             mirrorSerialToUi();
             repaintSerialIfShown();
