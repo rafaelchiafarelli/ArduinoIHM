@@ -7,9 +7,9 @@ changes it live.
 ## Tasks
 
 ```
-1-screen-fields   yaml: the per-bus row(s) with focusable fields + new bindings   (blocked: Q1)
-2-knob-editing    RE2 on a selected field changes it (actions + main.cpp)          (deps: 1, config_model/1; blocked: Q2)
-3-persist         EEPROM save per the save policy; load at boot                    (deps: 2, config_model/2; blocked: Q3)
+1-screen-fields   yaml: the per-bus row(s) with focusable fields + new bindings
+2-knob-editing    RE2 on a selected field changes it (actions + main.cpp)          (deps: 1, config_model/1)
+3-persist         EEPROM save per the save policy; load at boot                    (deps: 2, config_model/2)
 ```
 
 ## Acceptance gate

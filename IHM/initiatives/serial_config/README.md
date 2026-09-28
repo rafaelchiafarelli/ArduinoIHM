@@ -90,39 +90,42 @@ The MAVLink link itself (301/302 and the new messages) is exempt.
 Order: `config_model` -> `wire` -> `board_editing` and `companion_panel`
 (these two in parallel).
 
-## Open questions (each blocks the task named in brackets)
+## Open questions -- all answered (Rafael, 2026-09-27)
 
-1. **Row layout rule.** 320 px at the medium font is about 29
-   characters. Enable, ID, EXT, DLC and period fit; the 8 data bytes
-   (16 hex characters) and the repeat count don't. Options: a second line
-   per bus shown while it's selected, a collapsible box per bus, or data
-   bytes editable from the PC only. The rule also has to leave room for
-   the bus initiatives' fields, and say how a row changes with the bus's
-   mode (e.g. RS-485 in Modbus mode shows baud/format/address, not the
-   generator's LEN/period), which may need a Janus capability.
-   [board_editing/1]
-2. **Editing a hex ID with knobs:** digit by digit (RE1 moves between
-   digits) or RE2 steps with acceleration? [board_editing/2]
-3. **EEPROM save policy:** on every change (100k write cycles per cell;
-   one RE2 sweep is dozens of writes), a few seconds after the last edit,
-   or an explicit save action? Settings that reconfigure a live link
-   (baud, address) may want to apply on leaving the field, not on every
-   RE2 step; the rule belongs here so every extension follows it.
-   [board_editing/2, board_editing/3]
-4. **Boot behaviour:** a generator saved as enabled either starts
-   transmitting at power-up or comes up disabled. On a live vehicle bus
-   that's a safety choice. [config_model/2]
-5. **Generator value steps:** RE2 step sizes and ranges for period
-   (proposal: 10 ms steps, 0-65535), repeat count (0 = forever, 1-65535)
-   and data bytes. Bus parameter value lists moved to their owners
-   (decision 4). [config_model/1]
-6. **PC vs board edits:** last writer wins, as for PWM (proposal).
-   [wire/2]
-7. **How extension settings travel.** (a) Each bus initiative adds its own
-   MAVLink message pair; or (b) this initiative defines one generic pair,
-   e.g. `IHM_SERIAL_SETTING` (PC -> board: bus, key, int32 value) and a
-   key/value readback, so a new setting is a new key with no new message
-   and no CRC change for existing ones. Proposal: (b). [wire/1]
+1. **Row layout rule: same logic as the PWM tab.** Every value is its own
+   focusable field: RE1 moves between fields, RE2 changes the focused one.
+   No button press is needed to edit. Two rows per bus:
+   - row 1: enable switch, bus name, ID and DLC (CAN) / LEN (RS-485);
+   - row 2: period, repeat count, byte index (`B3`) and that byte's
+     value, plus EXT for CAN. The byte index picks which data byte the
+     value field shows and edits.
+   A bus initiative adds its fields to its bus's rows; a row that changes
+   with a mode (e.g. RS-485 in Modbus mode) is that initiative's to design.
+2. **Numeric fields: RE2 with digit-at-a-time acceleration.** A step starts
+   at one unit. About 4 fast clicks in a row (< 80 ms apart) move it up one
+   digit (x16 for hex fields, x10 for decimal ones); a pause of about
+   300 ms drops it one digit; a pause of 1.5 s or a focus change resets it
+   to one unit. The step never exceeds the field's top digit. RE2 is
+   sampled every 25 ms with one pending direction, so ~15-20 clicks/s is
+   the practical rate: standard ID ~2-3 s worst case, extended ID
+   ~6-10 s, period ~4-6 s.
+3. **Save policy: each bus's enable switch.** Edits apply live in RAM.
+   Toggling any bus's enable switch, on or off, from the board or from
+   the PC, saves the whole `SerialConfig` to EEPROM. Edits made without a
+   toggle are lost at power-off.
+4. **Boot: load the saved config and apply it as saved.** A generator
+   saved as enabled runs at power-up (Rafael's call, with the safety
+   trade-off stated).
+5. **Generator steps:** period 0-65530 ms in 10 ms units; repeat count
+   0 (forever) to 65535; data bytes 0x00-0xFF; DLC 0-8; RS-485 length
+   0-32; all with the acceleration from Q2 where they're numeric.
+6. **PC vs board edits: last writer wins**, as for PWM; the companion
+   shows the board's readback.
+7. **Extension settings travel generically:** one pair
+   `IHM_SERIAL_SETTING` (PC -> board: bus, key, int32 value) and
+   `IHM_SERIAL_SETTING_STATE` (board -> PC: bus, key, value, status). A
+   new setting is a new key in the key table (`mavlink/README.md`), with
+   no new message. The companion is updated to match.
 
 ## Not yet scoped
 
@@ -135,5 +138,6 @@ Order: `config_model` -> `wire` -> `board_editing` and `companion_panel`
 dev -> features -> serial_config -> epics -> <epic> -> tasks -> <task>
 ```
 
-Planned 2026-09-27 as initiative-only. Create the epic and task branches
-off `serial_config` when implementation starts.
+Planned 2026-09-27 as initiative-only; implemented 2026-09-27/28, all four
+epics done and bench-verified 2026-09-28 (see the task files' Bench
+sections). Bus initiatives extend it per `lib/BusConfig/README.md`.

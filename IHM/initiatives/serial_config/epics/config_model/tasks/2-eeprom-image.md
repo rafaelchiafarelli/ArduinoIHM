@@ -1,6 +1,6 @@
 # Task 2: eeprom-image
 
-**Status:** planned -- blocked on initiative open question 4 (boot behaviour)
+**Status:** done (2026-09-27) -- 169 native tests pass (10 new); the AVR sources compile with avr-g++ (the firmware links them from wire/2 on). Image is 83 B at EEPROM 0; bytes 0-255 reserved.
 **Depends on:** task 1
 
 ## Contract
@@ -16,8 +16,8 @@
    (-> all defaults).
 3. An AVR-only `loadSerialConfig()` / `saveSerialConfig()` using
    `avr/eeprom.h` `eeprom_update_block` (writes only changed bytes).
-4. Boot rule per open question 4 (e.g. generators forced disabled after
-   load).
+4. Boot rule per initiative question 4: the loaded config is used as
+   saved (no forcing).
 5. Native tests: round trip, corrupt CRC -> defaults, a shorter (older)
    payload -> old fields kept + new fields default, other version ->
    defaults.

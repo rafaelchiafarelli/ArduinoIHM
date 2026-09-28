@@ -8,8 +8,8 @@ generator fields; bus initiatives extend it (initiative README,
 ## Tasks
 
 ```
-1-config-struct-and-steps   SerialConfig generator fields, ranges, RE2 step helpers, extension recipe   (blocked: Q5)
-2-eeprom-image              versioned + length + CRC EEPROM image, append-only extension, defaults      (deps: 1; blocked: Q4)
+1-config-struct-and-steps   SerialConfig generator fields, ranges, RE2 step helpers, extension recipe
+2-eeprom-image              versioned + length + CRC EEPROM image, append-only extension, defaults      (deps: 1)
 ```
 
 ## Acceptance gate

@@ -10,7 +10,7 @@
     #error Wrong include order: MAVLINK_IHM_DIALECT.H MUST NOT BE DIRECTLY USED. Include mavlink.h from the same directory instead or set ALL AND EVERY defines from MAVLINK.H manually accordingly, including the #define MAVLINK_H call.
 #endif
 
-#define MAVLINK_IHM_DIALECT_XML_HASH 5153032570162429827
+#define MAVLINK_IHM_DIALECT_XML_HASH 8074036567986314379
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,7 +23,7 @@ extern "C" {
 #endif
 
 #ifndef MAVLINK_MESSAGE_CRCS
-#define MAVLINK_MESSAGE_CRCS {{300, 157, 19, 19, 0, 0, 0}, {301, 176, 20, 20, 0, 0, 0}, {302, 161, 38, 38, 0, 0, 0}, {303, 93, 13, 13, 0, 0, 0}, {304, 163, 1, 1, 0, 0, 0}, {305, 19, 2, 2, 0, 0, 0}, {306, 133, 1, 1, 0, 0, 0}, {307, 142, 13, 13, 0, 0, 0}, {308, 3, 8, 8, 0, 0, 0}, {309, 171, 2, 2, 0, 0, 0}}
+#define MAVLINK_MESSAGE_CRCS {{300, 157, 19, 19, 0, 0, 0}, {301, 176, 20, 20, 0, 0, 0}, {302, 161, 38, 38, 0, 0, 0}, {303, 93, 13, 13, 0, 0, 0}, {304, 163, 1, 1, 0, 0, 0}, {305, 19, 2, 2, 0, 0, 0}, {306, 133, 1, 1, 0, 0, 0}, {307, 142, 13, 13, 0, 0, 0}, {308, 3, 8, 8, 0, 0, 0}, {309, 171, 2, 2, 0, 0, 0}, {311, 31, 20, 20, 0, 0, 0}, {312, 199, 38, 38, 0, 0, 0}, {313, 51, 7, 7, 0, 0, 0}, {314, 222, 8, 8, 0, 0, 0}}
 #endif
 
 #include "../protocol.h"
@@ -88,6 +88,33 @@ typedef enum PWM_FREQUENCY
 } PWM_FREQUENCY;
 #endif
 
+/** @brief 
+        A bus on the SERIAL tab, as IHM_SERIAL_SETTING / IHM_SERIAL_SETTING_STATE
+        address it (lib/BusConfig/src/SerialConfig.h's sections).
+       */
+#ifndef HAVE_ENUM_IHM_SERIAL_BUS
+#define HAVE_ENUM_IHM_SERIAL_BUS
+typedef enum IHM_SERIAL_BUS
+{
+   IHM_SERIAL_BUS_CAN0=0, /* CAN bus 0. | */
+   IHM_SERIAL_BUS_CAN1=1, /* CAN bus 1. | */
+   IHM_SERIAL_BUS_RS485=2, /* The RS-485 port. | */
+   IHM_SERIAL_BUS_ENUM_END=3, /*  | */
+} IHM_SERIAL_BUS;
+#endif
+
+/** @brief Outcome of an IHM_SERIAL_SETTING, reported in IHM_SERIAL_SETTING_STATE. */
+#ifndef HAVE_ENUM_IHM_SERIAL_SETTING_STATUS
+#define HAVE_ENUM_IHM_SERIAL_SETTING_STATUS
+typedef enum IHM_SERIAL_SETTING_STATUS
+{
+   IHM_SERIAL_SETTING_OK=0, /* Applied; value is the setting's value now. | */
+   IHM_SERIAL_SETTING_UNKNOWN_KEY=1, /* No such key on that bus (or no such bus). Nothing changed. | */
+   IHM_SERIAL_SETTING_INVALID_VALUE=2, /* Value out of range. Nothing changed; value is the current one. | */
+   IHM_SERIAL_SETTING_STATUS_ENUM_END=3, /*  | */
+} IHM_SERIAL_SETTING_STATUS;
+#endif
+
 // MAVLINK VERSION
 
 #ifndef MAVLINK_VERSION
@@ -110,14 +137,18 @@ typedef enum PWM_FREQUENCY
 #include "./mavlink_msg_ihm_pwm_state.h"
 #include "./mavlink_msg_ihm_ui_state.h"
 #include "./mavlink_msg_ihm_relay_command.h"
+#include "./mavlink_msg_ihm_can_signal_state.h"
+#include "./mavlink_msg_ihm_rs485_signal_state.h"
+#include "./mavlink_msg_ihm_serial_setting.h"
+#include "./mavlink_msg_ihm_serial_setting_state.h"
 
 // base include
 
 
 
 #if MAVLINK_IHM_DIALECT_XML_HASH == MAVLINK_PRIMARY_XML_HASH
-# define MAVLINK_MESSAGE_INFO {MAVLINK_MESSAGE_INFO_IHM_BOARD_STATE, MAVLINK_MESSAGE_INFO_CAN_SIGNAL_CONFIG, MAVLINK_MESSAGE_INFO_RS485_SIGNAL_CONFIG, MAVLINK_MESSAGE_INFO_PWM_CHANNEL_CONFIG, MAVLINK_MESSAGE_INFO_IHM_RELAY_STATE, MAVLINK_MESSAGE_INFO_IHM_SIMULATE_ENCODER, MAVLINK_MESSAGE_INFO_IHM_SIMULATE_BUTTON, MAVLINK_MESSAGE_INFO_IHM_PWM_STATE, MAVLINK_MESSAGE_INFO_IHM_UI_STATE, MAVLINK_MESSAGE_INFO_IHM_RELAY_COMMAND}
-# define MAVLINK_MESSAGE_NAMES {{ "CAN_SIGNAL_CONFIG", 301 }, { "IHM_BOARD_STATE", 300 }, { "IHM_PWM_STATE", 307 }, { "IHM_RELAY_COMMAND", 309 }, { "IHM_RELAY_STATE", 304 }, { "IHM_SIMULATE_BUTTON", 306 }, { "IHM_SIMULATE_ENCODER", 305 }, { "IHM_UI_STATE", 308 }, { "PWM_CHANNEL_CONFIG", 303 }, { "RS485_SIGNAL_CONFIG", 302 }}
+# define MAVLINK_MESSAGE_INFO {MAVLINK_MESSAGE_INFO_IHM_BOARD_STATE, MAVLINK_MESSAGE_INFO_CAN_SIGNAL_CONFIG, MAVLINK_MESSAGE_INFO_RS485_SIGNAL_CONFIG, MAVLINK_MESSAGE_INFO_PWM_CHANNEL_CONFIG, MAVLINK_MESSAGE_INFO_IHM_RELAY_STATE, MAVLINK_MESSAGE_INFO_IHM_SIMULATE_ENCODER, MAVLINK_MESSAGE_INFO_IHM_SIMULATE_BUTTON, MAVLINK_MESSAGE_INFO_IHM_PWM_STATE, MAVLINK_MESSAGE_INFO_IHM_UI_STATE, MAVLINK_MESSAGE_INFO_IHM_RELAY_COMMAND, MAVLINK_MESSAGE_INFO_IHM_CAN_SIGNAL_STATE, MAVLINK_MESSAGE_INFO_IHM_RS485_SIGNAL_STATE, MAVLINK_MESSAGE_INFO_IHM_SERIAL_SETTING, MAVLINK_MESSAGE_INFO_IHM_SERIAL_SETTING_STATE}
+# define MAVLINK_MESSAGE_NAMES {{ "CAN_SIGNAL_CONFIG", 301 }, { "IHM_BOARD_STATE", 300 }, { "IHM_CAN_SIGNAL_STATE", 311 }, { "IHM_PWM_STATE", 307 }, { "IHM_RELAY_COMMAND", 309 }, { "IHM_RELAY_STATE", 304 }, { "IHM_RS485_SIGNAL_STATE", 312 }, { "IHM_SERIAL_SETTING", 313 }, { "IHM_SERIAL_SETTING_STATE", 314 }, { "IHM_SIMULATE_BUTTON", 306 }, { "IHM_SIMULATE_ENCODER", 305 }, { "IHM_UI_STATE", 308 }, { "PWM_CHANNEL_CONFIG", 303 }, { "RS485_SIGNAL_CONFIG", 302 }}
 # if MAVLINK_COMMAND_24BIT
 #  include "../mavlink_get_info.h"
 # endif
