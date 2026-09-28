@@ -105,6 +105,7 @@ $prodSourceAllowlist = @(
     "lib/RotaryEncoder/ButtonMap.cpp",
     "lib/BusConfig/src/SerialConfig.cpp",
     "lib/BusConfig/src/SerialConfigWire.cpp",
+    "lib/BusConfig/src/SerialConfigImage.cpp",
     "src/Timer2Config.cpp"
 )
 $prodSources = $prodSourceAllowlist | ForEach-Object { Join-Path $repoRoot $_ }

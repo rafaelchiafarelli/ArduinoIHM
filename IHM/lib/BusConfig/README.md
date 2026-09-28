@@ -9,6 +9,8 @@ AVR/UI/MAVLink dependency in the model itself, so it is host-tested
 |---|---|
 | `src/SerialConfig.h/.cpp` | The model (`CanBusConfig`, `Rs485BusConfig`, their `gen` generator sections), defaults, range checks, RE2 step helpers (`serialStepValue`, `serialStepEnum`, `serialSetFlag`) and the digit-at-a-time acceleration (`DigitAccel`). |
 | `src/SerialConfigWire.h/.cpp` | Adapters to and from `CAN_SIGNAL_CONFIG` (301) and `RS485_SIGNAL_CONFIG` (302). |
+| `src/SerialConfigImage.h/.cpp` | The EEPROM image: magic, version, payload length, field-by-field payload, CRC-16. Append-only extension rule (see the header). Host-tested (`test_native/test_serial_config_image.cpp`). |
+| `src/SerialConfigEeprom.h/.cpp` | AVR-only `loadSerialConfig()` / `saveSerialConfig()` at EEPROM 0-255 (`ARCHITECTURE.md`, "EEPROM"). |
 
 This initiative ships the signal-generator settings only. Bus parameters
 and protocol settings (CAN bitrate, RS-485 mode/baud/format/address,
