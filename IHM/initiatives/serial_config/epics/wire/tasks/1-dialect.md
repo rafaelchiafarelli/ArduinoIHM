@@ -1,6 +1,6 @@
 # Task 1: dialect
 
-**Status:** planned
+**Status:** done (2026-09-27) -- 174 native tests pass (5 new); `platformio run` RAM 59.3 % -> 59.8 % (+40 B, MAVLink CRC table entries).
 **Depends on:** `config_model/1`
 
 ## Contract
