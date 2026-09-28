@@ -8,7 +8,8 @@
 1. USART3 driver (`lib/Uart3`, or a shared driver per open question 7),
    strictly event-driven: the RX ISR appends to the frame buffer and
    re-arms the silence timer; the UDRE ISR sends the TX buffer.
-   Configurable baud and parity (8N1/8E1/8O1). Nothing polls a ring.
+   Configurable baud and format (8N1/8E1/8O1/8N2, per open question 8).
+   Nothing polls a ring.
 2. Direction: if DE/RE exists, raise it before the first byte and drop
    it in the **TXC** ISR (after the last stop bit, not on an empty TX
    ring); with an auto-direction module, nothing to drive.
