@@ -74,6 +74,7 @@ if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
 # feature branch adds its own natively-testable dir(s) here as needed.
 $libAllowlist = @(
     "lib/StateMachine/src",
+    "lib/BusConfig/src",
     "lib/HAL/src",
     "lib/MavlinkComms/src",   # RelayCommand.h only -- MavlinkComms.h itself is AVR-only
     "lib/MultiOutput/src",
@@ -102,6 +103,8 @@ $prodSourceAllowlist = @(
     "lib/MultiOutput/src/PWMWireConfig.cpp",
     "lib/MultiOutput/src/PWMLabelFormat.cpp",
     "lib/RotaryEncoder/ButtonMap.cpp",
+    "lib/BusConfig/src/SerialConfig.cpp",
+    "lib/BusConfig/src/SerialConfigWire.cpp",
     "src/Timer2Config.cpp"
 )
 $prodSources = $prodSourceAllowlist | ForEach-Object { Join-Path $repoRoot $_ }
