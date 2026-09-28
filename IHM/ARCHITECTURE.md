@@ -83,7 +83,7 @@ before the scheduler is running -- see that module's README.
    |   rot1  -> janus_focus_move ;  rot1 click -> janus_focus_activate|
    |             -> janus_handle_action() [src/janus_actions.cpp]    |
    |                  -> MultiOutput (Relay)                         |
-   |   ~100ms: refreshBusStatusInstance() <- MavlinkComms            |
+   |   301/302 -> SerialConfig -> mirrorSerialToUi() (on change)     |
    |   janus_render_screen / _widget -> draw_area_sync -> Display    |
    |   MCP4725 dac0/dac1.setVoltage(voltage0/1)  (fed by Comms /     |
    |                                    MAVLink, once the gap is fixed)|
@@ -96,6 +96,7 @@ before the scheduler is running -- see that module's README.
 | Inputs | `BinaryInput`, `RotaryEncoder`, `ButtonMap`, `AnalogInput` | [lib/BinaryInput](lib/BinaryInput/README.md), [lib/RotaryEncoder](lib/RotaryEncoder/README.md) |
 | Outputs | `BinaryOutputs`, `Relay`, `MotorDC`, `PWM` + config/timing/label-format types | [lib/BinaryOutputs](lib/BinaryOutputs/README.md), [lib/MultiOutput](lib/MultiOutput/README.md) |
 | UI | `lib/GUI` -- Janus-generated screens + vendored `lib/GUI/runtime`; `src/janus_actions.cpp` + the Janus block of `main.cpp` are the glue | [The UI is generated (`lib/GUI`)](#the-ui-is-generated-libgui) |
+| Settings | `BusConfig` -- `SerialConfig` (SERIAL tab settings), its EEPROM image and RE2 step/acceleration helpers | [lib/BusConfig](lib/BusConfig/README.md) |
 | Comms/peripherals | `SerialCommunication`, `MavlinkComms`, `MCP4725` | [lib/Comms](lib/Comms/README.md), [lib/MCP4725](lib/MCP4725/README.md) |
 | HAL / shared low-level | `Ports`, `HAL/RegisterIO`, `BusIO` (vendored) | [lib/Ports](lib/Ports/README.md), [lib/HAL](lib/HAL/README.md), [lib/BusIO](lib/BusIO/README.md) |
 | Vendored, mostly untouched | `Display` (parallel-TFT, in active use), `lib/GUI/runtime` (Janus fixed runtime), `SD`, `TouchScreen` (not instantiated anywhere) | [lib/Display](lib/Display/README.md) |
@@ -144,9 +145,9 @@ supplies the hardware glue.
   3. **Feeding the bound structs**: the generated `*_instance` structs
      (`pwm_instance`, `bus_status_instance`, `relay_instance`) are what
      widgets read. Firmware writes real values in --
-     `refreshBusStatusInstance()` copies MAVLink-received CAN/RS-485
-     config into `bus_status_instance` every ~100ms -- and sets the
-     matching `*_dirty` flag so the dirty-aware render path repaints only
+     `mirrorSerialToUi()` copies the live `SerialConfig` (`lib/BusConfig`)
+     into `bus_status_instance` whenever it changes (a 301/302 or a SERIAL
+     tab edit) -- and sets the matching `*_dirty` flag so the dirty-aware render path repaints only
      what changed.
   4. **Redraw cadence**: `janus_render_screen` on entry / tab-switch and
      right after an action fires; `janus_render_widget` on the ~100ms
@@ -244,6 +245,13 @@ on-screen UI tab yet.
 All 8 timer-compare pins (`OC1A/B/C`, `OC3A`, `OC4A/B/C`, `OC5A`) are
 direct-to-output, no buffer, entirely separate from the `Relay` /
 `MotorDC` bus.
+
+### EEPROM
+
+| Bytes | Owner |
+|---|---|
+| 0-255 | `SerialConfig` image (`lib/BusConfig/src/SerialConfigImage.h`: magic, version, payload length, payload, CRC-16). 83 B today; the rest is room for bus initiatives' appended settings. |
+| 256-4095 | Free. |
 
 ## Known gaps
 

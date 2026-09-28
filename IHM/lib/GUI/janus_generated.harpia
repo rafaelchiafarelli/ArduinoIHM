@@ -27,16 +27,27 @@ message pwm{
 
 message bus_status{
     int can0_enabled;
-    int can0_id;
+    int64 can0_id;
     int can0_dlc;
     int can0_extended;
+    int64 can0_period_ms;
+    string can0_repeat_label;
+    int can0_byte_index;
+    int can0_byte_value;
     int can1_enabled;
-    int can1_id;
+    int64 can1_id;
     int can1_dlc;
     int can1_extended;
+    int64 can1_period_ms;
+    string can1_repeat_label;
+    int can1_byte_index;
+    int can1_byte_value;
     int rs485_enabled;
     int rs485_length;
-    int rs485_period_ms;
+    int64 rs485_period_ms;
+    string rs485_repeat_label;
+    int rs485_byte_index;
+    int rs485_byte_value;
 };
 
 message relay{

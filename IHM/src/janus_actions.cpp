@@ -26,6 +26,9 @@ void pwmCycleChannelFrequency(uint8_t ch);
 // main.cpp: sets (not flips) one PWM output's enable/inverting bit and
 // re-applies the channel if it changed -- RE2 on a focused switch.
 void pwmSetOutputBit(uint8_t ch, uint8_t out, bool inverting, bool on);
+// main.cpp: flips a SERIAL bus's enable switch (0 = CAN0, 1 = CAN1,
+// 2 = RS-485) and saves the config. RE2 on SERIAL fields is main.cpp's.
+void serialPressEnable(uint8_t bus);
 
 // Drives relay `index` to `on`: the hardware, relayState[], and the Relay
 // tab's binding (switch + LED) -- nothing else writes relay_instance, so
@@ -77,6 +80,12 @@ extern "C" void janus_handle_action(janus_action_t action) {
         case JANUS_ACTION_EDIT_PWM_CH3_B_DUTY:
         case JANUS_ACTION_EDIT_PWM_CH3_C_DUTY:
             break;
+        case JANUS_ACTION_TOGGLE_CAN0_ENABLED:  serialPressEnable(0); break;
+        case JANUS_ACTION_TOGGLE_CAN1_ENABLED:  serialPressEnable(1); break;
+        case JANUS_ACTION_TOGGLE_RS485_ENABLED: serialPressEnable(2); break;
+        // edit_can*/edit_rs485_*: a press does nothing, same as the duty
+        // bars -- the actions only make the fields focusable; RE2 edits
+        // them in main.cpp.
         default: break;
     }
 }
