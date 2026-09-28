@@ -419,6 +419,29 @@ ISR(ADC_vect){
     analogInputs.isr_handler();
 }
 
+// Which data byte each bus's "B<n>" field points at (CAN0, CAN1, RS-485):
+// UI state only, not a setting. Kept inside the bus's DLC / LEN.
+static uint8_t serialByteIndex[SERIAL_CAN_BUSES + 1];
+
+// RAM-resident repeat texts ("x inf" / "x65535"): bound strings are read
+// through a plain RAM pointer, never PROGMEM.
+static char serialRepeatLabel[SERIAL_CAN_BUSES + 1][8];
+
+static void formatRepeatLabel(char* out, uint16_t repeat)
+{
+    if (repeat == 0) { strcpy(out, "x inf"); return; }
+    out[0] = 'x';
+    utoa(repeat, out + 1, 10);
+}
+
+// Clamps a bus's byte index into its current DLC / LEN (0 when empty).
+static uint8_t serialClampByteIndex(uint8_t bus)
+{
+    uint8_t count = bus < SERIAL_CAN_BUSES ? serialConfig.can[bus].gen.dlc : serialConfig.rs485.gen.length;
+    if (serialByteIndex[bus] >= count) serialByteIndex[bus] = count ? (uint8_t)(count - 1) : 0;
+    return serialByteIndex[bus];
+}
+
 // Copies serialConfig into the SERIAL tab's bound struct and marks every
 // field dirty; the caller decides when to repaint. The only writer of
 // bus_status_instance.
@@ -426,20 +449,23 @@ static void mirrorSerialToUi(){
     const CanGeneratorConfig& c0 = serialConfig.can[0].gen;
     const CanGeneratorConfig& c1 = serialConfig.can[1].gen;
     const Rs485GeneratorConfig& r = serialConfig.rs485.gen;
-    bus_status_instance.can0_enabled = c0.enable;
-    bus_status_instance.can0_id = (int)c0.id;
-    bus_status_instance.can0_dlc = c0.dlc;
-    bus_status_instance.can0_extended = c0.extended;
-    bus_status_instance.can1_enabled = c1.enable;
-    bus_status_instance.can1_id = (int)c1.id;
-    bus_status_instance.can1_dlc = c1.dlc;
-    bus_status_instance.can1_extended = c1.extended;
-    bus_status_instance.rs485_enabled = r.enable;
-    bus_status_instance.rs485_length = r.length;
-    bus_status_instance.rs485_period_ms = r.period_ms;
-    bus_status_dirty.can0_enabled = bus_status_dirty.can0_id = bus_status_dirty.can0_dlc = bus_status_dirty.can0_extended = true;
-    bus_status_dirty.can1_enabled = bus_status_dirty.can1_id = bus_status_dirty.can1_dlc = bus_status_dirty.can1_extended = true;
-    bus_status_dirty.rs485_enabled = bus_status_dirty.rs485_length = bus_status_dirty.rs485_period_ms = true;
+    for (uint8_t bus = 0; bus <= SERIAL_CAN_BUSES; bus++) {
+        uint16_t repeat = bus < SERIAL_CAN_BUSES ? serialConfig.can[bus].gen.repeat_count : r.repeat_count;
+        formatRepeatLabel(serialRepeatLabel[bus], repeat);
+        serialClampByteIndex(bus);
+    }
+    bus_status_t& b = bus_status_instance;
+    b.can0_enabled = c0.enable; b.can0_id = c0.id; b.can0_dlc = c0.dlc; b.can0_extended = c0.extended;
+    b.can0_period_ms = c0.period_ms; b.can0_repeat_label = serialRepeatLabel[0];
+    b.can0_byte_index = serialByteIndex[0]; b.can0_byte_value = c0.data[serialByteIndex[0]];
+    b.can1_enabled = c1.enable; b.can1_id = c1.id; b.can1_dlc = c1.dlc; b.can1_extended = c1.extended;
+    b.can1_period_ms = c1.period_ms; b.can1_repeat_label = serialRepeatLabel[1];
+    b.can1_byte_index = serialByteIndex[1]; b.can1_byte_value = c1.data[serialByteIndex[1]];
+    b.rs485_enabled = r.enable; b.rs485_length = r.length;
+    b.rs485_period_ms = r.period_ms; b.rs485_repeat_label = serialRepeatLabel[2];
+    b.rs485_byte_index = serialByteIndex[2]; b.rs485_byte_value = r.data[serialByteIndex[2]];
+    // Every field is dirty: bus_status_dirty_t is all bools, so set them all.
+    memset(&bus_status_dirty, 1, sizeof(bus_status_dirty));
 }
 
 // Repaints the SERIAL tab's dirty widgets if it's the tab showing; off-screen
