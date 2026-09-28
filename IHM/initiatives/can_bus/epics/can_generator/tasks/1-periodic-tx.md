@@ -12,5 +12,6 @@
 2. A full TX queue drops the frame and counts it (never blocks, never
    retries by polling).
 3. Pure repeat/period bookkeeping native-tested.
-4. Once `serial_config` exists, the generator reads its config from
-   `SerialConfig` instead of the raw MAVLink copy.
+4. The generator reads its config from `SerialConfig` (`serial_config`
+   is implemented first), and a change to it re-arms or stops the timer
+   on the change event.

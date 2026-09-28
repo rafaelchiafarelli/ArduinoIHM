@@ -3,7 +3,9 @@
 Real CAN on the board's two external CAN modules, then (as later epics)
 the protocols Rafael asked about on 2026-09-27: SAE J1939, ISO 14229
 (UDS) and CANopen, with the SD card for storage. This initiative is the
-driver foundation; `serial_config` configures it.
+driver foundation. `serial_config` (implemented first) is the settings
+framework; this initiative adds its own settings to it (see "Settings"
+below).
 
 ## Hardware (from `IOs IHM.xlsx`; to confirm, open question 1)
 
@@ -59,6 +61,18 @@ Order: `event_timer` and `spi_sharing` -> `mcp2515_driver` ->
 the UI needs it. Protocol epics start once
 the relevant foundation epics are done.
 
+## Settings (hybrid ownership, 2026-09-27)
+
+`serial_config` owns the `SerialConfig` framework and the generator
+settings. Bus parameters and protocol settings belong here and are added
+through its extension contract (`initiatives/serial_config/README.md`),
+in the same task as the code that acts on them:
+
+- **CAN bitrate** per bus: `mcp2515_driver/4-bitrate-setting`.
+- **Protocol mode** per bus (raw / J1939 / UDS / CANopen) and protocol
+  settings (J1939 source address, UDS/CANopen addressing): a settings
+  task in each protocol epic when it is scoped (open question 5).
+
 ## Protocols: feasibility on this hardware (2026-09-27), not yet scoped
 
 Each becomes its own epic once open question 5 picks it.
@@ -113,11 +127,15 @@ Each becomes its own epic once open question 5 picks it.
    leaving ~1.5 KB for stack. Two 16-frame RX rings (~450 B) + SD
    (~600 B) fit; protocol buffers must fit what's left.
    [mcp2515_driver/2, sd_storage/1]
+9. **Bitrate values and default:** proposal 125 / 250 / 500 / 1000
+   kbit/s, default 250 (J1939's usual rate). Can a bus be set to
+   listen-only from the screen? [mcp2515_driver/4]
 
 ## Out of scope
 
-RS-485 on Serial3; CAN FD (the hardware can't); the SERIAL tab UI
-(`serial_config`).
+RS-485 on Serial3; CAN FD (the hardware can't); the SERIAL tab's editing
+mechanics and row layout (`serial_config`; this initiative only adds its
+fields to them).
 
 ## Branch chain
 
