@@ -418,6 +418,30 @@ enums["PWM_FREQUENCY"][13] = EnumEntry(
 PWM_FREQUENCY_ENUM_END = 14
 enums["PWM_FREQUENCY"][14] = EnumEntry("PWM_FREQUENCY_ENUM_END", """""")
 
+# IHM_SERIAL_BUS
+enums["IHM_SERIAL_BUS"] = Enum()
+enums["IHM_SERIAL_BUS"].bitmask = False
+IHM_SERIAL_BUS_CAN0 = 0
+enums["IHM_SERIAL_BUS"][0] = EnumEntry("IHM_SERIAL_BUS_CAN0", """CAN bus 0.""")
+IHM_SERIAL_BUS_CAN1 = 1
+enums["IHM_SERIAL_BUS"][1] = EnumEntry("IHM_SERIAL_BUS_CAN1", """CAN bus 1.""")
+IHM_SERIAL_BUS_RS485 = 2
+enums["IHM_SERIAL_BUS"][2] = EnumEntry("IHM_SERIAL_BUS_RS485", """The RS-485 port.""")
+IHM_SERIAL_BUS_ENUM_END = 3
+enums["IHM_SERIAL_BUS"][3] = EnumEntry("IHM_SERIAL_BUS_ENUM_END", """""")
+
+# IHM_SERIAL_SETTING_STATUS
+enums["IHM_SERIAL_SETTING_STATUS"] = Enum()
+enums["IHM_SERIAL_SETTING_STATUS"].bitmask = False
+IHM_SERIAL_SETTING_OK = 0
+enums["IHM_SERIAL_SETTING_STATUS"][0] = EnumEntry("IHM_SERIAL_SETTING_OK", """Applied; value is the setting's value now.""")
+IHM_SERIAL_SETTING_UNKNOWN_KEY = 1
+enums["IHM_SERIAL_SETTING_STATUS"][1] = EnumEntry("IHM_SERIAL_SETTING_UNKNOWN_KEY", """No such key on that bus (or no such bus). Nothing changed.""")
+IHM_SERIAL_SETTING_INVALID_VALUE = 2
+enums["IHM_SERIAL_SETTING_STATUS"][2] = EnumEntry("IHM_SERIAL_SETTING_INVALID_VALUE", """Value out of range. Nothing changed; value is the current one.""")
+IHM_SERIAL_SETTING_STATUS_ENUM_END = 3
+enums["IHM_SERIAL_SETTING_STATUS"][3] = EnumEntry("IHM_SERIAL_SETTING_STATUS_ENUM_END", """""")
+
 # message IDs
 MAVLINK_MSG_ID_BAD_DATA = -1
 MAVLINK_MSG_ID_UNKNOWN = -2
@@ -431,6 +455,10 @@ MAVLINK_MSG_ID_IHM_SIMULATE_BUTTON = 306
 MAVLINK_MSG_ID_IHM_PWM_STATE = 307
 MAVLINK_MSG_ID_IHM_UI_STATE = 308
 MAVLINK_MSG_ID_IHM_RELAY_COMMAND = 309
+MAVLINK_MSG_ID_IHM_CAN_SIGNAL_STATE = 311
+MAVLINK_MSG_ID_IHM_RS485_SIGNAL_STATE = 312
+MAVLINK_MSG_ID_IHM_SERIAL_SETTING = 313
+MAVLINK_MSG_ID_IHM_SERIAL_SETTING_STATE = 314
 
 
 class MAVLink_ihm_board_state_message(MAVLink_message):
@@ -934,6 +962,194 @@ class MAVLink_ihm_relay_command_message(MAVLink_message):
 setattr(MAVLink_ihm_relay_command_message, "name", mavlink_msg_deprecated_name_property())
 
 
+class MAVLink_ihm_can_signal_state_message(MAVLink_message):
+    """
+    The signal-generator config the board holds for one CAN bus. Board
+    ->         PC, telemetry, read-only -- CAN_SIGNAL_CONFIG (301) and
+    the SERIAL tab         (RE1/RE2) change it, last writer wins. Same
+    fields as 301, so the PC         can compare it field by field
+    with what it sent (as IHM_PWM_STATE         mirrors
+    PWM_CHANNEL_CONFIG). Sent round-robin with
+    IHM_RS485_SIGNAL_STATE, one bus per ~100 ms tick (each bus every
+    ~300 ms). Mirrors main.cpp's SerialConfig; a rejected 301 leaves
+    it         unchanged. No CAN driver exists yet, so this is what is
+    stored and         shown, not what is on the wire.
+    """
+
+    id = MAVLINK_MSG_ID_IHM_CAN_SIGNAL_STATE
+    msgname = "IHM_CAN_SIGNAL_STATE"
+    fieldnames = ["bus_id", "can_id", "extended_id", "dlc", "data", "period_ms", "repeat_count", "enable"]
+    ordered_fieldnames = ["can_id", "period_ms", "repeat_count", "bus_id", "extended_id", "dlc", "data", "enable"]
+    fieldtypes = ["uint8_t", "uint32_t", "uint8_t", "uint8_t", "uint8_t", "uint16_t", "uint16_t", "uint8_t"]
+    fielddisplays_by_name: Dict[str, str] = {}
+    fieldenums_by_name: Dict[str, str] = {}
+    fieldunits_by_name: Dict[str, str] = {}
+    native_format = bytearray(b"<IHHBBBBB")
+    orders = [3, 0, 4, 5, 6, 1, 2, 7]
+    lengths = [1, 1, 1, 1, 1, 1, 8, 1]
+    array_lengths = [0, 0, 0, 0, 0, 0, 8, 0]
+    crc_extra = 31
+    unpacker = struct.Struct("<IHHBBB8BB")
+    instance_field = None
+    instance_offset = -1
+
+    def __init__(self, bus_id: int, can_id: int, extended_id: int, dlc: int, data: Sequence[int], period_ms: int, repeat_count: int, enable: int):
+        MAVLink_message.__init__(self, MAVLink_ihm_can_signal_state_message.id, MAVLink_ihm_can_signal_state_message.msgname)
+        self._fieldnames = MAVLink_ihm_can_signal_state_message.fieldnames
+        self._instance_field = MAVLink_ihm_can_signal_state_message.instance_field
+        self._instance_offset = MAVLink_ihm_can_signal_state_message.instance_offset
+        self.bus_id = bus_id
+        self.can_id = can_id
+        self.extended_id = extended_id
+        self.dlc = dlc
+        self.data = data
+        self.period_ms = period_ms
+        self.repeat_count = repeat_count
+        self.enable = enable
+
+    def pack(self, mav: "MAVLink", force_mavlink1: bool = False) -> bytes:
+        return self._pack(mav, self.crc_extra, self.unpacker.pack(self.can_id, self.period_ms, self.repeat_count, self.bus_id, self.extended_id, self.dlc, self.data[0], self.data[1], self.data[2], self.data[3], self.data[4], self.data[5], self.data[6], self.data[7], self.enable), force_mavlink1=force_mavlink1)
+
+
+# Define name on the class for backwards compatibility (it is now msgname).
+# Done with setattr to hide the class variable from mypy.
+setattr(MAVLink_ihm_can_signal_state_message, "name", mavlink_msg_deprecated_name_property())
+
+
+class MAVLink_ihm_rs485_signal_state_message(MAVLink_message):
+    """
+    The signal-generator config the board holds for the RS-485 port.
+    Board         -> PC, telemetry, read-only -- RS485_SIGNAL_CONFIG
+    (302) and the         SERIAL tab change it, last writer wins. Same
+    fields as 302. Sent in         the same round-robin as
+    IHM_CAN_SIGNAL_STATE.
+    """
+
+    id = MAVLINK_MSG_ID_IHM_RS485_SIGNAL_STATE
+    msgname = "IHM_RS485_SIGNAL_STATE"
+    fieldnames = ["length", "data", "period_ms", "repeat_count", "enable"]
+    ordered_fieldnames = ["period_ms", "repeat_count", "length", "data", "enable"]
+    fieldtypes = ["uint8_t", "uint8_t", "uint16_t", "uint16_t", "uint8_t"]
+    fielddisplays_by_name: Dict[str, str] = {}
+    fieldenums_by_name: Dict[str, str] = {}
+    fieldunits_by_name: Dict[str, str] = {}
+    native_format = bytearray(b"<HHBBB")
+    orders = [2, 3, 0, 1, 4]
+    lengths = [1, 1, 1, 32, 1]
+    array_lengths = [0, 0, 0, 32, 0]
+    crc_extra = 199
+    unpacker = struct.Struct("<HHB32BB")
+    instance_field = None
+    instance_offset = -1
+
+    def __init__(self, length: int, data: Sequence[int], period_ms: int, repeat_count: int, enable: int):
+        MAVLink_message.__init__(self, MAVLink_ihm_rs485_signal_state_message.id, MAVLink_ihm_rs485_signal_state_message.msgname)
+        self._fieldnames = MAVLink_ihm_rs485_signal_state_message.fieldnames
+        self._instance_field = MAVLink_ihm_rs485_signal_state_message.instance_field
+        self._instance_offset = MAVLink_ihm_rs485_signal_state_message.instance_offset
+        self.length = length
+        self.data = data
+        self.period_ms = period_ms
+        self.repeat_count = repeat_count
+        self.enable = enable
+
+    def pack(self, mav: "MAVLink", force_mavlink1: bool = False) -> bytes:
+        return self._pack(mav, self.crc_extra, self.unpacker.pack(self.period_ms, self.repeat_count, self.length, self.data[0], self.data[1], self.data[2], self.data[3], self.data[4], self.data[5], self.data[6], self.data[7], self.data[8], self.data[9], self.data[10], self.data[11], self.data[12], self.data[13], self.data[14], self.data[15], self.data[16], self.data[17], self.data[18], self.data[19], self.data[20], self.data[21], self.data[22], self.data[23], self.data[24], self.data[25], self.data[26], self.data[27], self.data[28], self.data[29], self.data[30], self.data[31], self.enable), force_mavlink1=force_mavlink1)
+
+
+# Define name on the class for backwards compatibility (it is now msgname).
+# Done with setattr to hide the class variable from mypy.
+setattr(MAVLink_ihm_rs485_signal_state_message, "name", mavlink_msg_deprecated_name_property())
+
+
+class MAVLink_ihm_serial_setting_message(MAVLink_message):
+    """
+    PC sets one bus setting by key: the generic path for settings that
+    bus initiatives add to SerialConfig (lib/BusConfig/README.md), so
+    a         new setting is a new key, not a new message. Key table:
+    mavlink/README.md. The board answers each one with
+    IHM_SERIAL_SETTING_STATE (the ack). Same path as the SERIAL tab,
+    last         writer wins. PC -> board, command.
+    """
+
+    id = MAVLINK_MSG_ID_IHM_SERIAL_SETTING
+    msgname = "IHM_SERIAL_SETTING"
+    fieldnames = ["bus", "key", "value"]
+    ordered_fieldnames = ["value", "key", "bus"]
+    fieldtypes = ["uint8_t", "uint16_t", "int32_t"]
+    fielddisplays_by_name: Dict[str, str] = {}
+    fieldenums_by_name: Dict[str, str] = {"bus": "IHM_SERIAL_BUS"}
+    fieldunits_by_name: Dict[str, str] = {}
+    native_format = bytearray(b"<iHB")
+    orders = [2, 1, 0]
+    lengths = [1, 1, 1]
+    array_lengths = [0, 0, 0]
+    crc_extra = 51
+    unpacker = struct.Struct("<iHB")
+    instance_field = None
+    instance_offset = -1
+
+    def __init__(self, bus: int, key: int, value: int):
+        MAVLink_message.__init__(self, MAVLink_ihm_serial_setting_message.id, MAVLink_ihm_serial_setting_message.msgname)
+        self._fieldnames = MAVLink_ihm_serial_setting_message.fieldnames
+        self._instance_field = MAVLink_ihm_serial_setting_message.instance_field
+        self._instance_offset = MAVLink_ihm_serial_setting_message.instance_offset
+        self.bus = bus
+        self.key = key
+        self.value = value
+
+    def pack(self, mav: "MAVLink", force_mavlink1: bool = False) -> bytes:
+        return self._pack(mav, self.crc_extra, self.unpacker.pack(self.value, self.key, self.bus), force_mavlink1=force_mavlink1)
+
+
+# Define name on the class for backwards compatibility (it is now msgname).
+# Done with setattr to hide the class variable from mypy.
+setattr(MAVLink_ihm_serial_setting_message, "name", mavlink_msg_deprecated_name_property())
+
+
+class MAVLink_ihm_serial_setting_state_message(MAVLink_message):
+    """
+    One bus setting's current value. Board -> PC: the answer to every
+    IHM_SERIAL_SETTING, and the keyed settings' periodic readback
+    (round-robin over the key table). Read-only.
+    """
+
+    id = MAVLINK_MSG_ID_IHM_SERIAL_SETTING_STATE
+    msgname = "IHM_SERIAL_SETTING_STATE"
+    fieldnames = ["bus", "key", "value", "status"]
+    ordered_fieldnames = ["value", "key", "bus", "status"]
+    fieldtypes = ["uint8_t", "uint16_t", "int32_t", "uint8_t"]
+    fielddisplays_by_name: Dict[str, str] = {}
+    fieldenums_by_name: Dict[str, str] = {"bus": "IHM_SERIAL_BUS", "status": "IHM_SERIAL_SETTING_STATUS"}
+    fieldunits_by_name: Dict[str, str] = {}
+    native_format = bytearray(b"<iHBB")
+    orders = [2, 1, 0, 3]
+    lengths = [1, 1, 1, 1]
+    array_lengths = [0, 0, 0, 0]
+    crc_extra = 222
+    unpacker = struct.Struct("<iHBB")
+    instance_field = None
+    instance_offset = -1
+
+    def __init__(self, bus: int, key: int, value: int, status: int):
+        MAVLink_message.__init__(self, MAVLink_ihm_serial_setting_state_message.id, MAVLink_ihm_serial_setting_state_message.msgname)
+        self._fieldnames = MAVLink_ihm_serial_setting_state_message.fieldnames
+        self._instance_field = MAVLink_ihm_serial_setting_state_message.instance_field
+        self._instance_offset = MAVLink_ihm_serial_setting_state_message.instance_offset
+        self.bus = bus
+        self.key = key
+        self.value = value
+        self.status = status
+
+    def pack(self, mav: "MAVLink", force_mavlink1: bool = False) -> bytes:
+        return self._pack(mav, self.crc_extra, self.unpacker.pack(self.value, self.key, self.bus, self.status), force_mavlink1=force_mavlink1)
+
+
+# Define name on the class for backwards compatibility (it is now msgname).
+# Done with setattr to hide the class variable from mypy.
+setattr(MAVLink_ihm_serial_setting_state_message, "name", mavlink_msg_deprecated_name_property())
+
+
 mavlink_map: Dict[int, Type[MAVLink_message]] = {
     MAVLINK_MSG_ID_IHM_BOARD_STATE: MAVLink_ihm_board_state_message,
     MAVLINK_MSG_ID_CAN_SIGNAL_CONFIG: MAVLink_can_signal_config_message,
@@ -945,6 +1161,10 @@ mavlink_map: Dict[int, Type[MAVLink_message]] = {
     MAVLINK_MSG_ID_IHM_PWM_STATE: MAVLink_ihm_pwm_state_message,
     MAVLINK_MSG_ID_IHM_UI_STATE: MAVLink_ihm_ui_state_message,
     MAVLINK_MSG_ID_IHM_RELAY_COMMAND: MAVLink_ihm_relay_command_message,
+    MAVLINK_MSG_ID_IHM_CAN_SIGNAL_STATE: MAVLink_ihm_can_signal_state_message,
+    MAVLINK_MSG_ID_IHM_RS485_SIGNAL_STATE: MAVLink_ihm_rs485_signal_state_message,
+    MAVLINK_MSG_ID_IHM_SERIAL_SETTING: MAVLink_ihm_serial_setting_message,
+    MAVLINK_MSG_ID_IHM_SERIAL_SETTING_STATE: MAVLink_ihm_serial_setting_state_message,
 }
 
 
@@ -1794,3 +2014,151 @@ class MAVLink(object):
 
         """
         self.send(self.ihm_relay_command_encode(mask, state), force_mavlink1=force_mavlink1)
+
+    def ihm_can_signal_state_encode(self, bus_id: int, can_id: int, extended_id: int, dlc: int, data: Sequence[int], period_ms: int, repeat_count: int, enable: int) -> MAVLink_ihm_can_signal_state_message:
+        """
+        The signal-generator config the board holds for one CAN bus. Board ->
+        PC, telemetry, read-only -- CAN_SIGNAL_CONFIG (301) and the
+        SERIAL tab         (RE1/RE2) change it, last writer wins. Same
+        fields as 301, so the PC         can compare it field by field
+        with what it sent (as IHM_PWM_STATE         mirrors
+        PWM_CHANNEL_CONFIG). Sent round-robin with
+        IHM_RS485_SIGNAL_STATE, one bus per ~100 ms tick (each bus
+        every         ~300 ms). Mirrors main.cpp's SerialConfig; a
+        rejected 301 leaves it         unchanged. No CAN driver exists
+        yet, so this is what is stored and         shown, not what is
+        on the wire.
+
+        bus_id                    : CAN bus this snapshot describes: 0 or 1. (type:uint8_t)
+        can_id                    : CAN identifier (standard or extended, see extended_id). (type:uint32_t)
+        extended_id               : 0 = standard 11-bit ID, 1 = extended 29-bit ID. (type:uint8_t)
+        dlc                       : Data length, 0-8. (type:uint8_t)
+        data                      : Frame payload bytes; only the first dlc bytes are used. (type:uint8_t)
+        period_ms                 : Repeat interval in ms. 0 = send once. (type:uint16_t)
+        repeat_count              : Number of times to send. 0 = until disabled. (type:uint16_t)
+        enable                    : 1 = enabled, 0 = disabled. (type:uint8_t)
+
+        """
+        return MAVLink_ihm_can_signal_state_message(bus_id, can_id, extended_id, dlc, data, period_ms, repeat_count, enable)
+
+    def ihm_can_signal_state_send(self, bus_id: int, can_id: int, extended_id: int, dlc: int, data: Sequence[int], period_ms: int, repeat_count: int, enable: int, force_mavlink1: bool = False) -> None:
+        """
+        The signal-generator config the board holds for one CAN bus. Board ->
+        PC, telemetry, read-only -- CAN_SIGNAL_CONFIG (301) and the
+        SERIAL tab         (RE1/RE2) change it, last writer wins. Same
+        fields as 301, so the PC         can compare it field by field
+        with what it sent (as IHM_PWM_STATE         mirrors
+        PWM_CHANNEL_CONFIG). Sent round-robin with
+        IHM_RS485_SIGNAL_STATE, one bus per ~100 ms tick (each bus
+        every         ~300 ms). Mirrors main.cpp's SerialConfig; a
+        rejected 301 leaves it         unchanged. No CAN driver exists
+        yet, so this is what is stored and         shown, not what is
+        on the wire.
+
+        bus_id                    : CAN bus this snapshot describes: 0 or 1. (type:uint8_t)
+        can_id                    : CAN identifier (standard or extended, see extended_id). (type:uint32_t)
+        extended_id               : 0 = standard 11-bit ID, 1 = extended 29-bit ID. (type:uint8_t)
+        dlc                       : Data length, 0-8. (type:uint8_t)
+        data                      : Frame payload bytes; only the first dlc bytes are used. (type:uint8_t)
+        period_ms                 : Repeat interval in ms. 0 = send once. (type:uint16_t)
+        repeat_count              : Number of times to send. 0 = until disabled. (type:uint16_t)
+        enable                    : 1 = enabled, 0 = disabled. (type:uint8_t)
+
+        """
+        self.send(self.ihm_can_signal_state_encode(bus_id, can_id, extended_id, dlc, data, period_ms, repeat_count, enable), force_mavlink1=force_mavlink1)
+
+    def ihm_rs485_signal_state_encode(self, length: int, data: Sequence[int], period_ms: int, repeat_count: int, enable: int) -> MAVLink_ihm_rs485_signal_state_message:
+        """
+        The signal-generator config the board holds for the RS-485 port. Board
+        -> PC, telemetry, read-only -- RS485_SIGNAL_CONFIG (302) and
+        the         SERIAL tab change it, last writer wins. Same
+        fields as 302. Sent in         the same round-robin as
+        IHM_CAN_SIGNAL_STATE.
+
+        length                    : Valid byte count in data, 0-32. (type:uint8_t)
+        data                      : Raw payload bytes; only the first length bytes are used. (type:uint8_t)
+        period_ms                 : Repeat interval in ms. 0 = send once. (type:uint16_t)
+        repeat_count              : Number of times to send. 0 = until disabled. (type:uint16_t)
+        enable                    : 1 = enabled, 0 = disabled. (type:uint8_t)
+
+        """
+        return MAVLink_ihm_rs485_signal_state_message(length, data, period_ms, repeat_count, enable)
+
+    def ihm_rs485_signal_state_send(self, length: int, data: Sequence[int], period_ms: int, repeat_count: int, enable: int, force_mavlink1: bool = False) -> None:
+        """
+        The signal-generator config the board holds for the RS-485 port. Board
+        -> PC, telemetry, read-only -- RS485_SIGNAL_CONFIG (302) and
+        the         SERIAL tab change it, last writer wins. Same
+        fields as 302. Sent in         the same round-robin as
+        IHM_CAN_SIGNAL_STATE.
+
+        length                    : Valid byte count in data, 0-32. (type:uint8_t)
+        data                      : Raw payload bytes; only the first length bytes are used. (type:uint8_t)
+        period_ms                 : Repeat interval in ms. 0 = send once. (type:uint16_t)
+        repeat_count              : Number of times to send. 0 = until disabled. (type:uint16_t)
+        enable                    : 1 = enabled, 0 = disabled. (type:uint8_t)
+
+        """
+        self.send(self.ihm_rs485_signal_state_encode(length, data, period_ms, repeat_count, enable), force_mavlink1=force_mavlink1)
+
+    def ihm_serial_setting_encode(self, bus: int, key: int, value: int) -> MAVLink_ihm_serial_setting_message:
+        """
+        PC sets one bus setting by key: the generic path for settings that
+        bus initiatives add to SerialConfig (lib/BusConfig/README.md),
+        so a         new setting is a new key, not a new message. Key
+        table:         mavlink/README.md. The board answers each one
+        with         IHM_SERIAL_SETTING_STATE (the ack). Same path as
+        the SERIAL tab, last         writer wins. PC -> board,
+        command.
+
+        bus                       : Bus the setting belongs to. (type:uint8_t, values:IHM_SERIAL_BUS)
+        key                       : Setting key, per bus (mavlink/README.md key table). (type:uint16_t)
+        value                     : New value. (type:int32_t)
+
+        """
+        return MAVLink_ihm_serial_setting_message(bus, key, value)
+
+    def ihm_serial_setting_send(self, bus: int, key: int, value: int, force_mavlink1: bool = False) -> None:
+        """
+        PC sets one bus setting by key: the generic path for settings that
+        bus initiatives add to SerialConfig (lib/BusConfig/README.md),
+        so a         new setting is a new key, not a new message. Key
+        table:         mavlink/README.md. The board answers each one
+        with         IHM_SERIAL_SETTING_STATE (the ack). Same path as
+        the SERIAL tab, last         writer wins. PC -> board,
+        command.
+
+        bus                       : Bus the setting belongs to. (type:uint8_t, values:IHM_SERIAL_BUS)
+        key                       : Setting key, per bus (mavlink/README.md key table). (type:uint16_t)
+        value                     : New value. (type:int32_t)
+
+        """
+        self.send(self.ihm_serial_setting_encode(bus, key, value), force_mavlink1=force_mavlink1)
+
+    def ihm_serial_setting_state_encode(self, bus: int, key: int, value: int, status: int) -> MAVLink_ihm_serial_setting_state_message:
+        """
+        One bus setting's current value. Board -> PC: the answer to every
+        IHM_SERIAL_SETTING, and the keyed settings' periodic readback
+        (round-robin over the key table). Read-only.
+
+        bus                       : Bus the setting belongs to. (type:uint8_t, values:IHM_SERIAL_BUS)
+        key                       : Setting key. (type:uint16_t)
+        value                     : Current value (unchanged if status is not OK). (type:int32_t)
+        status                    : Outcome of the IHM_SERIAL_SETTING this answers; OK for periodic readback. (type:uint8_t, values:IHM_SERIAL_SETTING_STATUS)
+
+        """
+        return MAVLink_ihm_serial_setting_state_message(bus, key, value, status)
+
+    def ihm_serial_setting_state_send(self, bus: int, key: int, value: int, status: int, force_mavlink1: bool = False) -> None:
+        """
+        One bus setting's current value. Board -> PC: the answer to every
+        IHM_SERIAL_SETTING, and the keyed settings' periodic readback
+        (round-robin over the key table). Read-only.
+
+        bus                       : Bus the setting belongs to. (type:uint8_t, values:IHM_SERIAL_BUS)
+        key                       : Setting key. (type:uint16_t)
+        value                     : Current value (unchanged if status is not OK). (type:int32_t)
+        status                    : Outcome of the IHM_SERIAL_SETTING this answers; OK for periodic readback. (type:uint8_t, values:IHM_SERIAL_SETTING_STATUS)
+
+        """
+        self.send(self.ihm_serial_setting_state_encode(bus, key, value, status), force_mavlink1=force_mavlink1)

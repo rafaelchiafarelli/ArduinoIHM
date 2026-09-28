@@ -58,6 +58,21 @@
         </description>
       </entry>
     </enum>
+    <enum name="IHM_SERIAL_BUS">
+      <description>
+        A bus on the SERIAL tab, as IHM_SERIAL_SETTING / IHM_SERIAL_SETTING_STATE
+        address it (lib/BusConfig/src/SerialConfig.h's sections).
+      </description>
+      <entry value="0" name="IHM_SERIAL_BUS_CAN0"><description>CAN bus 0.</description></entry>
+      <entry value="1" name="IHM_SERIAL_BUS_CAN1"><description>CAN bus 1.</description></entry>
+      <entry value="2" name="IHM_SERIAL_BUS_RS485"><description>The RS-485 port.</description></entry>
+    </enum>
+    <enum name="IHM_SERIAL_SETTING_STATUS">
+      <description>Outcome of an IHM_SERIAL_SETTING, reported in IHM_SERIAL_SETTING_STATE.</description>
+      <entry value="0" name="IHM_SERIAL_SETTING_OK"><description>Applied; value is the setting's value now.</description></entry>
+      <entry value="1" name="IHM_SERIAL_SETTING_UNKNOWN_KEY"><description>No such key on that bus (or no such bus). Nothing changed.</description></entry>
+      <entry value="2" name="IHM_SERIAL_SETTING_INVALID_VALUE"><description>Value out of range. Nothing changed; value is the current one.</description></entry>
+    </enum>
   </enums>
   <messages>
     <message id="300" name="IHM_BOARD_STATE">
@@ -264,6 +279,64 @@
       </description>
       <field type="uint8_t" name="mask">Relays to change; bit i = relay i (0-7).</field>
       <field type="uint8_t" name="state">Target state for the masked relays; bit i = relay i, 1 = on. Bits outside mask are ignored.</field>
+    </message>
+    <message id="311" name="IHM_CAN_SIGNAL_STATE">
+      <description>
+        The signal-generator config the board holds for one CAN bus. Board ->
+        PC, telemetry, read-only -- CAN_SIGNAL_CONFIG (301) and the SERIAL tab
+        (RE1/RE2) change it, last writer wins. Same fields as 301, so the PC
+        can compare it field by field with what it sent (as IHM_PWM_STATE
+        mirrors PWM_CHANNEL_CONFIG). Sent round-robin with
+        IHM_RS485_SIGNAL_STATE, one bus per ~100 ms tick (each bus every
+        ~300 ms). Mirrors main.cpp's SerialConfig; a rejected 301 leaves it
+        unchanged. No CAN driver exists yet, so this is what is stored and
+        shown, not what is on the wire.
+      </description>
+      <field type="uint8_t" name="bus_id">CAN bus this snapshot describes: 0 or 1.</field>
+      <field type="uint32_t" name="can_id">CAN identifier (standard or extended, see extended_id).</field>
+      <field type="uint8_t" name="extended_id">0 = standard 11-bit ID, 1 = extended 29-bit ID.</field>
+      <field type="uint8_t" name="dlc">Data length, 0-8.</field>
+      <field type="uint8_t[8]" name="data">Frame payload bytes; only the first dlc bytes are used.</field>
+      <field type="uint16_t" name="period_ms">Repeat interval in ms. 0 = send once.</field>
+      <field type="uint16_t" name="repeat_count">Number of times to send. 0 = until disabled.</field>
+      <field type="uint8_t" name="enable">1 = enabled, 0 = disabled.</field>
+    </message>
+    <message id="312" name="IHM_RS485_SIGNAL_STATE">
+      <description>
+        The signal-generator config the board holds for the RS-485 port. Board
+        -> PC, telemetry, read-only -- RS485_SIGNAL_CONFIG (302) and the
+        SERIAL tab change it, last writer wins. Same fields as 302. Sent in
+        the same round-robin as IHM_CAN_SIGNAL_STATE.
+      </description>
+      <field type="uint8_t" name="length">Valid byte count in data, 0-32.</field>
+      <field type="uint8_t[32]" name="data">Raw payload bytes; only the first length bytes are used.</field>
+      <field type="uint16_t" name="period_ms">Repeat interval in ms. 0 = send once.</field>
+      <field type="uint16_t" name="repeat_count">Number of times to send. 0 = until disabled.</field>
+      <field type="uint8_t" name="enable">1 = enabled, 0 = disabled.</field>
+    </message>
+    <message id="313" name="IHM_SERIAL_SETTING">
+      <description>
+        PC sets one bus setting by key: the generic path for settings that
+        bus initiatives add to SerialConfig (lib/BusConfig/README.md), so a
+        new setting is a new key, not a new message. Key table:
+        mavlink/README.md. The board answers each one with
+        IHM_SERIAL_SETTING_STATE (the ack). Same path as the SERIAL tab, last
+        writer wins. PC -> board, command.
+      </description>
+      <field type="uint8_t" name="bus" enum="IHM_SERIAL_BUS">Bus the setting belongs to.</field>
+      <field type="uint16_t" name="key">Setting key, per bus (mavlink/README.md key table).</field>
+      <field type="int32_t" name="value">New value.</field>
+    </message>
+    <message id="314" name="IHM_SERIAL_SETTING_STATE">
+      <description>
+        One bus setting's current value. Board -> PC: the answer to every
+        IHM_SERIAL_SETTING, and the keyed settings' periodic readback
+        (round-robin over the key table). Read-only.
+      </description>
+      <field type="uint8_t" name="bus" enum="IHM_SERIAL_BUS">Bus the setting belongs to.</field>
+      <field type="uint16_t" name="key">Setting key.</field>
+      <field type="int32_t" name="value">Current value (unchanged if status is not OK).</field>
+      <field type="uint8_t" name="status" enum="IHM_SERIAL_SETTING_STATUS">Outcome of the IHM_SERIAL_SETTING this answers; OK for periodic readback.</field>
     </message>
   </messages>
 </mavlink>
