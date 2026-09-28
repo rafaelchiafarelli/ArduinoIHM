@@ -9,6 +9,7 @@ AVR/UI/MAVLink dependency in the model itself, so it is host-tested
 |---|---|
 | `src/SerialConfig.h/.cpp` | The model (`CanBusConfig`, `Rs485BusConfig`, their `gen` generator sections), defaults, range checks, RE2 step helpers (`serialStepValue`, `serialStepEnum`, `serialSetFlag`) and the digit-at-a-time acceleration (`DigitAccel`). |
 | `src/SerialConfigWire.h/.cpp` | Adapters to and from `CAN_SIGNAL_CONFIG` (301) and `RS485_SIGNAL_CONFIG` (302). |
+| `src/SerialEdit.h/.cpp` | RE2 editing: `serialEditStep()` applies one click to a (bus, field) with each field's unit, range and acceleration digits; `serialToggleEnable()` for pbRE1 on an enable switch. Host-tested (`test_native/test_serial_edit.cpp`). |
 | `src/SerialConfigImage.h/.cpp` | The EEPROM image: magic, version, payload length, field-by-field payload, CRC-16. Append-only extension rule (see the header). Host-tested (`test_native/test_serial_config_image.cpp`). |
 | `src/SerialConfigEeprom.h/.cpp` | AVR-only `loadSerialConfig()` / `saveSerialConfig()` at EEPROM 0-255 (`ARCHITECTURE.md`, "EEPROM"). |
 
@@ -19,7 +20,10 @@ protocol modes) belong to the initiative that uses them.
 ## RE2 editing
 
 Every value is its own RE1-focusable field; RE2 changes the focused one.
-Numeric fields step by `unit * digitAccelStep(...)`:
+Numeric fields step by `unit * digitAccelStep(...)` (per-field table in
+`SerialEdit.cpp`: ID hex up to 16^2 / 16^7, period 10 ms x10 up to
+x1000, repeat x10 up to x10^4, LEN x10, byte value x16; DLC and byte
+index one per click):
 
 - a step starts at one unit;
 - `DIGIT_ACCEL_FAST_RUN` (4) clicks in a row less than
