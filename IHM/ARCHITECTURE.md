@@ -83,7 +83,7 @@ before the scheduler is running -- see that module's README.
    |   rot1  -> janus_focus_move ;  rot1 click -> janus_focus_activate|
    |             -> janus_handle_action() [src/janus_actions.cpp]    |
    |                  -> MultiOutput (Relay)                         |
-   |   ~100ms: refreshBusStatusInstance() <- MavlinkComms            |
+   |   301/302 -> SerialConfig -> mirrorSerialToUi() (on change)     |
    |   janus_render_screen / _widget -> draw_area_sync -> Display    |
    |   MCP4725 dac0/dac1.setVoltage(voltage0/1)  (fed by Comms /     |
    |                                    MAVLink, once the gap is fixed)|
@@ -145,9 +145,9 @@ supplies the hardware glue.
   3. **Feeding the bound structs**: the generated `*_instance` structs
      (`pwm_instance`, `bus_status_instance`, `relay_instance`) are what
      widgets read. Firmware writes real values in --
-     `refreshBusStatusInstance()` copies MAVLink-received CAN/RS-485
-     config into `bus_status_instance` every ~100ms -- and sets the
-     matching `*_dirty` flag so the dirty-aware render path repaints only
+     `mirrorSerialToUi()` copies the live `SerialConfig` (`lib/BusConfig`)
+     into `bus_status_instance` whenever it changes (a 301/302 or a SERIAL
+     tab edit) -- and sets the matching `*_dirty` flag so the dirty-aware render path repaints only
      what changed.
   4. **Redraw cadence**: `janus_render_screen` on entry / tab-switch and
      right after an action fires; `janus_render_widget` on the ~100ms

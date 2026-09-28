@@ -1,6 +1,6 @@
 # Task 2: board-apply-and-report
 
-**Status:** planned
+**Status:** done (2026-09-27) -- host-verified: 174 native tests pass, `platformio run` RAM 59.8 % -> 61.1 % (+108 B: live SerialConfig + 4-deep setting queue). Bench check (pymavlink on COM3) pending: run with the initiative's bench pass before `serial_config` merges into `features`.
 **Depends on:** task 1, `config_model/1`
 
 ## Contract
