@@ -1,6 +1,6 @@
 # Task 2: eeprom-image
 
-**Status:** planned
+**Status:** done (2026-09-27) -- 169 native tests pass (10 new); the AVR sources compile with avr-g++ (the firmware links them from wire/2 on). Image is 83 B at EEPROM 0; bytes 0-255 reserved.
 **Depends on:** task 1
 
 ## Contract
