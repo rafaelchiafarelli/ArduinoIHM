@@ -1,6 +1,6 @@
 # Task 1: config-struct-and-steps
 
-**Status:** planned
+**Status:** done (2026-09-27) -- 159 native tests pass (18 new); `platformio run` unchanged at RAM 59.3 % (the lib is not linked until wire/2).
 **Depends on:** nothing
 
 ## Contract
