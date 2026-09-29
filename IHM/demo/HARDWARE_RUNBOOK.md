@@ -132,18 +132,18 @@ For a simplex channel, cycle Mode to Off and confirm the pin goes idle
 
 ## Out of scope for this pass
 
-The relay and DC/stepper-motor outputs (`lib/MultiOutput/src/Relay.*`,
-`MotorDC.*`) and the serial command protocol
+The relay outputs (`lib/MultiOutput/src/Relay.*`) and the serial command
+protocol
 (`lib/Comms/src/SerialCommunication.*`) are **not** exercised by this demo
 or wired into the UI -- exactly as found in the original review, and
 unchanged by any of the 5 branches in this pass (their scope was PWM
 configuration, encoder/button input, and the Timer2 ISR setup only).
-`MultiOutput::slow_handler()`/`fast_handler()` run every main-loop tick
-already, but nothing ever calls `Relay::enableRelay()`,
-`MotorDC::setMotorA/B()`, or feeds bytes into
-`SerialCommunication::receive()`. (Servo output was a third item here
-originally -- `ServoMotor` is deleted as of 2026-08-16, servo control
-isn't part of the IHM solution.) Wiring those into the UI (and, for serial,
+`MultiOutput::slow_handler()` runs from the tick already, but nothing
+ever calls `Relay::enableRelay()` or feeds bytes into
+`SerialCommunication::receive()`. (Servo and DC/stepper motor output were
+items here originally -- `ServoMotor` was deleted 2026-08-16 and
+`MotorDC` 2026-09-28, `fixes/000013`; neither is part of the IHM
+solution now.) Wiring those into the UI (and, for serial,
 fixing the unbounded `rcv_counter` growth in `receive()` noted in the
 original review) is natural follow-up work, but doing it here would mean
 demoing code nobody asked to have fixed yet.

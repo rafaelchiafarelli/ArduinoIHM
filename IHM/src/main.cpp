@@ -388,7 +388,6 @@ ISR(TIMER2_COMPA_vect){ /*~1.008ms system tick*/
     // consumer (take*/consume*/get*), so nothing below depends on it.
     mavlinkComms.fast_handler();
 
-    multiOuput.fast_handler();
     bMap = userInputs.fast_handler();
     counterT0++;
     if (counterT0 >= TEN_MS_T0_TICKS) { //~10ms elapsed

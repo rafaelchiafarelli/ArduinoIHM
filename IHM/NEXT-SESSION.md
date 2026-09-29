@@ -16,26 +16,18 @@ build and full functionality -- the display works, DAC output doesn't.
 
 ## Open items
 
-- **PC -> board motor and DAC commands are not scoped.** Relays got
-  `IHM_RELAY_COMMAND` (309) and companion switches on 2026-09-27; the
-  remaining outputs were left out of `serial_commands` (closed that day)
-  because each is blocked on a hardware fact first:
-  - **motor_control** (`MotorDC` drive/stop over MAVLink): blocked on the
-    `MotorDC` bit layout below. Exercising it over serial is one way to
-    do that confirmation.
-  - **dac_control** (`MCP4725` voltage over MAVLink): blocked on the DAC
-    hang in `setup()` (top priority above). That fix is its own task.
+- **PC -> board DAC commands are not scoped.** Relays got
+  `IHM_RELAY_COMMAND` (309) and companion switches on 2026-09-27.
+  **dac_control** (`MCP4725` voltage over MAVLink) is blocked on the DAC
+  hang in `setup()` (top priority above); that fix is its own task.
+  (Motor control is gone: `MotorDC` was removed 2026-09-28 in
+  `fixes/000013` -- the motor was never connected, and its latch's
+  outputs are kept free for `rs485_modbus`'s RS-485 DE/RE line.)
 - **Relay commands: on-screen check owed.** `IHM_RELAY_COMMAND` read back
   correctly on the bench (script and companion), but nobody has watched the
   TFT's Output tab switch/LED follow a PC command yet. Old board revision
   only, so the relay bus itself is also unverified (see Hardware
   verification).
-- **`MotorDC` bit layout is a placeholder.** The bit positions within its
-  one latched byte (`enA`=bit0, `dirA`=bit1, `enB`=bit2, `dirB`=bit3) are
-  unconfirmed against `IOs IHM.xlsx` / the KiCad schematic. The backend
-  driver (bus wiring + software-PWM speed control) works; there is no
-  on-screen TFT tab for motor output yet, and that tab is a real effort
-  of its own.
 - **`SerialCommunication::receive()` is never called.** Nothing forwards
   UART0 bytes into its framing/checksum parser, so `voltage0` /
   `voltage1` never update from real serial input. Needs a `USART0_RX_vect`
@@ -75,7 +67,7 @@ build and full functionality -- the display works, DAC output doesn't.
 
 The board currently connected (COM7) is an **old hardware revision** --
 not the one the `MultiplexedBus` / `74LS373`-latch model was derived
-from. A successful flash there does **not** verify `Relay` / `MotorDC`'s
+from. A successful flash there does **not** verify `Relay`'s
 write sequence. Ask the user before testing against whatever is connected.
 
 ## How to pick up dev work
