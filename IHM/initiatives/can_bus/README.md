@@ -3,8 +3,8 @@
 Real CAN on the board's two external CAN modules, then (as later epics)
 the protocols Rafael asked about on 2026-09-27: SAE J1939, ISO 14229
 (UDS) and CANopen, with the SD card for storage. This initiative is the
-driver foundation. `serial_config` (implemented first) is the settings
-framework; this initiative adds its own settings to it (see "Settings"
+driver foundation. `serial_config` (done and closed 2026-09-28) built the
+settings framework; this initiative adds its own settings to it (see "Settings"
 below).
 
 ## Hardware (from `IOs IHM.xlsx`; to confirm, open question 1)
@@ -65,7 +65,7 @@ the relevant foundation epics are done.
 
 `serial_config` owns the `SerialConfig` framework and the generator
 settings. Bus parameters and protocol settings belong here and are added
-through its extension contract (`initiatives/serial_config/README.md`),
+through its extension recipe (`lib/BusConfig/README.md`),
 in the same task as the code that acts on them:
 
 - **CAN bitrate** per bus: `mcp2515_driver/4-bitrate-setting`.
@@ -129,7 +129,10 @@ Each becomes its own epic once open question 5 picks it.
    [mcp2515_driver/2, sd_storage/1]
 9. **Bitrate values and default:** proposal 125 / 250 / 500 / 1000
    kbit/s, default 250 (J1939's usual rate). Can a bus be set to
-   listen-only from the screen? [mcp2515_driver/4]
+   listen-only from the screen? And when does a new bitrate take effect:
+   on each RE2 step, or once the field is left? (Settings are saved to
+   EEPROM when a bus's enable switch toggles -- `serial_config`'s rule.)
+   [mcp2515_driver/4]
 
 ## Out of scope
 
