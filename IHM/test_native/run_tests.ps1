@@ -75,6 +75,7 @@ if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
 $libAllowlist = @(
     "lib/StateMachine/src",
     "lib/BusConfig/src",
+    "lib/ModbusRtu/src",
     "lib/HAL/src",
     "lib/MavlinkComms/src",   # RelayCommand.h only -- MavlinkComms.h itself is AVR-only
     "lib/MultiOutput/src",
@@ -107,6 +108,7 @@ $prodSourceAllowlist = @(
     "lib/BusConfig/src/SerialConfigWire.cpp",
     "lib/BusConfig/src/SerialConfigImage.cpp",
     "lib/BusConfig/src/SerialEdit.cpp",
+    "lib/ModbusRtu/src/ModbusRtu.cpp",
     "src/Timer2Config.cpp"
 )
 $prodSources = $prodSourceAllowlist | ForEach-Object { Join-Path $repoRoot $_ }
