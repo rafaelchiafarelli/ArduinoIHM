@@ -1,13 +1,13 @@
 # Epic: rs485_modes
 
 RS-485 runs in exactly one mode: off, raw generator, or Modbus slave. This
-epic also owns the RS-485 settings (added to `serial_config` through its
-extension contract).
+epic also owns the RS-485 settings (added to `SerialConfig` through the
+extension recipe in `lib/BusConfig/README.md`).
 
 ## Tasks
 
 ```
-1-settings                    RS-485 mode, baud, format, slave address (+ Q9) as SerialConfig extension: model, EEPROM, wire, screen, companion   (deps: serial_config; blocked: Q4, Q8, Q9)
+1-settings                    RS-485 mode, baud, format, slave address (+ Q9) as SerialConfig extension: model, EEPROM, wire, screen, companion   (blocked: Q4, Q8, Q9, Q10)
 2-mode-switch-and-generator   mode selects the USART3 owner; raw generator (302) on Serial3; Modbus slave on/off; port params applied   (deps: 1, uart3_driver/1, slave_register_map/2)
 ```
 

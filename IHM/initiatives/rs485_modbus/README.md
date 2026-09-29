@@ -19,9 +19,9 @@ drive it.
    The mode is an RS-485 setting in `SerialConfig`, so raw bytes never
    get injected into a Modbus network.
 4. **This initiative owns the RS-485 settings** (2026-09-27, hybrid
-   ownership in `serial_config`'s README): mode, baud, format, slave
-   address and any Modbus options are added to `serial_config`'s framework
-   by `rs485_modes/1-settings`, not planned inside `serial_config`.
+   ownership): mode, baud, format, slave address and any Modbus options
+   are added to the `SerialConfig` framework (`lib/BusConfig`, built by
+   the closed `serial_config` initiative) by `rs485_modes/1-settings`.
 
 ## Hardware (from `IOs IHM.xlsx` and the schematic, 2026-09-27)
 
@@ -69,10 +69,12 @@ Order: `uart3_driver` and `rtu_framing` (in parallel) ->
 
 ## Depends on
 
-- **`serial_config`** (implemented first): its framework (`SerialConfig`,
-  EEPROM image, SERIAL tab editing, wire, companion panel) and extension
-  contract. `rs485_modes/1` adds the RS-485 settings through it; the
-  bus-config registers write through the same model.
+- **`serial_config`** -- done and closed 2026-09-28: `lib/BusConfig`
+  (`SerialConfig`, EEPROM image, RE2 editing), the SERIAL tab, the
+  generic `IHM_SERIAL_SETTING` key path and the companion SERIAL panel.
+  Extension recipe: `lib/BusConfig/README.md`. `rs485_modes/1` adds the
+  RS-485 settings through it; the bus-config registers write through the
+  same model.
 - **`can_bus`'s `event_timer` epic** (one-shot compare + software queue)
   for the silence timer, and its RAM budget (its open question 7).
   `event_timer` must land before `uart3_driver`'s frame timing.
@@ -113,6 +115,11 @@ Order: `uart3_driver` and `rtu_framing` (in parallel) ->
    replying, for slow masters/converters), and a **status display**
    (activity LED on a valid request for our address; the `rtu_framing/2`
    counters on the screen and to the PC)? [rs485_modes/1]
+10. **When a port setting takes effect on the board:** baud, format and
+    address edited with RE2 either apply on every step (the port is
+    re-initialised per click while sweeping) or once RE1 leaves the field.
+    Saving follows the SERIAL tab's rule either way: EEPROM is written when
+    a bus's enable switch toggles. [rs485_modes/1]
 
 ## Not yet scoped
 
