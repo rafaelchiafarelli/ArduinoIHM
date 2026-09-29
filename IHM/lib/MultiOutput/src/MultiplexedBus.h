@@ -13,10 +13,14 @@
                              // servo controller is separate, planned work.
 #define MUX_OUTPUT_EN 11    // shared OE (PB4) -- active-LOW at the chip
 #define MUX_RELAY_STROBE 14 // dig_1 (PG5) -- Relay's 74LS373 latch
-#define MUX_MOTOR_STROBE 15 // dig_2 (PF4) -- Motor's 74LS373 latch
+#define MUX_MOTOR_STROBE 15 // dig_2 (PF4) -- Motor's 74LS373 latch.
+                            // Physically wired; no motor driver since
+                            // fixes/000013 (2026-09-28). MultiOutput::setup()
+                            // latches 0 once. Freed so rs485_modbus can drive
+                            // the RS-485 DE/RE line from one of its outputs.
 
 /**
- * Driver for the 8-bit data bus shared by Relay/ServoMotor/MotorDC, each
+ * Driver for the 8-bit data bus shared by the Relay, servo and motor latches, each
  * sitting behind its own 74LS373 latch. A 74LS373 is transparent, not
  * edge-triggered: its outputs follow the bus continuously while its strobe
  * (LE) is high, and hold whatever was present the instant that line falls.
@@ -25,16 +29,16 @@
  * actually captures the byte into that one device's latch, leaving the
  * other two untouched.
  *
- * The bus is physically shared, so a write from ServoMotor's ISR context
- * could otherwise interleave with a write from Relay/MotorDC's foreground
- * context and tear either one mid-sequence -- ATOMIC_BLOCK brackets the
- * whole settle-strobe-drop sequence against interrupts to prevent that.
+ * The bus is physically shared, so a write from an ISR (as the deleted
+ * ServoMotor/MotorDC drivers did, and a future RS-485 DE/RE line would)
+ * could otherwise interleave with Relay's foreground writes and tear one
+ * mid-sequence -- ATOMIC_BLOCK brackets the whole settle-strobe-drop
+ * sequence against interrupts to prevent that.
  */
 class MultiplexedBus
 {
     // A reference, not a copy -- BinaryOutputs' 20-slot table is 160 bytes,
-    // and every device (Relay/ServoMotor/MotorDC) already keeps its own
-    // by-value copy of it; wrapping a fourth copy here would cost another
+    // and devices on the bus keep their own by-value copy of it; wrapping a fourth copy here would cost another
     // 160 bytes of RAM for data that's already owned by MultiOutput's
     // long-lived `bnOuts` member.
     const BinaryOutputs &bus;

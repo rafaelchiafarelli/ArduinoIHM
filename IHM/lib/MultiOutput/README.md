@@ -1,10 +1,17 @@
 # MultiOutput
 
-Everything that drives a physical output lives here: relays, DC/stepper
-motors, and the 4-channel PWM generator. `MultiOutput` is the
-composition root. `Relay`/`MotorDC` don't own independent pins -- they're
-two devices behind one shared multiplexed bus (see below); `PWM` is
-fully separate, direct-to-output hardware timers.
+Everything that drives a physical output lives here: relays and the
+4-channel PWM generator. `MultiOutput` is the composition root. `Relay`
+doesn't own independent pins -- it's one device behind a shared
+multiplexed bus (see below); `PWM` is fully separate, direct-to-output
+hardware timers.
+
+**DC/stepper motor control is removed** (`fixes/000013`, 2026-09-28):
+the motor was never connected, and `MotorDC` (constructed in stepper mode)
+was re-latching a stepper sequence onto the unused motor latch every
+~1 ms tick. Its latch (`dig_2`) stays wired; `MultiOutput::setup()`
+latches 0 into it once, and its outputs are free for `rs485_modbus`'s
+RS-485 DE/RE line. The deleted driver is in git history.
 
 **Servo control is not part of the IHM solution.** `ServoMotor` (a third
 device that would have used the multiplexed bus below, on `dig_0`) was
@@ -21,13 +28,12 @@ revival of this driver.
 | File | Owns | API surface |
 |---|---|---|
 | `Relay.h` | One device on the multiplexed bus (`dig_1`) | `setRelay`, `enableRelay`, `disableRelay`, `ultra_slow_handler` |
-| `MotorDC.h` (`.cpp` is a 0-byte placeholder) | One device on the multiplexed bus (`dig_2`) | `setMotorA/B`, `stopMotorA/B`, `fast_handler` |
 | `PWM.h/.cpp` + `PWMConfig.cpp` | Timer1/3/4/5 (see table below) | `setupPWMChannel0..3` |
 | `PWMChannelConfig.h/.cpp` | -- (pure data + math) | UI-editable single-channel PWM config, feeds `applySimplexPWMConfig` |
 | `PWMTiming.h/.cpp` | -- (pure data + math) | frequency-selector -> prescaler/WGM-bits lookup |
 | `PWMLabelFormat.h/.cpp` | -- (pure formatting) | renders PWM config fields as display strings |
 | `RelayConfig.h` | -- (pure data) | UI-editable on/off state, mirrors `PWMChannelConfig`'s shape |
-| `MultiOutput.h/.cpp` | composes all of the above | `setup`, `fast_handler`, `slow_handler`, `getRelays` |
+| `MultiOutput.h/.cpp` | composes all of the above | `setup`, `slow_handler`, `getRelays` |
 
 `PWMChannelConfig`/`PWMTiming`/`PWMLabelFormat`/`RelayConfig` have no AVR
 dependency and are the natively-unit-tested layer (`test_native/`) --
@@ -54,33 +60,13 @@ register-writing half (`PWMConfig.cpp`'s `applySimplexPWMConfig`/
   -> `MultiplexedBus::write()` now implements the real settle-strobe-drop
   protocol (see below) -- "wired" still means software-verified only, no
   physical hardware was available to confirm an actual relay click.
-- `MultiOutput::fast_handler()` -> `MotorDC::fast_handler()` -- **fixed
-  2026-08-16**, now called from `TIMER2_COMPA_vect`'s every-tick branch.
-  `MotorDC` was rewritten onto `MultiplexedBus` (`MUX_MOTOR_STROBE`), same
-  pattern as `Relay`; stepper commutation and DC speed control (coarse
-  software PWM, ~99Hz carrier / 10% duty steps -- no dedicated fast timer
-  is free, see below) both go through it. Still open: the bit layout
-  within `MotorDC`'s one latched byte is a **placeholder**
-  (`enA`=bit0/`dirA`=bit1/`enB`=bit2/`dirB`=bit3), unconfirmed against
-  `IOs IHM.xlsx`/the KiCad schematic; and the on-screen TFT UI tab for
-  motor output is unstarted.
+- `MultiOutput::fast_handler()` (-> `MotorDC::fast_handler()`, every
+  tick) is gone with the motor driver (`fixes/000013`).
 
 (`MultiOutput::timer_handler()` -> `ServoMotor::timer_handler()` used to
 be listed here as never-called, `OCR4A`-conflicting dead code -- both
 sides are gone now, along with the empty `ISR(TIMER1_COMPA_vect)` in
 `main.cpp` that only ever existed to call it.)
-
-**Why `MotorDC` doesn't use a hardware timer for speed control:**
-Timer1/3/4/5 are fully committed to `PWM`'s 4-channel generator (all 8 of
-their compare-output pins are live PWM outputs). Timer3/Timer5 each only
-drive one of their three compare units as an actual output (`OC3A`,
-`OC5A` -- simplex channels), so their other compare units are technically
-free to fire an interrupt without touching a pin -- but doing that would
-couple `MotorDC`'s PWM carrier frequency to whatever prescaler that PWM
-channel's user-editable frequency setting currently has. Rejected in
-favor of driving duty-cycle toggling off the existing ~1.008ms system
-tick instead: coarser resolution (10 steps/period at best), but zero new
-coupling between two otherwise-independent subsystems.
 
 ## The multiplexed output bus (driver written 2026-08-13)
 
@@ -99,7 +85,7 @@ below):
 | Data bus (8 bits) | `PC2,PC1,PC0,PD7,PG2,PG1,PG0,PL7` | Shared |
 | `dig_0` | `PH6` | Strobe -- Servo's latch (physically wired, undriven -- servo control isn't part of the IHM solution) |
 | `dig_1` | `PG5` | Strobe -- Relay's latch |
-| `dig_2` | `PF4` | Strobe -- Motor's latch |
+| `dig_2` | `PF4` | Strobe -- Motor's latch (physically wired; no driver since `fixes/000013`, latched 0 at setup) |
 | `OUTPUT_EN` | `PB4` | Shared tri-state control (not part of the write sequence) |
 
 A `74LS373` is transparent (not edge-triggered): outputs follow the
@@ -112,7 +98,7 @@ byte-wide, not individually addressable).
 
 **None of `PWM`'s 8 hardware-PWM pins (`OC1A/B/C`, `OC3A`, `OC4A/B/C`,
 `OC5A`) are part of this bus** -- they're confirmed direct-to-output, no
-buffer, entirely separate from Relay/Motor. The Timer4 conflict this
+buffer, entirely separate from this bus. The Timer4 conflict this
 section used to describe doesn't apply to anything live in this repo
 anymore: the code that would have touched `OCR4A` is deleted.
 
@@ -120,8 +106,9 @@ anymore: the code that would have touched `OCR4A` is deleted.
 driver: `write(strobeIndex, byte)` settles all 8 data-bus bits (via
 `BinaryOutputs::SetOutput()`, indices 0-7), raises the target device's
 strobe, then drops it, all inside `ATOMIC_BLOCK(ATOMIC_RESTORESTATE)` --
-`Relay`'s foreground writes and `MotorDC`'s ISR-context writes (called
-every ~1ms tick) can't interleave and tear a byte mid-sequence.
+`Relay`'s foreground writes and any ISR-context write (the deleted motor
+driver's, every ~1ms tick; a future RS-485 DE/RE line's) can't interleave
+and tear a byte mid-sequence.
 `enableOutputs()` drives `OUTPUT_EN` (index 11) **low** once at setup --
 confirmed against the KiCad schematic that `74LS373`'s `OE` pin is the
 part's only electrically-inverted pin, i.e. active-low, so low is what
@@ -138,10 +125,8 @@ relays' state into one byte and calls
 one-`SetOutput()`-per-relay immediate-write model. Net RAM effect was a
 *decrease* (79.4% vs. 81.3% before), not an increase, despite the new
 class -- the single assembled-byte write compiles smaller than the old
-per-relay call sequence did. `MotorDC` was moved onto the same driver
-2026-08-16 (assembles both motors' enable/direction bits into one byte
-via its own `refreshBus()`, `bus.write(MUX_MOTOR_STROBE, value)`) -- its
-bit layout is a placeholder, not yet confirmed against the schematic.
+per-relay call sequence did. (`MotorDC` used the same driver on
+`dig_2` from 2026-08-16 until its removal in `fixes/000013`.)
 
 `ServoMotor`, the third device this driver was built generic enough to
 support, was deleted 2026-08-16 rather than wired up -- servo control

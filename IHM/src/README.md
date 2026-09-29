@@ -15,10 +15,9 @@ sub-interrupt is enabled -- only Compare-A, deliberately). Inside it:
   goes between the two, and new tick work goes after them (Rafael,
   2026-09-27).
 - **Every tick (~1ms):** `userInputs.fast_handler()` (`BinaryInputs` --
-  see [lib/BinaryInput](../lib/BinaryInput/README.md)), and
-  `multiOutput.fast_handler()` (-> `MotorDC::fast_handler()`, stepper
-  commutation / DC software-PWM duty cycling -- see
-  [lib/MultiOutput](../lib/MultiOutput/README.md)).
+  see [lib/BinaryInput](../lib/BinaryInput/README.md)). (It used to also
+  call `multiOutput.fast_handler()` for the DC/stepper motor, removed
+  2026-09-28 in `fixes/000013`.)
 - **Every 10th tick (~10ms):** counter increments, currently no handlers
   attached (placeholder comment in `main.cpp` for future `ten_ms_handler`
   calls).
