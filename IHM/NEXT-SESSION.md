@@ -57,11 +57,6 @@ build and full functionality -- the display works, DAC output doesn't.
   the overlay flashes (measured 2026-09-27). Owned by the
   `non_blocking_redraw` initiative (planned 2026-09-27, Rafael's choice
   over a longer mirror timeout).
-- **BusStatus tab passive refresh.** `bus_status_instance`'s CAN/RS-485
-  fields only repaint on tab-switch or box-toggle -- the ~100ms tick
-  redraws only the status bar. Live refresh there needs its own trigger
-  (e.g. an action fired from the MAVLink receive path). See the comment
-  in `main.cpp`'s ~100ms block and `ARCHITECTURE.md`'s UI section.
 - **`docs/architecture.drawio` is not regenerated.** Its module map
   predates the Janus-generated UI. `ARCHITECTURE.md`'s prose and
   `docs/gui-render-pipeline.drawio` are current; the drawio module map is
@@ -104,6 +99,13 @@ write sequence. Ask the user before testing against whatever is connected.
    2026-09-25). **The output pins themselves were not probed** -- scope
    OC3A / OC1A-B per `demo/HARDWARE_RUNBOOK.md` when an instrument is at
    hand.
+2. `serial_config` (closed 2026-09-28, bench-verified by script and a
+   headless companion run): turn RE2 by hand on a SERIAL field to judge
+   the acceleration (4 clicks < 80 ms apart up a digit, 300 ms pause down
+   one, 1.5 s reset -- `lib/BusConfig/src/SerialConfig.h`), and look at
+   the companion mirror's SERIAL tab following a knob edit. Known gap:
+   the mirror always shows data byte `B0` (the board's `B<n>` selection
+   isn't in 311/312; adding it is a wire change).
 
 ## Related repo
 
