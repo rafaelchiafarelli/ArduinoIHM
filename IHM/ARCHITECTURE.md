@@ -246,7 +246,8 @@ bus.
 | Bytes | Owner |
 |---|---|
 | 0-255 | `SerialConfig` image (`lib/BusConfig/src/SerialConfigImage.h`: magic, version, payload length, payload, CRC-16). 83 B today; the rest is room for bus initiatives' appended settings. |
-| 256-4095 | Free. |
+| 256-351 | Relay state at power-off (`lib/MultiOutput/src/RelayStore.h`, `fixes/000014`): 32-slot wear-levelled ring of `[mask, ~mask, seq]`, one slot written per relay change; boot restores the newest. |
+| 352-4095 | Free. |
 
 ## Known gaps
 

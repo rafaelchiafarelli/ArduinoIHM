@@ -33,6 +33,7 @@ revival of this driver.
 | `PWMTiming.h/.cpp` | -- (pure data + math) | frequency-selector -> prescaler/WGM-bits lookup |
 | `PWMLabelFormat.h/.cpp` | -- (pure formatting) | renders PWM config fields as display strings |
 | `RelayConfig.h` | -- (pure data) | UI-editable on/off state, mirrors `PWMChannelConfig`'s shape |
+| `RelayStore.h/.cpp` + `RelayStoreEeprom.h/.cpp` | EEPROM 256-351 | Relay state across power cycles (`fixes/000014`): every change is recorded in a 32-slot wear-levelled ring (~3.2M changes per cell budget), boot restores the last mask. The ring logic is pure and host-tested (`test_native/test_relay_store.cpp`); `main.cpp` saves once per superloop pass when the mask changed. |
 | `MultiOutput.h/.cpp` | composes all of the above | `setup`, `slow_handler`, `getRelays` |
 
 `PWMChannelConfig`/`PWMTiming`/`PWMLabelFormat`/`RelayConfig` have no AVR
