@@ -14,30 +14,25 @@ Adafruit-derived 12-bit I2C DAC driver (vendored, lightly project-specific).
 
 ## Hardware resources
 
-Shared I2C/`Wire` bus. `main.cpp` instantiates two: `dac0` at address
-`0x62`, `dac1` at address `0x63` -- same bus, address is the only
-differentiator.
+Shared I2C/`Wire` bus. `main.cpp` instantiates two, `dac[0]` at address
+`0x62` (header DAC0) and `dac[1]` at `0x63` (header DAC1) -- same bus,
+address is the only differentiator. `setup()` sets
+`Wire.setWireTimeout(5000 us, reset)` first: without it, a DAC that
+doesn't answer hung `twi.c`'s wait loops forever (why these calls were
+commented out until `dac_control`).
 
 ## Invocation
 
-Not on any timer/tick handler -- called directly from `main()`'s
-superloop every pass:
-
-```cpp
-dac1.setVoltage(voltage0, false);
-dac0.setVoltage(voltage1, false);
-```
-
-**Note the crossed naming:** `voltage0` (= `receivedRawData[0]`) goes to
-`dac1`, and `voltage1` (= `receivedRawData[1]`) goes to `dac0`. This may
-be intentional (matching physical wiring), but it reads like a mix-up and
-is worth a deliberate double-check against the actual board wiring before
-relying on "channel 0 = `voltage0`."
+Not on any timer/tick handler. `setup()` probes each DAC and writes code 0;
+after that the superloop writes a DAC only when an `IHM_DAC_COMMAND` (315)
+arrives for it (initiative `dac_control`), never per pass. Each write's
+result sets or clears that DAC's bit in `dacPresent`, reported in
+`IHM_DAC_STATE` (316). Channel index = `dac[]` index = header number; the
+old `voltage0`/`voltage1` path from `SerialCommunication` no longer drives
+the DACs.
 
 ## Coupling
 
 Depends on [lib/BusIO](../BusIO/README.md) (`I2CDevice`) and `Wire`
-(stock Arduino framework). Output values, once [Comms](../Comms/README.md)'s wiring
-gap is fixed, come straight from the decoded serial frame -- no
-clamping/range validation currently happens in `main.cpp` between
-`receivedRawData` and `setVoltage()`.
+(stock Arduino framework). Output values come from `IHM_DAC_COMMAND`, range-checked (0-4095) in
+`MavlinkComms::dispatch()`.

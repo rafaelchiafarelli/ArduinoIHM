@@ -84,8 +84,7 @@ before the scheduler is running -- see that module's README.
    |                  -> MultiOutput (Relay)                         |
    |   301/302 -> SerialConfig -> mirrorSerialToUi() (on change)     |
    |   janus_render_screen / _widget -> draw_area_sync -> Display    |
-   |   MCP4725 dac0/dac1.setVoltage(voltage0/1)  (fed by Comms /     |
-   |                                    MAVLink, once the gap is fixed)|
+   |   315 IHM_DAC_COMMAND -> MCP4725 dac[0/1].setVoltage (on cmd)   |
    +------------------------------------------------------------------+
 ```
 
@@ -261,12 +260,11 @@ fixing today.
    real serial input. Needs either a `USART0_RX_vect` override calling
    `comms.receive()`, or main-loop polling of `Serial.available()` /
    `Serial.read()` feeding it. See [lib/Comms/README.md](lib/Comms/README.md).
-2. **`MCP4725` dac0/dac1 vs. voltage0/voltage1 naming is crossed** in
-   `main.cpp` (`dac1.setVoltage(voltage0,...)`, `dac0.setVoltage(voltage1,...)`)
-   -- may be intentional (matching board wiring), worth a deliberate
-   check. The `dac*.begin()` / `setVoltage()` calls are commented out for
-   now (a missing DAC hangs `twi.c`'s unbounded wait loop). See
-   [lib/MCP4725/README.md](lib/MCP4725/README.md).
+2. **`MCP4725` DACs are not bench-verified.** Since `dac_control` they
+   are driven by `IHM_DAC_COMMAND` (315), channel i = `dac[i]` = header
+   DACi (0x62 / 0x63), with a Wire timeout so a missing DAC can't hang
+   `setup()`. The I2C addresses are assumed, not checked against the
+   modules fitted. See [lib/MCP4725/README.md](lib/MCP4725/README.md).
 3. **Serial2 MAVLink path is not bench-verified.** MAVLink moved to
    Serial2 with interrupt-driven RX/TX (`lib/Uart2`, fast handler in the
    Timer2 tick; see [mavlink/README.md](mavlink/README.md)). The
