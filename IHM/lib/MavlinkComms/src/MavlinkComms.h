@@ -75,6 +75,12 @@ private:
     uint8_t relayCmdMask;
     uint8_t relayCmdState;
 
+    // Latest IHM_DAC_COMMAND per DAC, plus a pending flag cleared by
+    // takeDacCommand() (superloop). Last writer wins. Storage only -- this
+    // class never touches I2C.
+    uint16_t dacValue[2];
+    bool dacPending[2];
+
     void dispatch()
     {
         switch (rxMsg.msgid)
@@ -137,6 +143,17 @@ private:
             relayCommandAccumulate(relayCmdMask, relayCmdState, cmd.mask, cmd.state);
             break;
         }
+        case MAVLINK_MSG_ID_IHM_DAC_COMMAND:
+        {
+            mavlink_ihm_dac_command_t cmd;
+            mavlink_msg_ihm_dac_command_decode(&rxMsg, &cmd);
+            if (cmd.channel < 2 && cmd.value <= 4095)
+            {
+                dacValue[cmd.channel] = cmd.value;
+                dacPending[cmd.channel] = true;
+            }
+            break;
+        }
         default:
             break;
         }
@@ -156,7 +173,7 @@ public:
     MavlinkComms()
         : canConfigDirty{false, false}, rs485ConfigDirty(false), settingCount(0),
           simulatedEncoderPending{false, false, false}, simulatedButtonMask(0), pwmConfigDirty{false, false, false, false},
-          relayCmdMask(0), relayCmdState(0)
+          relayCmdMask(0), relayCmdState(0), dacValue{0, 0}, dacPending{false, false}
     {
     }
 
@@ -215,6 +232,16 @@ public:
     {
         mavlink_message_t msg;
         mavlink_msg_ihm_relay_state_pack(1, 1, &msg, relayBitmask);
+        sendMessage(&msg);
+    }
+
+    // Packs and queues one IHM_DAC_STATE message: the code last written to
+    // each DAC and the bitmask of DACs that ACKed. Caller (main.cpp) owns
+    // both; this class only packs/sends them.
+    void sendDacState(const uint16_t value[2], uint8_t presentMask)
+    {
+        mavlink_message_t msg;
+        mavlink_msg_ihm_dac_state_pack(1, 1, &msg, value, presentMask);
         sendMessage(&msg);
     }
 
@@ -305,6 +332,27 @@ public:
                 *state = relayCmdState;
                 relayCmdMask = 0;
                 relayCmdState = 0;
+                taken = true;
+            }
+        }
+        return taken;
+    }
+
+    // Superloop-side hand-off of the latest IHM_DAC_COMMAND for DAC `ch`:
+    // false if ch >= 2 or nothing new arrived; otherwise copies the code out
+    // and clears the pending flag, atomically (same pattern as
+    // takePwmChannelConfig). The code is already range-checked (0-4095).
+    bool takeDacCommand(uint8_t ch, uint16_t *value)
+    {
+        if (ch >= 2)
+            return false;
+        bool taken = false;
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+        {
+            if (dacPending[ch])
+            {
+                dacPending[ch] = false;
+                *value = dacValue[ch];
                 taken = true;
             }
         }

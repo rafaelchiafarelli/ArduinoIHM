@@ -61,7 +61,16 @@ volatile uint8_t timeCounter = 0;
 
 SerialCommunication comms;
 MultiOutput multiOuput;
-MCP4725 dac1,dac0;
+// Analog outputs (dac_control): MCP4725 DACs on I2C, index = the DAC0/DAC1
+// header = IHM_DAC_COMMAND's channel. dacCode[] is the code last written
+// (IHM_DAC_STATE's readback); bit i of dacPresent = DAC i ACKed its last write.
+MCP4725 dac[2];
+static const uint8_t dacAddress[2] = {0x62, 0x63};
+static uint16_t dacCode[2] = {0, 0};
+static uint8_t dacPresent = 0;
+// Bounds twi.c's wait loops: without it a DAC that doesn't answer (or a stuck
+// bus) hangs forever -- why the DAC calls were commented out before.
+#define DAC_I2C_TIMEOUT_US 5000
 uint16_t voltage0 = 0;
 uint16_t voltage1 = 0;
 Display tft; // Instantiate the display object
@@ -167,10 +176,15 @@ void setup()
     Serial.begin(250000);   // debug port only
     mavlinkComms.begin(MAVLINK_SERIAL_BAUD);   // protocol port: Serial2, interrupt-driven
 
-    //dac0.begin(0x62);
-    
-    //dac1.begin(0x63);
-    
+    // DACs start at code 0. begin() only probes the address; the write is
+    // what sets the output and reports the DAC present.
+    Wire.begin();
+    Wire.setWireTimeout(DAC_I2C_TIMEOUT_US, true);
+    for (uint8_t i = 0; i < 2; i++) {
+        if (dac[i].begin(dacAddress[i]) && dac[i].setVoltage(0, false))
+            dacPresent |= (uint8_t)(1u << i);
+    }
+
     cli();
 
     // setting system timer
@@ -823,8 +837,16 @@ int main()
             newDataAvailable = false;
         }
 
-        //dac1.setVoltage(voltage0, false);
-        //dac0.setVoltage(voltage1, false);
+        // PC-driven analog outputs (IHM_DAC_COMMAND): written only when a
+        // command arrives, never per pass. A failed write (DAC missing, bus
+        // timeout) clears its present bit; the next command retries.
+        for (uint8_t i = 0; i < 2; i++) {
+            uint16_t code;
+            if (!mavlinkComms.takeDacCommand(i, &code)) continue;
+            dacCode[i] = code;
+            if (dac[i].setVoltage(code, false)) dacPresent |= (uint8_t)(1u << i);
+            else dacPresent &= (uint8_t)~(1u << i);
+        }
 
         if(timeCounter>=100){
             uint16_t stats = timeStatistics;
@@ -846,6 +868,7 @@ int main()
                                          analogIn, stats, count);
 
             mavlinkComms.sendRelayState(relayMask());
+            mavlinkComms.sendDacState(dacCode, dacPresent);
 
             // One PWM channel per tick, round-robin: all 4 refresh every
             // ~400 ms and each tick's frames fit the TX ring together.

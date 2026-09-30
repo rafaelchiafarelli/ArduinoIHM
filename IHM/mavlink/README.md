@@ -21,6 +21,8 @@ that class is unrelated and untouched by this).
 - `scripts/pwm_config.py` -- CLI that sends one `PWM_CHANNEL_CONFIG` (see
   `--help`; worked examples in `demo/HARDWARE_RUNBOOK.md`). Needs
   `pip install pymavlink pyserial`.
+- `scripts/dac_cmd.py` -- sends one `IHM_DAC_COMMAND` and prints the
+  `IHM_DAC_STATE` readback (`--channel 0|1 --value 0-4095`).
 - `generated/` -- mavgen output, C only. This is a *complete*, self-contained
   MAVLink v2 C implementation (mavgen vendors `mavlink_helpers.h`,
   `mavlink_types.h`, `protocol.h`, `checksum.h` alongside the dialect-specific
@@ -47,6 +49,8 @@ that class is unrelated and untouched by this).
 | `IHM_RS485_SIGNAL_STATE` (312) | board -> PC | 38 | Same for the RS-485 generator, same fields as `RS485_SIGNAL_CONFIG` |
 | `IHM_SERIAL_SETTING` (313) | PC -> board | 7 | Set one keyed bus setting (`bus`, `key`, int32 `value`): the generic path for settings bus initiatives add (key table below) |
 | `IHM_SERIAL_SETTING_STATE` (314) | board -> PC | 8 | One keyed setting's value + `status` (OK / unknown key / invalid value): the ack for every 313, and the keyed settings' periodic readback |
+| `IHM_DAC_COMMAND` (315) | PC -> board | 3 | Set one MCP4725 DAC (channel 0 = 0x62/DAC0, 1 = 0x63/DAC1) to a raw 12-bit code, 0-4095. Register only, not the DAC's EEPROM. Out-of-range dropped; no ack. Initiative `dac_control` |
+| `IHM_DAC_STATE` (316) | board -> PC | 5 | Code last written per DAC + bitmask of DACs that ACKed their last write; every ~100 ms. The readback for 315 |
 
 Largest message is 38 bytes, hence the 64-byte cap (some margin for the
 still-undesigned SD-card-status and UI-state messages -- see

@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-29 -- DAC outputs back, driven from the PC (dac_control)
+
+- New MAVLink pair: `IHM_DAC_COMMAND` (315) sets one MCP4725's 12-bit
+  code, `IHM_DAC_STATE` (316) reads back both codes and which DACs ACKed.
+- `main.cpp` re-enables the DACs (`dac[0]` 0x62, `dac[1]` 0x63) behind
+  `Wire.setWireTimeout`, so a missing DAC can no longer hang `setup()`.
+  Both start at 0; a DAC is written only when a command arrives.
+- Companion: a DAC panel (slider + code + Set per DAC, readback line).
+  Bench script: `mavlink/scripts/dac_cmd.py`.
+- RAM 5236 B (63.9%), up from Wire now being linked. Not bench-verified.
+
 ## 2026-09-25 -- PWM switches drive the hardware; LED colours
 
 - pbRE1 on a focused PWM switch now changes the real output. Each channel

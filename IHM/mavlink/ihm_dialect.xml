@@ -338,5 +338,27 @@
       <field type="int32_t" name="value">Current value (unchanged if status is not OK).</field>
       <field type="uint8_t" name="status" enum="IHM_SERIAL_SETTING_STATUS">Outcome of the IHM_SERIAL_SETTING this answers; OK for periodic readback.</field>
     </message>
+    <message id="315" name="IHM_DAC_COMMAND">
+      <description>
+        PC sets one analog output: the raw 12-bit code of one MCP4725 DAC
+        (channel 0 = I2C 0x62, header DAC0; channel 1 = 0x63, header DAC1).
+        Output = code / 4096 x the DAC's supply, before any board-side
+        amplifier. Written to the DAC's register only, never its EEPROM, so
+        it does not survive a power cycle. Out-of-range channel or code is
+        dropped. Last writer wins; no ack -- IHM_DAC_STATE (316) is the
+        readback. PC -> board, command.
+      </description>
+      <field type="uint8_t" name="channel">Target DAC, 0-1.</field>
+      <field type="uint16_t" name="value">DAC code, 0-4095.</field>
+    </message>
+    <message id="316" name="IHM_DAC_STATE">
+      <description>
+        The code last written to each DAC and whether it answered on I2C.
+        Board -> PC, telemetry, read-only, every ~100 ms. A DAC that has not
+        answered keeps its value here but its output is unknown.
+      </description>
+      <field type="uint16_t[2]" name="value">Code last written per DAC (0 at boot).</field>
+      <field type="uint8_t" name="present">Bit i = DAC i ACKed its last I2C write (or the boot probe).</field>
+    </message>
   </messages>
 </mavlink>
