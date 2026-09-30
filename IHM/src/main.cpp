@@ -25,6 +25,7 @@
 #include "SerialConfigWire.h"
 #include "SerialEdit.h"
 #include "SerialConfigEeprom.h"
+#include "RelayStoreEeprom.h"
 
 // Janus-generated UI (lib/GUI) -- plain C, so every header/declaration that
 // crosses into this .cpp translation unit needs extern "C" linkage to match
@@ -60,7 +61,16 @@ volatile uint8_t timeCounter = 0;
 
 SerialCommunication comms;
 MultiOutput multiOuput;
-MCP4725 dac1,dac0;
+// Analog outputs (dac_control): MCP4725 DACs on I2C, index = the DAC0/DAC1
+// header = IHM_DAC_COMMAND's channel. dacCode[] is the code last written
+// (IHM_DAC_STATE's readback); bit i of dacPresent = DAC i ACKed its last write.
+MCP4725 dac[2];
+static const uint8_t dacAddress[2] = {0x62, 0x63};
+static uint16_t dacCode[2] = {0, 0};
+static uint8_t dacPresent = 0;
+// Bounds twi.c's wait loops: without it a DAC that doesn't answer (or a stuck
+// bus) hangs forever -- why the DAC calls were commented out before.
+#define DAC_I2C_TIMEOUT_US 5000
 uint16_t voltage0 = 0;
 uint16_t voltage1 = 0;
 Display tft; // Instantiate the display object
@@ -80,6 +90,23 @@ AnalogInputs analogInputs;
 // flip *to*. Owned here, not in janus_actions.c, since it's plain C and
 // can't hold a bool array any more naturally than main.cpp already does.
 bool relayState[NUMBER_OF_RELAYS] = {false, false, false, false, false, false, false, false};
+
+// janus_actions.cpp: drives relay `index` to `on` (hardware, relayState[],
+// Output tab). Declared up here for setup()'s power-on restore.
+void relaySet(uint8_t index, bool on);
+
+// relayState[] as a bitmask (bit i = relay i).
+static uint8_t relayMask()
+{
+    uint8_t m = 0;
+    for (uint8_t i = 0; i < NUMBER_OF_RELAYS; i++)
+        if (relayState[i]) m |= (uint8_t)(1u << i);
+    return m;
+}
+
+// The mask last recorded in EEPROM (fixes/000014): every relay change is
+// recorded, and boot restores the relays as they were at power-off.
+static uint8_t relaySavedMask = 0;
 
 // ---------------------------------------------------------------- Janus --
 // driver contract implementations (janus_runtime.h) -- vendor-provided,
@@ -149,10 +176,15 @@ void setup()
     Serial.begin(250000);   // debug port only
     mavlinkComms.begin(MAVLINK_SERIAL_BAUD);   // protocol port: Serial2, interrupt-driven
 
-    //dac0.begin(0x62);
-    
-    //dac1.begin(0x63);
-    
+    // DACs start at code 0. begin() only probes the address; the write is
+    // what sets the output and reports the DAC present.
+    Wire.begin();
+    Wire.setWireTimeout(DAC_I2C_TIMEOUT_US, true);
+    for (uint8_t i = 0; i < 2; i++) {
+        if (dac[i].begin(dacAddress[i]) && dac[i].setVoltage(0, false))
+            dacPresent |= (uint8_t)(1u << i);
+    }
+
     cli();
 
     // setting system timer
@@ -171,6 +203,12 @@ void setup()
     sei();
     
     multiOuput.setup();
+
+    // Relays as they were at power-off (fixes/000014); all off on a blank
+    // EEPROM.
+    relaySavedMask = relayStoreLoad();
+    for (uint8_t i = 0; i < NUMBER_OF_RELAYS; i++)
+        if (relaySavedMask & (1u << i)) relaySet(i, true);
     
 
     display_driver_init();
@@ -359,9 +397,6 @@ static bool pwmDutyActionTarget(janus_action_t action, uint8_t* ch, uint8_t* out
 // janus_actions.cpp: sets the switch behind a toggle_* action (PWM switch
 // or relay) to `on`; false if the action isn't a switch.
 bool janusSetSwitch(janus_action_t action, bool on);
-// janus_actions.cpp: drives relay `index` to `on` -- hardware, relayState[]
-// and the Output tab's switch + LED (marked dirty, not repainted).
-void relaySet(uint8_t index, bool on);
 
 // Which channel's frequency label an action belongs to; -1 for any other.
 static int8_t pwmFrequencyActionChannel(janus_action_t action)
@@ -388,7 +423,6 @@ ISR(TIMER2_COMPA_vect){ /*~1.008ms system tick*/
     // consumer (take*/consume*/get*), so nothing below depends on it.
     mavlinkComms.fast_handler();
 
-    multiOuput.fast_handler();
     bMap = userInputs.fast_handler();
     counterT0++;
     if (counterT0 >= TEN_MS_T0_TICKS) { //~10ms elapsed
@@ -734,10 +768,7 @@ int main()
         // driven, so a repeated frame does nothing.
         uint8_t relayCmdMask, relayCmdState;
         if (mavlinkComms.takeRelayCommand(&relayCmdMask, &relayCmdState)) {
-            uint8_t current = 0;
-            for (uint8_t i = 0; i < NUMBER_OF_RELAYS; i++) {
-                if (relayState[i]) current |= (uint8_t)(1u << i);
-            }
+            uint8_t current = relayMask();
             uint8_t target = relayCommandApply(current, relayCmdMask, relayCmdState);
             for (uint8_t i = 0; i < NUMBER_OF_RELAYS; i++) {
                 if ((current ^ target) & (1u << i)) relaySet(i, (target >> i) & 1u);
@@ -792,14 +823,30 @@ int main()
             serialStateSent = true;
         }
 
+        // Record any relay change this pass -- on-screen or PC -- in EEPROM,
+        // once per pass (one write for a command that switches several).
+        uint8_t relayNow = relayMask();
+        if (relayNow != relaySavedMask) {
+            relayStoreSave(relayNow);
+            relaySavedMask = relayNow;
+        }
+
         if(newDataAvailable){
             voltage0 = receivedRawData[0];
             voltage1 = receivedRawData[1];
             newDataAvailable = false;
         }
 
-        //dac1.setVoltage(voltage0, false);
-        //dac0.setVoltage(voltage1, false);
+        // PC-driven analog outputs (IHM_DAC_COMMAND): written only when a
+        // command arrives, never per pass. A failed write (DAC missing, bus
+        // timeout) clears its present bit; the next command retries.
+        for (uint8_t i = 0; i < 2; i++) {
+            uint16_t code;
+            if (!mavlinkComms.takeDacCommand(i, &code)) continue;
+            dacCode[i] = code;
+            if (dac[i].setVoltage(code, false)) dacPresent |= (uint8_t)(1u << i);
+            else dacPresent &= (uint8_t)~(1u << i);
+        }
 
         if(timeCounter>=100){
             uint16_t stats = timeStatistics;
@@ -820,13 +867,8 @@ int main()
                                          rotation, charging, battVoltage,
                                          analogIn, stats, count);
 
-            uint8_t relayMask = 0;
-            for (uint8_t i = 0; i < NUMBER_OF_RELAYS; i++)
-            {
-                if (relayState[i])
-                    relayMask |= (uint8_t)(1u << i);
-            }
-            mavlinkComms.sendRelayState(relayMask);
+            mavlinkComms.sendRelayState(relayMask());
+            mavlinkComms.sendDacState(dacCode, dacPresent);
 
             // One PWM channel per tick, round-robin: all 4 refresh every
             // ~400 ms and each tick's frames fit the TX ring together.

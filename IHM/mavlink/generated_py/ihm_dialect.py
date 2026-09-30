@@ -459,6 +459,8 @@ MAVLINK_MSG_ID_IHM_CAN_SIGNAL_STATE = 311
 MAVLINK_MSG_ID_IHM_RS485_SIGNAL_STATE = 312
 MAVLINK_MSG_ID_IHM_SERIAL_SETTING = 313
 MAVLINK_MSG_ID_IHM_SERIAL_SETTING_STATE = 314
+MAVLINK_MSG_ID_IHM_DAC_COMMAND = 315
+MAVLINK_MSG_ID_IHM_DAC_STATE = 316
 
 
 class MAVLink_ihm_board_state_message(MAVLink_message):
@@ -1150,6 +1152,94 @@ class MAVLink_ihm_serial_setting_state_message(MAVLink_message):
 setattr(MAVLink_ihm_serial_setting_state_message, "name", mavlink_msg_deprecated_name_property())
 
 
+class MAVLink_ihm_dac_command_message(MAVLink_message):
+    """
+    PC sets one analog output: the raw 12-bit code of one MCP4725 DAC
+    (channel 0 = I2C 0x62, header DAC0; channel 1 = 0x63, header
+    DAC1).         Output = code / 4096 x the DAC's supply, before any
+    board-side         amplifier. Written to the DAC's register only,
+    never its EEPROM, so         it does not survive a power cycle.
+    Out-of-range channel or code is         dropped. Last writer wins;
+    no ack -- IHM_DAC_STATE (316) is the         readback. PC ->
+    board, command.
+    """
+
+    id = MAVLINK_MSG_ID_IHM_DAC_COMMAND
+    msgname = "IHM_DAC_COMMAND"
+    fieldnames = ["channel", "value"]
+    ordered_fieldnames = ["value", "channel"]
+    fieldtypes = ["uint8_t", "uint16_t"]
+    fielddisplays_by_name: Dict[str, str] = {}
+    fieldenums_by_name: Dict[str, str] = {}
+    fieldunits_by_name: Dict[str, str] = {}
+    native_format = bytearray(b"<HB")
+    orders = [1, 0]
+    lengths = [1, 1]
+    array_lengths = [0, 0]
+    crc_extra = 187
+    unpacker = struct.Struct("<HB")
+    instance_field = None
+    instance_offset = -1
+
+    def __init__(self, channel: int, value: int):
+        MAVLink_message.__init__(self, MAVLink_ihm_dac_command_message.id, MAVLink_ihm_dac_command_message.msgname)
+        self._fieldnames = MAVLink_ihm_dac_command_message.fieldnames
+        self._instance_field = MAVLink_ihm_dac_command_message.instance_field
+        self._instance_offset = MAVLink_ihm_dac_command_message.instance_offset
+        self.channel = channel
+        self.value = value
+
+    def pack(self, mav: "MAVLink", force_mavlink1: bool = False) -> bytes:
+        return self._pack(mav, self.crc_extra, self.unpacker.pack(self.value, self.channel), force_mavlink1=force_mavlink1)
+
+
+# Define name on the class for backwards compatibility (it is now msgname).
+# Done with setattr to hide the class variable from mypy.
+setattr(MAVLink_ihm_dac_command_message, "name", mavlink_msg_deprecated_name_property())
+
+
+class MAVLink_ihm_dac_state_message(MAVLink_message):
+    """
+    The code last written to each DAC and whether it answered on I2C.
+    Board -> PC, telemetry, read-only, every ~100 ms. A DAC that has
+    not         answered keeps its value here but its output is
+    unknown.
+    """
+
+    id = MAVLINK_MSG_ID_IHM_DAC_STATE
+    msgname = "IHM_DAC_STATE"
+    fieldnames = ["value", "present"]
+    ordered_fieldnames = ["value", "present"]
+    fieldtypes = ["uint16_t", "uint8_t"]
+    fielddisplays_by_name: Dict[str, str] = {}
+    fieldenums_by_name: Dict[str, str] = {}
+    fieldunits_by_name: Dict[str, str] = {}
+    native_format = bytearray(b"<HB")
+    orders = [0, 1]
+    lengths = [2, 1]
+    array_lengths = [2, 0]
+    crc_extra = 143
+    unpacker = struct.Struct("<2HB")
+    instance_field = None
+    instance_offset = -1
+
+    def __init__(self, value: Sequence[int], present: int):
+        MAVLink_message.__init__(self, MAVLink_ihm_dac_state_message.id, MAVLink_ihm_dac_state_message.msgname)
+        self._fieldnames = MAVLink_ihm_dac_state_message.fieldnames
+        self._instance_field = MAVLink_ihm_dac_state_message.instance_field
+        self._instance_offset = MAVLink_ihm_dac_state_message.instance_offset
+        self.value = value
+        self.present = present
+
+    def pack(self, mav: "MAVLink", force_mavlink1: bool = False) -> bytes:
+        return self._pack(mav, self.crc_extra, self.unpacker.pack(self.value[0], self.value[1], self.present), force_mavlink1=force_mavlink1)
+
+
+# Define name on the class for backwards compatibility (it is now msgname).
+# Done with setattr to hide the class variable from mypy.
+setattr(MAVLink_ihm_dac_state_message, "name", mavlink_msg_deprecated_name_property())
+
+
 mavlink_map: Dict[int, Type[MAVLink_message]] = {
     MAVLINK_MSG_ID_IHM_BOARD_STATE: MAVLink_ihm_board_state_message,
     MAVLINK_MSG_ID_CAN_SIGNAL_CONFIG: MAVLink_can_signal_config_message,
@@ -1165,6 +1255,8 @@ mavlink_map: Dict[int, Type[MAVLink_message]] = {
     MAVLINK_MSG_ID_IHM_RS485_SIGNAL_STATE: MAVLink_ihm_rs485_signal_state_message,
     MAVLINK_MSG_ID_IHM_SERIAL_SETTING: MAVLink_ihm_serial_setting_message,
     MAVLINK_MSG_ID_IHM_SERIAL_SETTING_STATE: MAVLink_ihm_serial_setting_state_message,
+    MAVLINK_MSG_ID_IHM_DAC_COMMAND: MAVLink_ihm_dac_command_message,
+    MAVLINK_MSG_ID_IHM_DAC_STATE: MAVLink_ihm_dac_state_message,
 }
 
 
@@ -2162,3 +2254,63 @@ class MAVLink(object):
 
         """
         self.send(self.ihm_serial_setting_state_encode(bus, key, value, status), force_mavlink1=force_mavlink1)
+
+    def ihm_dac_command_encode(self, channel: int, value: int) -> MAVLink_ihm_dac_command_message:
+        """
+        PC sets one analog output: the raw 12-bit code of one MCP4725 DAC
+        (channel 0 = I2C 0x62, header DAC0; channel 1 = 0x63, header
+        DAC1).         Output = code / 4096 x the DAC's supply, before
+        any board-side         amplifier. Written to the DAC's
+        register only, never its EEPROM, so         it does not
+        survive a power cycle. Out-of-range channel or code is
+        dropped. Last writer wins; no ack -- IHM_DAC_STATE (316) is
+        the         readback. PC -> board, command.
+
+        channel                   : Target DAC, 0-1. (type:uint8_t)
+        value                     : DAC code, 0-4095. (type:uint16_t)
+
+        """
+        return MAVLink_ihm_dac_command_message(channel, value)
+
+    def ihm_dac_command_send(self, channel: int, value: int, force_mavlink1: bool = False) -> None:
+        """
+        PC sets one analog output: the raw 12-bit code of one MCP4725 DAC
+        (channel 0 = I2C 0x62, header DAC0; channel 1 = 0x63, header
+        DAC1).         Output = code / 4096 x the DAC's supply, before
+        any board-side         amplifier. Written to the DAC's
+        register only, never its EEPROM, so         it does not
+        survive a power cycle. Out-of-range channel or code is
+        dropped. Last writer wins; no ack -- IHM_DAC_STATE (316) is
+        the         readback. PC -> board, command.
+
+        channel                   : Target DAC, 0-1. (type:uint8_t)
+        value                     : DAC code, 0-4095. (type:uint16_t)
+
+        """
+        self.send(self.ihm_dac_command_encode(channel, value), force_mavlink1=force_mavlink1)
+
+    def ihm_dac_state_encode(self, value: Sequence[int], present: int) -> MAVLink_ihm_dac_state_message:
+        """
+        The code last written to each DAC and whether it answered on I2C.
+        Board -> PC, telemetry, read-only, every ~100 ms. A DAC that
+        has not         answered keeps its value here but its output
+        is unknown.
+
+        value                     : Code last written per DAC (0 at boot). (type:uint16_t)
+        present                   : Bit i = DAC i ACKed its last I2C write (or the boot probe). (type:uint8_t)
+
+        """
+        return MAVLink_ihm_dac_state_message(value, present)
+
+    def ihm_dac_state_send(self, value: Sequence[int], present: int, force_mavlink1: bool = False) -> None:
+        """
+        The code last written to each DAC and whether it answered on I2C.
+        Board -> PC, telemetry, read-only, every ~100 ms. A DAC that
+        has not         answered keeps its value here but its output
+        is unknown.
+
+        value                     : Code last written per DAC (0 at boot). (type:uint16_t)
+        present                   : Bit i = DAC i ACKed its last I2C write (or the boot probe). (type:uint8_t)
+
+        """
+        self.send(self.ihm_dac_state_encode(value, present), force_mavlink1=force_mavlink1)

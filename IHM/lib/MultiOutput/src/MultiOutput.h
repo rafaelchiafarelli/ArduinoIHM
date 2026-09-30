@@ -1,6 +1,5 @@
 #ifndef _MULTI_OUTPUT_H_
 #define _MULTI_OUTPUT_H_
-#include "MotorDC.h"
 #include "PWM.h"
 #include "Relay.h"
 #include "MultiplexedBus.h"
@@ -10,12 +9,15 @@
 // see MultiplexedBus.h's MUX_SERVO_STROBE) for a servo device, but no
 // firmware in this repo drives it. A dedicated servo controller is
 // planned as future, separate work -- not a rewrite of this driver.
+//
+// DC/stepper motor control is removed too (fixes/000013, 2026-09-28: the
+// motor was never connected). Its latch (dig_2, MUX_MOTOR_STROBE) stays
+// wired; setup() latches 0 into it once so its outputs sit low.
 class MultiOutput
 {
     const BinaryOutputs bnOuts;
     const MultiplexedBus bus;
     Relay relays;
-    MotorDC motors;
     PWM pwm;
 
 private:
@@ -25,7 +27,6 @@ public:
     MultiOutput():bnOuts(),
                     bus(bnOuts),
                     relays(bus),
-                    motors(bus,MOTOR_STEPPER),
                     pwm(){
                         bnOuts.setup();
                         bus.enableOutputs();
@@ -36,10 +37,7 @@ public:
         for(uint8_t i=0; i<NUMBER_OF_RELAYS; i++){
             relays.enableRelay(i);
         }
-    };
-
-    void fast_handler(){
-        motors.fast_handler();
+        bus.write(MUX_MOTOR_STROBE, 0);   // unused latch: outputs low
     };
 
     void slow_handler(){

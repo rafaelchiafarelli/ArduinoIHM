@@ -102,6 +102,7 @@ $prodSourceAllowlist = @(
     "lib/MultiOutput/src/PWMChannelConfig.cpp",
     "lib/MultiOutput/src/PWMWireConfig.cpp",
     "lib/MultiOutput/src/PWMLabelFormat.cpp",
+    "lib/MultiOutput/src/RelayStore.cpp",
     "lib/RotaryEncoder/ButtonMap.cpp",
     "lib/BusConfig/src/SerialConfig.cpp",
     "lib/BusConfig/src/SerialConfigWire.cpp",

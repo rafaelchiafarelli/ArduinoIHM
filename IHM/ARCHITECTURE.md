@@ -7,7 +7,7 @@ this document is about how they fit together. See
 `docs/gui-render-pipeline.drawio` for the on-screen UI's render path.
 
 Target: PlatformIO `megaatmega2560` (ATmega2560). See `IHM/README.md` for
-the one-paragraph pitch (PWM function generator + relay/motor I/O behind
+the one-paragraph pitch (PWM function generator + relay I/O behind
 a parallel-TFT touch-free UI) and `IHM/NEXT-SESSION.md` /
 `IHM/CHANGELOG.md` for the current work log.
 
@@ -68,9 +68,8 @@ before the scheduler is running -- see that module's README.
         v                v                      (unused slot)     |
   BinaryInputs      MultiOutput.slow_handler                      |
   .fast_handler()     -> Relay.ultra_slow_handler()               |
-  MultiOutput        Comms.fast_handler()  (parses; see gap below)|
-  .fast_handler()    RotaryEncoder.ms_handler()                   |
-  -> MotorDC.fast_handler()                                       |
+                     Comms.fast_handler()  (parses; see gap below)|
+                     RotaryEncoder.ms_handler()                   |
         |                                                         |
         v                                                         |
       bMap  ---------------------------------------------------> main()
@@ -85,8 +84,7 @@ before the scheduler is running -- see that module's README.
    |                  -> MultiOutput (Relay)                         |
    |   301/302 -> SerialConfig -> mirrorSerialToUi() (on change)     |
    |   janus_render_screen / _widget -> draw_area_sync -> Display    |
-   |   MCP4725 dac0/dac1.setVoltage(voltage0/1)  (fed by Comms /     |
-   |                                    MAVLink, once the gap is fixed)|
+   |   315 IHM_DAC_COMMAND -> MCP4725 dac[0/1].setVoltage (on cmd)   |
    +------------------------------------------------------------------+
 ```
 
@@ -94,7 +92,7 @@ before the scheduler is running -- see that module's README.
 |---|---|---|
 | Composition root | `main.cpp`, `Timer2Config` | [src/README.md](src/README.md) |
 | Inputs | `BinaryInput`, `RotaryEncoder`, `ButtonMap`, `AnalogInput` | [lib/BinaryInput](lib/BinaryInput/README.md), [lib/RotaryEncoder](lib/RotaryEncoder/README.md) |
-| Outputs | `BinaryOutputs`, `Relay`, `MotorDC`, `PWM` + config/timing/label-format types | [lib/BinaryOutputs](lib/BinaryOutputs/README.md), [lib/MultiOutput](lib/MultiOutput/README.md) |
+| Outputs | `BinaryOutputs`, `Relay`, `PWM` + config/timing/label-format types | [lib/BinaryOutputs](lib/BinaryOutputs/README.md), [lib/MultiOutput](lib/MultiOutput/README.md) |
 | UI | `lib/GUI` -- Janus-generated screens + vendored `lib/GUI/runtime`; `src/janus_actions.cpp` + the Janus block of `main.cpp` are the glue | [The UI is generated (`lib/GUI`)](#the-ui-is-generated-libgui) |
 | Settings | `BusConfig` -- `SerialConfig` (SERIAL tab settings), its EEPROM image and RE2 step/acceleration helpers | [lib/BusConfig](lib/BusConfig/README.md) |
 | Comms/peripherals | `SerialCommunication`, `MavlinkComms`, `MCP4725` | [lib/Comms](lib/Comms/README.md), [lib/MCP4725](lib/MCP4725/README.md) |
@@ -191,20 +189,23 @@ ATmega2560's 8 KiB SRAM.
 
 ## Shared hardware resource allocation
 
-### The multiplexed output bus (`Relay` / `MotorDC`)
+### The multiplexed output bus (`Relay`)
 
-`Relay` and `MotorDC` share one 8-bit data bus feeding separate `74LS373`
-transparent latches, one per device, each captured by its own strobe
-line. Each device keeps its own current 8-bit state in RAM and rewrites
-the whole byte on every change (the bus is shared and byte-wide, not
-individually addressable per bit).
+One 8-bit data bus feeds three `74LS373` transparent latches (relay,
+servo, motor), each captured by its own strobe line. Only `Relay` drives
+one today: servo control was removed 2026-08-16 and DC/stepper motor
+control on 2026-09-28 (`fixes/000013`, the motor was never connected).
+The motor latch's outputs are free: `rs485_modbus` means to drive the
+RS-485 DE/RE line from one of them. A device keeps its current 8-bit
+state in RAM and rewrites the whole byte on every change (the bus is
+shared and byte-wide, not individually addressable per bit).
 
 | Signal | AVR pin | Role |
 |---|---|---|
 | Data bus (8 bits) | `PC2,PC1,PC0,PD7,PG2,PG1,PG0,PL7` | Shared -- holds the byte about to be latched |
 | `dig_0` | `PH6` | Strobe -- a third latch, physically present on the board, driven by no firmware |
 | `dig_1` | `PG5` | Strobe -- `Relay`'s latch |
-| `dig_2` | `PF4` | Strobe -- `MotorDC`'s latch |
+| `dig_2` | `PF4` | Strobe -- the motor latch; no driver since `fixes/000013`, `MultiOutput::setup()` latches 0 once |
 | `OUTPUT_EN` | `PB4` | Shared tri-state control, not part of the write sequence |
 
 A `74LS373` is *transparent*, not edge-triggered: its outputs follow the
@@ -218,19 +219,12 @@ leaving the other latches untouched.
 built on top of `BinaryOutputs::SetOutput()`. `write(strobeIndex, byte)`
 settles all 8 data-bus bits, raises the target strobe, then drops it, all
 inside `ATOMIC_BLOCK(ATOMIC_RESTORESTATE)` -- so a `Relay` foreground
-write and a `MotorDC` ISR-context write (every ~1ms tick) can't
+write and an ISR-context write (the deleted motor driver wrote every
+~1ms tick; an RS-485 DE/RE line would write from the UART ISRs) can't
 interleave and tear a byte. `enableOutputs()` drives `OUTPUT_EN` low once
 at setup (`74LS373`'s `OE` is active-low, per the KiCad schematic).
 `Relay` assembles all 8 relays into one byte via `refreshBus()` and calls
-`bus.write(MUX_RELAY_STROBE, value)`; `MotorDC` uses `MUX_MOTOR_STROBE`
-the same way, with coarse software-PWM speed control on the ~1.008ms tick
-(~99Hz carrier, 10% duty steps) -- no dedicated fast hardware timer is
-free (Timer1/3/4/5 are all committed to `PWM`).
-
-**Open:** `MotorDC`'s bit positions within its one byte (`enA`=bit0,
-`dirA`=bit1, `enB`=bit2, `dirB`=bit3) are a placeholder, unconfirmed
-against `IOs IHM.xlsx` / the KiCad schematic. `MotorDC` also has no
-on-screen UI tab yet.
+`bus.write(MUX_RELAY_STROBE, value)`.
 
 ### Hardware timers (PWM only -- decoupled from the bus above)
 
@@ -243,15 +237,16 @@ on-screen UI tab yet.
 | Timer5 | PWM channel 1 (`OC5A`, simplex) |
 
 All 8 timer-compare pins (`OC1A/B/C`, `OC3A`, `OC4A/B/C`, `OC5A`) are
-direct-to-output, no buffer, entirely separate from the `Relay` /
-`MotorDC` bus.
+direct-to-output, no buffer, entirely separate from the multiplexed
+bus.
 
 ### EEPROM
 
 | Bytes | Owner |
 |---|---|
 | 0-255 | `SerialConfig` image (`lib/BusConfig/src/SerialConfigImage.h`: magic, version, payload length, payload, CRC-16). 83 B today; the rest is room for bus initiatives' appended settings. |
-| 256-4095 | Free. |
+| 256-351 | Relay state at power-off (`lib/MultiOutput/src/RelayStore.h`, `fixes/000014`): 32-slot wear-levelled ring of `[mask, ~mask, seq]`, one slot written per relay change; boot restores the newest. |
+| 352-4095 | Free. |
 
 ## Known gaps
 
@@ -265,12 +260,11 @@ fixing today.
    real serial input. Needs either a `USART0_RX_vect` override calling
    `comms.receive()`, or main-loop polling of `Serial.available()` /
    `Serial.read()` feeding it. See [lib/Comms/README.md](lib/Comms/README.md).
-2. **`MCP4725` dac0/dac1 vs. voltage0/voltage1 naming is crossed** in
-   `main.cpp` (`dac1.setVoltage(voltage0,...)`, `dac0.setVoltage(voltage1,...)`)
-   -- may be intentional (matching board wiring), worth a deliberate
-   check. The `dac*.begin()` / `setVoltage()` calls are commented out for
-   now (a missing DAC hangs `twi.c`'s unbounded wait loop). See
-   [lib/MCP4725/README.md](lib/MCP4725/README.md).
+2. **`MCP4725` DACs are not bench-verified.** Since `dac_control` they
+   are driven by `IHM_DAC_COMMAND` (315), channel i = `dac[i]` = header
+   DACi (0x62 / 0x63), with a Wire timeout so a missing DAC can't hang
+   `setup()`. The I2C addresses are assumed, not checked against the
+   modules fitted. See [lib/MCP4725/README.md](lib/MCP4725/README.md).
 3. **Serial2 MAVLink path is not bench-verified.** MAVLink moved to
    Serial2 with interrupt-driven RX/TX (`lib/Uart2`, fast handler in the
    Timer2 tick; see [mavlink/README.md](mavlink/README.md)). The
