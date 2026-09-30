@@ -22,6 +22,9 @@ bench-verified** (the DAC outputs haven't been measured on the new board)
    `SendDacCommand` and `WM_APP_DAC_STATE`; `IHMPCController.cpp` gains the
    DAC panel below SERIAL (slider + code box + Set per DAC, readback line);
    `HOW_TO_USE.md` has "Driving the DACs".
+   (2026-09-29 follow-up: the not-answering text was shortened to
+   `<code> -- NOT answering`; the first wording overflowed the label and
+   read as just "DAC NOT".)
 5. Native tests: `test_native/test_dac_messages.cpp` (ids, round trips).
 
 ## Bench steps owed
